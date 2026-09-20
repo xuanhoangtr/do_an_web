@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Cửa hàng · UTEWedding')}"></head>
+<body class="bg-cream">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5">
+    <header class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-end gap-4 mb-5">
+        <div>
+            <p class="eyebrow">Nhà bán được duyệt</p>
+            <h1 class="display-subtitle mt-2 mb-2">Khám phá cửa hàng</h1>
+            <p class="text-secondary mb-0">Tìm những cửa hàng và sản phẩm dành cho ngày đáng nhớ.</p>
+        </div>
+        <form class="d-flex gap-2 w-100 w-lg-auto" method="get" th:action="@{/shops}">
+            <label class="visually-hidden" for="shopSearch">Tìm cửa hàng</label>
+            <input class="form-control" id="shopSearch" name="keyword" th:value="${keyword}"
+                   maxlength="120" placeholder="Tên cửa hàng hoặc mô tả...">
+            <button class="btn btn-shop-primary text-nowrap" type="submit">Tìm kiếm</button>
+        </form>
+    </header>
+
+    <div th:if="${shops.empty}" class="empty-state card border-0 shadow-sm p-5 text-center">
+        <h2 class="h4">Chưa tìm thấy cửa hàng</h2>
+        <p class="text-secondary mb-4">Thử từ khóa khác hoặc xem lại sau.</p>
+        <a class="btn btn-shop-secondary rounded-pill align-self-center" th:href="@{/shops}">Xóa tìm kiếm</a>
+    </div>
+
+    <div th:unless="${shops.empty}" class="row g-4">
+        <div class="col-12 col-md-6 col-xl-4" th:each="shop : ${shops.content}">
+            <article class="card h-100 border-0 shadow-sm overflow-hidden">
+                <a class="d-block bg-light" th:href="@{/shops/{slug}(slug=${shop.slug})}"
+                   aria-label="Xem cửa hàng" style="height: 180px;">
+                    <img th:if="${shop.bannerUrl != null}" th:src="${shop.bannerUrl}" alt="Ảnh bìa cửa hàng"
+                         class="w-100 h-100" style="object-fit: cover;">
+                    <div th:unless="${shop.bannerUrl != null}" class="h-100 d-flex align-items-center justify-content-center text-secondary">
+                        <span class="material-symbols-outlined" aria-hidden="true" style="font-size: 3rem;">storefront</span>
+                    </div>
+                </a>
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <img th:if="${shop.logoUrl != null}" th:src="${shop.logoUrl}" th:alt="${'Logo ' + shop.displayName}"
+                             class="rounded-circle border bg-white" style="width: 56px; height: 56px; object-fit: cover;">
+                        <div th:unless="${shop.logoUrl != null}" class="rounded-circle border bg-light d-flex align-items-center justify-content-center"
+                             style="width: 56px; height: 56px;"><span class="material-symbols-outlined text-secondary" aria-hidden="true">storefront</span></div>
+                        <div class="min-w-0">
+                            <h2 class="h5 mb-1 text-truncate"><a class="text-dark text-decoration-none"
+                                th:href="@{/shops/{slug}(slug=${shop.slug})}" th:text="${shop.displayName}">Cửa hàng</a></h2>
+                            <span class="small text-secondary" th:text="${shop.activeProductCount + ' sản phẩm'}">0 sản phẩm</span>
+                        </div>
+                    </div>
+                    <p class="text-secondary mb-0" th:if="${shop.description != null and !#strings.isEmpty(shop.description)}"
+                       th:text="${shop.description}">Giới thiệu cửa hàng</p>
+                    <p class="text-secondary mb-0" th:unless="${shop.description != null and !#strings.isEmpty(shop.description)}">Kỷ vật được chọn cho những ngày đáng nhớ.</p>
+                </div>
+                <div class="card-footer bg-white border-0 px-4 pb-4 pt-0">
+                    <a class="btn btn-shop-secondary rounded-pill" th:href="@{/shops/{slug}(slug=${shop.slug})}">Xem cửa hàng <span aria-hidden="true">→</span></a>
+                </div>
+            </article>
+        </div>
+    </div>
+
+    <nav th:if="${shops.totalPages > 1}" class="mt-5" aria-label="Phân trang cửa hàng">
+        <ul class="pagination justify-content-center flex-wrap">
+            <li class="page-item" th:classappend="${shops.first} ? ' disabled'">
+                <a class="page-link" th:href="@{/shops(keyword=${keyword},page=${shops.number - 1})}" aria-label="Trang trước">Trước</a>
+            </li>
+            <li class="page-item disabled"><span class="page-link" th:text="${(shops.number + 1) + ' / ' + shops.totalPages}">1 / 1</span></li>
+            <li class="page-item" th:classappend="${shops.last} ? ' disabled'">
+                <a class="page-link" th:href="@{/shops(keyword=${keyword},page=${shops.number + 1})}" aria-label="Trang sau">Sau</a>
+            </li>
+        </ul>
+    </nav>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

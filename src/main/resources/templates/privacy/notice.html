@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Thông báo quyền riêng tư · UTEWedding')}"></head>
+<body class="bg-cream"><nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5" style="max-width: 980px"><h1 class="display-subtitle">Thông báo quyền riêng tư</h1>
+    <p class="text-secondary">Phiên bản <span th:text="${noticeVersion}"></span>. Tài liệu này mô tả dữ liệu UTEWedding xử lý, mục đích và căn cứ xử lý.</p>
+    <div class="alert alert-info">Bạn có thể tải bản sao dữ liệu, thay đổi lựa chọn marketing hoặc gửi yêu cầu xóa tại <a th:href="@{/profile/privacy}">Trung tâm quyền riêng tư</a>.</div>
+    <h2 class="h4 mt-4">Danh mục dữ liệu</h2><table class="table bg-white"><thead><tr><th>STT</th><th>Nhóm</th><th>Dữ liệu</th><th>Mục đích</th><th>Căn cứ</th></tr></thead>
+    <tbody><tr th:each="item, rowStat : ${inventory}"><td th:text="${rowStat.count}">1</td><td th:text="${item.category}"></td><td th:text="${item.data}"></td><td th:text="${item.purpose}"></td><td th:text="${item.legalBasis}"></td></tr></tbody></table>
+    <h2 class="h4 mt-4">Thời hạn lưu trữ cấu hình</h2><table class="table bg-white"><thead><tr><th>STT</th><th>Nhóm</th><th>Mốc tính</th><th>Số ngày</th><th>Xử lý cuối kỳ</th></tr></thead>
+    <tbody><tr th:each="rule, rowStat : ${retentionRules}"><td th:text="${rowStat.count}">1</td><td th:text="${rule.categoryKey}"></td><td th:text="${rule.triggerEvent}"></td><td th:text="${rule.retentionDays ?: 'Đánh giá theo nghĩa vụ'}"></td><td th:text="${rule.disposition}"></td></tr></tbody></table>
+    <p>Dữ liệu giao dịch và audit cần thiết có thể được giữ theo nghĩa vụ pháp lý hoặc lợi ích hợp pháp, nhưng thông tin nhận diện sẽ được giảm thiểu/ẩn danh khi yêu cầu xóa được chấp thuận.</p>
+</main><footer th:replace="~{fragments :: footer}"></footer><th:block th:replace="~{fragments :: scripts}"></th:block></body></html>

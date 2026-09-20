@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<body>
+<section th:fragment="section(title, products, eyebrow)" th:if="${products != null and !products.empty}" class="container pb-5">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4">
+        <div><p class="eyebrow" th:text="${eyebrow}">Curated edit</p><h2 class="display-subtitle mt-2 mb-0" th:text="${title}">Sản phẩm nổi bật</h2></div>
+        <a class="text-dark" th:href="@{/products}">Xem toàn bộ →</a>
+    </div>
+    <div class="row g-4">
+        <div class="col-6 col-lg-3" th:each="product : ${products}">
+            <article class="card product-card h-100 border-0 shadow-sm">
+                <a th:href="@{/products/{id}(id=${product.slug})}" class="product-image-wrap">
+                    <img th:if="${product.imageUrl != null and !#strings.isEmpty(product.imageUrl)}" th:src="${product.imageUrl}" th:alt="${product.name}">
+                    <div th:unless="${product.imageUrl != null and !#strings.isEmpty(product.imageUrl)}" class="product-placeholder" aria-hidden="true">♡</div>
+                </a>
+                <div class="card-body p-3"><span class="small text-secondary" th:text="${product.category}">Quà cưới</span><h3 class="h6 mt-2"><a class="text-dark text-decoration-none" th:href="@{/products/{id}(id=${product.slug})}" th:text="${product.name}">Sản phẩm</a></h3><div class="d-flex justify-content-between align-items-center mt-3"><strong class="text-primary text-nowrap" th:text="${#numbers.formatDecimal(product.unitPrice,0,'COMMA',0,'POINT')} + ' đ'">0 đ</strong><span class="small text-secondary text-nowrap">★ <span th:text="${product.rating}">0</span></span></div></div>
+            </article>
+        </div>
+    </div>
+</section>
+</body>
+</html>

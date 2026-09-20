@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Sàn kỷ vật cưới · UTEWedding')}"></head>
+<body class="bg-cream">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main>
+    <section class="marketplace-hero">
+        <div class="container py-5 py-lg-6">
+            <div class="row align-items-center g-5">
+                <div class="col-lg-6">
+                    <p class="eyebrow">UTEWedding marketplace · keepsakes &amp; vows</p>
+                    <h1 class="display-title mt-3">Trao nhau một món quà.<br><em>Giữ lại</em> một câu chuyện.</h1>
+                    <p class="lead text-secondary mt-4">Những kỷ vật được chọn lọc cho ngày cưới, từ hộp nhẫn khắc tên đến món quà cảm ơn dành cho khách mời.</p>
+                    <div class="d-flex flex-wrap gap-3 mt-4"><a class="btn btn-shop-primary btn-lg rounded-pill px-4" th:href="@{/products}">Khám phá kỷ vật <span aria-hidden="true">↗</span></a><a class="btn btn-shop-secondary btn-lg rounded-pill px-4" th:href="@{/wedding/editor}">Tạo thiệp cưới</a></div>
+                    <div class="d-flex gap-4 mt-5 small text-secondary"><span><strong class="text-dark" th:text="${featuredProducts.size()}"></strong><br>món quà tuyển chọn</span><span><strong class="text-dark">4.8/5</strong><br>đánh giá từ cặp đôi</span><span><strong class="text-dark">24 tháng</strong><br>lưu giữ kỷ niệm</span></div>
+                </div>
+                <div class="col-lg-6"><div class="marketplace-hero-art rounded-5 shadow-lg"><div class="art-note"><span>THE WEDDING</span><strong>small<br>things,<br>lasting<br>love.</strong><i aria-hidden="true">♡</i></div><div class="art-stamp">curated<br>for vows</div></div></div>
+            </div>
+        </div>
+    </section>
+    <section class="container py-5">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4"><div><p class="eyebrow">Shop by feeling</p><h2 class="display-subtitle mt-2 mb-0">Tìm món quà thật riêng</h2></div><a class="text-dark" th:href="@{/products}">Xem tất cả sản phẩm →</a></div>
+        <div th:if="${categories == null or categories.empty}" class="empty-state p-5 text-center"><h3 class="h5">Danh mục đang được cập nhật</h3></div>
+        <div th:unless="${categories == null or categories.empty}" class="row g-3">
+            <div class="col-6 col-lg-3" th:each="category : ${categories}"><a class="category-tile card border-0 h-100 text-decoration-none" th:href="@{/products(category=${category.name})}"><div class="card-body p-4"><span class="category-icon" aria-hidden="true">✦</span><h3 class="h5 text-dark mt-4" th:text="${category.name}"></h3><p class="small text-secondary mb-0" th:text="${category.description}"></p></div></a></div>
+        </div>
+    </section>
+    <section class="container pb-5">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4"><div><p class="eyebrow">Curated for your day</p><h2 class="display-subtitle mt-2 mb-0">Kỷ vật được yêu thích</h2></div><a class="btn btn-outline-dark rounded-pill" th:href="@{/products}">Bộ sưu tập đầy đủ</a></div>
+        <div th:if="${featuredProducts == null or featuredProducts.empty}" class="empty-state p-5 text-center"><h3 class="h5">Chưa có sản phẩm nổi bật</h3></div>
+        <div th:unless="${featuredProducts == null or featuredProducts.empty}" class="row g-4"><div class="col-12 col-sm-6 col-lg-3" th:each="product : ${featuredProducts}"><div class="card product-card h-100 border-0 shadow-sm"><a th:href="@{/products/{id}(id=${product.slug})}" class="product-image-wrap"><img th:if="${product.imageUrl != null and !#strings.isEmpty(product.imageUrl)}" th:src="${product.imageUrl}" th:alt="${product.name}"><div th:unless="${product.imageUrl != null and !#strings.isEmpty(product.imageUrl)}" class="product-placeholder" aria-hidden="true">♡</div></a><div class="card-body p-3"><span class="small text-secondary" th:text="${product.category}"></span><h3 class="h6 mt-2"><a class="text-dark text-decoration-none" th:href="@{/products/{id}(id=${product.slug})}" th:text="${product.name}"></a></h3><div class="d-flex justify-content-between align-items-center mt-3"><strong class="text-primary text-nowrap" th:text="${#numbers.formatDecimal(product.unitPrice,0,'COMMA',0,'POINT')} + ' đ'"></strong><span class="small text-secondary text-nowrap">★ <span th:text="${product.rating}"></span></span></div></div></div></div></div>
+    </section>
+    <th:block th:replace="~{shop/ranking-section :: section('Mới nhất', ${newProducts}, 'Just landed')}"></th:block>
+    <th:block th:replace="~{shop/ranking-section :: section('Bán chạy', ${bestSellingProducts}, 'Loved by couples')}"></th:block>
+    <th:block th:replace="~{shop/ranking-section :: section('Được đánh giá cao', ${topRatedProducts}, 'Top rated')}"></th:block>
+    <th:block th:replace="~{shop/ranking-section :: section('Được yêu thích', ${favoriteProducts}, 'Most wished')}"></th:block>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer><th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

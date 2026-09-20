@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Quá nhiều yêu cầu · UTEWedding')}"></head>
+<body class="bg-cream">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5">
+    <div class="card border-0 shadow-sm rounded-4 p-5 text-center mx-auto" style="max-width: 680px">
+        <div class="error-number" aria-hidden="true">429</div>
+        <h1 class="display-subtitle mt-3">Quá nhiều yêu cầu</h1>
+        <p class="text-secondary mt-3">Bạn đã thao tác quá nhanh. Vui lòng thử lại sau <span th:text="${retryAfter != null ? retryAfter : 'một lát'}">một lát</span>.</p>
+        <div class="d-flex justify-content-center gap-2 mt-4">
+            <a class="btn btn-primary rounded-pill px-4" href="/">Về trang chủ</a>
+            <a class="btn btn-outline-dark rounded-pill px-4" href="javascript:history.back()">Quay lại</a>
+        </div>
+    </div>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

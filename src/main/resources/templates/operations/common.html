@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"><body>
+<div th:fragment="messages">
+    <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}" data-flash-success></div>
+    <div th:if="${errorMessage}" class="alert alert-danger" role="alert" th:text="${errorMessage}"></div>
+</div>
+<nav th:fragment="staffnav" sec:authorize="hasAnyRole('MANAGER','ADMIN','SUPER_ADMIN')" class="d-flex flex-wrap gap-3 mb-4" aria-label="Vận hành">
+    <a th:href="@{/admin/returns}">Trả hàng</a><a th:href="@{/admin/support}">Hỗ trợ</a>
+    <a th:href="@{/admin/risk-events}">Cảnh báo rủi ro</a><a th:href="@{/admin/finance/cod}">Đối soát COD</a>
+    <a sec:authorize="hasAnyRole('ADMIN','SUPER_ADMIN')" th:href="@{/admin/shipping-operations/ambiguous}">Đối soát vận đơn</a>
+</nav>
+<nav th:fragment="pager(rows)" th:if="${rows.totalPages > 1}" aria-label="Phân trang" class="d-flex gap-3 my-4">
+    <a th:if="${rows.hasPrevious()}" th:href="@{''(page=${rows.number - 1},status=${param.status},priority=${param.priority},q=${param.q},assignee=${param.assignee},mine=${param.mine},unassigned=${param.unassigned},needsReply=${param.needsReply},rule=${param.rule},from=${param.from},to=${param.to},disputed=${param.disputed})}">Trang trước</a>
+    <span th:text="${rows.number + 1} + ' / ' + ${rows.totalPages}"></span>
+    <a th:if="${rows.hasNext()}" th:href="@{''(page=${rows.number + 1},status=${param.status},priority=${param.priority},q=${param.q},assignee=${param.assignee},mine=${param.mine},unassigned=${param.unassigned},needsReply=${param.needsReply},rule=${param.rule},from=${param.from},to=${param.to},disputed=${param.disputed})}">Trang sau</a>
+</nav>
+</body></html>

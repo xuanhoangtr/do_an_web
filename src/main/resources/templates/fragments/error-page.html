@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:fragment="page(code, heading, message)">
+<head th:replace="~{fragments :: head('Có lỗi · UTEWedding')}"></head>
+<body class="bg-cream">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5">
+    <div class="error-card text-center mx-auto">
+        <div class="error-number" th:text="${code}">403</div>
+        <p class="eyebrow">UTEWedding</p>
+        <h1 class="display-subtitle mt-2" th:text="${heading}">Không thể mở trang</h1>
+        <p class="text-secondary" th:text="${message}">Vui lòng kiểm tra lại đường dẫn.</p>
+        <div class="d-flex flex-wrap justify-content-center gap-2 mt-4">
+            <a class="btn btn-primary rounded-pill px-4" th:href="${roleHome ?: '/'}">Về trang phù hợp với vai trò</a>
+            <a class="btn btn-outline-dark rounded-pill px-4" th:href="@{/}">Về trang chủ</a>
+        </div>
+    </div>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments :: head(${shop.displayName + ' · UTEWedding'})}"></head>
+<body class="bg-cream">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5">
+    <a class="small text-secondary text-decoration-none" th:href="@{/shops}">← Tất cả cửa hàng</a>
+    <section class="card border-0 shadow-sm overflow-hidden mt-3 mb-5">
+        <div class="bg-light" style="height: clamp(160px, 28vw, 320px);">
+            <img th:if="${shop.bannerUrl != null}" th:src="${shop.bannerUrl}" alt="Ảnh bìa cửa hàng"
+                 class="w-100 h-100" style="object-fit: cover;">
+        </div>
+        <div class="card-body p-4 p-lg-5">
+            <div class="d-flex flex-column flex-sm-row align-items-sm-center gap-3">
+                <img th:if="${shop.logoUrl != null}" th:src="${shop.logoUrl}" th:alt="${'Ảnh đại diện ' + shop.displayName}"
+                     class="rounded-circle border bg-white" style="width: 84px; height: 84px; object-fit: cover;">
+                <div th:unless="${shop.logoUrl != null}" class="rounded-circle border bg-light d-flex align-items-center justify-content-center"
+                     style="width: 84px; height: 84px;"><span class="material-symbols-outlined text-secondary" aria-hidden="true" style="font-size: 2.5rem;">storefront</span></div>
+                <div class="shop-public-identity">
+                    <div>
+                    <p class="eyebrow mb-2">Cửa hàng UTEWedding</p>
+                    <h1 class="display-subtitle mb-2" th:text="${shop.displayName}">Tên cửa hàng</h1>
+                    <p class="text-secondary mb-0">
+                        <span th:text="${shop.activeProductCount + ' sản phẩm đang bán'}">0 sản phẩm đang bán</span>
+                        <span aria-hidden="true"> · </span>
+                        <span th:text="${'Tham gia ' + #temporals.format(shop.joinedAt, 'MM/yyyy')}">Tham gia 10/2026</span>
+                    </p>
+                    </div>
+                    <form sec:authorize="hasAnyRole('USER','CUSTOMER')" th:if="${!headerVendorAccount}" class="customer-messages-entry-form" method="post"
+                          th:action="@{/messages/shop-contacts/open}" data-shop-chat-form>
+                        <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                        <input type="hidden" name="shopId" th:value="${shop.id}">
+                        <button type="submit" class="btn btn-shop-primary shop-public-chat-entry" data-shop-chat-entry
+                                th:attr="data-shop-id=${shop.id}">
+                            <span class="material-symbols-outlined" aria-hidden="true">forum</span> Nhắn tin
+                        </button>
+                    </form>
+                    <a sec:authorize="!isAuthenticated()" th:if="${!headerVendorAccount}" class="btn btn-shop-primary shop-public-chat-entry"
+                       th:href="@{/support/shops/{shopId}(shopId=${shop.id},newConversation=true)}">
+                        <span class="material-symbols-outlined" aria-hidden="true">forum</span> Đăng nhập để nhắn tin
+                    </a>
+                </div>
+            </div>
+            <p class="mt-4 mb-0 text-secondary" th:if="${shop.description != null and !#strings.isEmpty(shop.description)}"
+               th:text="${shop.description}">Giới thiệu cửa hàng</p>
+        </div>
+    </section>
+
+    <div class="d-flex justify-content-between align-items-end gap-3 mb-3">
+        <div><p class="eyebrow mb-1">Bộ sưu tập</p><h2 class="h3 mb-0">Sản phẩm của cửa hàng</h2></div>
+        <span class="small text-secondary" th:text="${products.totalElements + ' sản phẩm'}">0 sản phẩm</span>
+    </div>
+    <div th:if="${products.empty}" class="empty-state card border-0 shadow-sm p-5 text-center">
+        <h3 class="h5">Cửa hàng đang cập nhật sản phẩm</h3>
+        <p class="text-secondary mb-0">Sản phẩm mới sẽ xuất hiện tại đây khi được duyệt.</p>
+    </div>
+    <div th:unless="${products.empty}" class="row g-4">
+        <div class="col-12 col-sm-6 col-lg-4 col-xl-3" th:each="product : ${products.content}">
+            <article class="card product-card h-100 border-0 shadow-sm">
+                <a th:href="@{/products/{id}(id=${product.slug})}" class="product-image-wrap product-image-large">
+                    <img th:if="${product.imageUrl != null and !#strings.isEmpty(product.imageUrl)}" th:src="${product.imageUrl}" th:alt="${product.name}">
+                    <div th:unless="${product.imageUrl != null and !#strings.isEmpty(product.imageUrl)}" class="product-placeholder" aria-hidden="true">♡</div>
+                </a>
+                <div class="card-body p-4 d-flex flex-column">
+                    <span class="badge bg-light text-dark align-self-start" th:text="${product.category}">Quà cưới</span>
+                    <h3 class="h5 mt-3"><a class="text-dark text-decoration-none" th:href="@{/products/{id}(id=${product.slug})}" th:text="${product.name}">Sản phẩm</a></h3>
+                    <div class="d-flex justify-content-between align-items-center gap-2 mt-auto pt-3">
+                        <strong class="fs-5 text-primary text-nowrap" th:text="${#numbers.formatDecimal(product.unitPrice,0,'COMMA',0,'POINT')} + ' đ'">0 đ</strong>
+                        <span class="small text-secondary text-nowrap">★ <span th:text="${product.rating}">0</span></span>
+                    </div>
+                    <a class="btn btn-shop-secondary rounded-pill mt-3" th:href="@{/products/{id}(id=${product.slug})}">Xem sản phẩm</a>
+                </div>
+            </article>
+        </div>
+    </div>
+    <nav th:if="${products.totalPages > 1}" class="mt-5" aria-label="Phân trang sản phẩm cửa hàng">
+        <ul class="pagination justify-content-center flex-wrap">
+            <li class="page-item" th:classappend="${products.first} ? ' disabled'">
+                <a class="page-link" th:href="@{/shops/{slug}(slug=${shop.slug},page=${products.number - 1})}">Trước</a>
+            </li>
+            <li class="page-item disabled"><span class="page-link" th:text="${(products.number + 1) + ' / ' + products.totalPages}">1 / 1</span></li>
+            <li class="page-item" th:classappend="${products.last} ? ' disabled'">
+                <a class="page-link" th:href="@{/shops/{slug}(slug=${shop.slug},page=${products.number + 1})}">Sau</a>
+            </li>
+        </ul>
+    </nav>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

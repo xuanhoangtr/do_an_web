@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Chính sách hoa hồng · UTEWedding')}"></head>
+<body class="bg-cream admin-dashboard-page">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5">
+    <div th:replace="~{operations/common :: messages}"></div>
+    <p class="eyebrow">TÀI CHÍNH · ADMIN</p>
+    <h1 class="h3">Chính sách hoa hồng</h1>
+    <p class="text-secondary">Mỗi thay đổi tạo một phiên bản mới và chỉ áp dụng cho đơn phát sinh sau thời điểm hiệu lực. Các đơn đã chốt giữ nguyên tỷ lệ trong ảnh chụp tài chính.</p>
+    <div class="d-flex flex-wrap gap-2 mb-4">
+        <a class="btn btn-outline-dark" th:href="@{/admin/finance/cod}">Đối soát COD</a>
+        <a class="btn btn-outline-dark" th:href="@{/admin/finance/receipts}">Biên nhận cổng thanh toán</a>
+    </div>
+
+    <section class="card border-0 shadow-sm p-3 p-md-4 mb-4">
+        <h2 class="h5">Lên lịch tỷ lệ mới</h2>
+        <p class="text-secondary">Giá trị mặc định là 0%. Tỷ lệ nhập đến hai chữ số thập phân; thời gian được tính theo giờ Việt Nam.</p>
+        <form method="post" th:action="@{/admin/finance/commission}" class="row g-3"
+              data-confirm-title="Tạo phiên bản hoa hồng"
+              data-confirm-label="Lên lịch thay đổi"
+              data-confirm-message="Phiên bản mới không sửa lại đơn hàng đã chốt. Hãy kiểm tra tỷ lệ và thời điểm áp dụng.">
+            <input type="hidden" name="token" th:value="${token}">
+            <label class="col-12 col-md-4 form-label">Hoa hồng (%)
+                <input class="form-control" type="number" name="ratePercent" min="0" max="100" step="0.01" value="0" required>
+            </label>
+            <label class="col-12 col-md-5 form-label">Thời điểm hiệu lực · giờ Việt Nam
+                <input class="form-control" type="datetime-local" name="effectiveAt" required th:value="${defaultEffectiveAt}">
+            </label>
+            <div class="col-12 col-md-3 align-self-end">
+                <button type="submit" class="btn btn-shop-primary w-100">Tạo phiên bản</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="card border-0 shadow-sm p-3 p-md-4">
+        <h2 class="h5">Lịch sử chính sách</h2>
+        <div th:if="${policies.empty}" class="text-secondary">Chưa có chính sách hoa hồng.</div>
+        <div th:unless="${policies.empty}" class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead><tr><th>Phiên bản</th><th>Tỷ lệ</th><th>Bắt đầu áp dụng</th><th>Người tạo</th></tr></thead>
+                <tbody>
+                <tr th:each="policy : ${policies}">
+                    <td th:text="${policy.policyVersion}">1</td>
+                    <td th:text="${#numbers.formatDecimal(policy.rateBps / 100.0,1,'POINT',2,'POINT')} + '%'">0.00%</td>
+                    <td th:text="${#temporals.format(policy.effectiveAt, 'dd/MM/yyyy HH:mm', 'Asia/Ho_Chi_Minh')}">Thời gian</td>
+                    <td th:text="${policy.createdBy ?: '—'}">Admin</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

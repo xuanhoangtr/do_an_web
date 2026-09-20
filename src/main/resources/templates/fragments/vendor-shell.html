@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<body>
+<aside th:fragment="sidebar(activeItem)" class="dash-sidebar vendor-sidebar" id="dashboardSidebar" aria-label="Điều hướng cửa hàng">
+    <div class="dash-brand vendor-brand">
+        <a th:href="@{/vendor}" aria-label="UTEWedding - Tổng quan cửa hàng">
+            <span class="dash-brand-mark">w</span>
+            <span><strong>UTE<i>Wedding</i></strong><small>Không gian cửa hàng</small></span>
+        </a>
+        <button type="button" class="dash-sidebar-close" id="dashboardMenuClose" aria-label="Đóng menu">×</button>
+    </div>
+    <nav class="dash-nav" aria-label="Menu cửa hàng">
+        <section class="vendor-nav-section" th:each="section : ${vendorNavSections}">
+            <p th:text="${section.label}">Vận hành</p>
+            <th:block th:each="item : ${section.items}">
+                <a th:if="${item.enabled}" class="dash-nav-link"
+                   th:classappend="${item.active} ? ' active' : ''"
+                   th:href="${item.href}"
+                   th:attr="aria-current=${item.active ? 'page' : null}">
+                    <span class="material-symbols-outlined" aria-hidden="true" th:text="${item.icon}">grid_view</span>
+                    <span th:text="${item.label}">Tổng quan</span>
+                </a>
+                <div th:unless="${item.enabled}" class="dash-nav-link vendor-nav-disabled" aria-disabled="true"
+                     th:title="|${item.label} sẽ được mở ở giai đoạn sau|">
+                    <span class="material-symbols-outlined" aria-hidden="true" th:text="${item.icon}">inventory_2</span>
+                    <span class="vendor-nav-label" th:text="${item.label}">Sản phẩm</span>
+                    <small>Sắp có</small>
+                </div>
+            </th:block>
+        </section>
+    </nav>
+    <div class="dash-sidebar-footer vendor-sidebar-footer">
+        <a th:href="@{/}"><span class="material-symbols-outlined" aria-hidden="true">storefront</span>Về trang chủ</a>
+    </div>
+</aside>
+
+<button th:fragment="backdrop" type="button" class="dash-sidebar-backdrop" id="dashboardSidebarBackdrop" aria-label="Đóng menu"></button>
+
+<header th:fragment="topbar(activeItem)" class="dash-topbar vendor-topbar">
+    <div class="dash-topbar-left">
+        <button type="button" class="dash-menu-button" id="dashboardMenuToggle" aria-expanded="false"
+                aria-controls="dashboardSidebar" aria-label="Mở menu">
+            <span class="material-symbols-outlined" aria-hidden="true">menu</span>
+        </button>
+        <span class="dash-breadcrumb">Cửa hàng <span aria-hidden="true">/</span>
+            <strong th:switch="${activeItem}">
+                <span th:case="'orders'">Đơn hàng</span>
+                <span th:case="'products'">Sản phẩm</span>
+                <span th:case="'inventory'">Tồn kho</span>
+                <span th:case="'profile'">Hồ sơ cửa hàng</span>
+                <span th:case="'vouchers'">Mã giảm giá</span>
+                <span th:case="'reviews'">Đánh giá</span>
+                <span th:case="'finance'">Tài chính</span>
+                <span th:case="*">Tổng quan</span>
+            </strong>
+        </span>
+    </div>
+    <div class="dash-topbar-actions">
+        <div class="dash-account vendor-account">
+            <span class="material-symbols-outlined" aria-hidden="true">store</span>
+            <span><strong th:text="${vendorWorkspace.ownerName}">Chủ cửa hàng</strong>
+                <small th:text="${vendorWorkspace.shopName}">Tên cửa hàng</small></span>
+        </div>
+        <form th:action="@{/logout}" method="post" class="dash-logout-form"
+              data-confirm-title="Xác nhận đăng xuất"
+              data-confirm-message="Bạn có chắc chắn muốn đăng xuất khỏi tài khoản này?"
+              data-confirm-label="Đăng xuất">
+            <button type="submit" class="dash-logout-button" aria-label="Đăng xuất">
+                <span class="material-symbols-outlined" aria-hidden="true">logout</span>
+                <span class="dash-logout-label">Đăng xuất</span>
+            </button>
+        </form>
+    </div>
+</header>
+</body>
+</html>

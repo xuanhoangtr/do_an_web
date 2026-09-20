@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Xác nhận · UTEWedding')}"></head>
+<body class="bg-cream admin-dashboard-page"><nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5"><h1 class="h3" th:text="${heading}"></h1>
+    <p>Kiểm tra số tiền, nội dung và hệ quả trước khi xác nhận. Thao tác được ghi lại trong lịch sử.</p>
+    <div class="card p-4 mb-4 text-break" th:text="${summary}"></div>
+    <form th:action="${target}" method="post">
+        <input type="hidden" name="token" th:value="${token}"><input type="hidden" name="confirmed" value="true">
+        <input th:each="field : ${fields}" type="hidden" th:name="${field.key}" th:value="${field.value}">
+        <button class="btn btn-danger" type="submit">Xác nhận thực hiện</button>
+        <a class="btn btn-outline-dark" th:href="${roleHome}">Hủy</a>
+    </form>
+</main><footer th:replace="~{fragments :: footer}"></footer><th:block th:replace="~{fragments :: scripts}"></th:block></body></html>

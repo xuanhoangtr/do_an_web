@@ -1,0 +1,3 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/error-page :: page(${status ?: 500}, 'Không thể hoàn tất yêu cầu', ${errorMessage ?: 'Vui lòng kiểm tra lại dữ liệu hoặc thử lại sau.'})}"></html>

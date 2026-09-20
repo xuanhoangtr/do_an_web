@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments :: head('Chi tiết sản phẩm · UTEWedding')}"></head>
+<body class="bg-cream">
+<nav th:replace="~{fragments :: navbar}"></nav>
+
+<main class="container py-5">
+    <div th:if="${reviewMessage}" class="alert alert-success" th:text="${reviewMessage}" data-flash-success></div>
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a th:href="@{/products}">Kỷ vật cưới</a></li>
+            <li class="breadcrumb-item active" th:text="${product.name}">Sản phẩm</li>
+        </ol>
+    </nav>
+
+    <div class="row g-4 g-lg-5 align-items-start">
+        <div class="col-lg-6">
+            <div class="detail-image rounded-4 overflow-hidden shadow-sm">
+                <img id="mainProductImage" th:if="${product.galleryImages != null and !product.galleryImages.empty}"
+                     th:src="${product.galleryImages[0]}" th:alt="${product.name}">
+                <img id="mainProductImage" th:if="${(product.galleryImages == null or product.galleryImages.empty) and product.imageUrl != null and !#strings.isEmpty(product.imageUrl)}"
+                     th:src="${product.imageUrl}" th:alt="${product.name}">
+                <div th:if="${(product.galleryImages == null or product.galleryImages.empty) and (product.imageUrl == null or #strings.isEmpty(product.imageUrl))}" class="product-placeholder" aria-hidden="true">♡</div>
+            </div>
+            <div th:if="${product.galleryImages != null and !product.galleryImages.empty}" class="d-flex gap-2 mt-3 overflow-auto product-gallery" aria-label="Album ảnh sản phẩm">
+                <button th:each="image, itemStat : ${product.galleryImages}" type="button" class="gallery-thumb border-0 p-0 rounded-3 overflow-hidden"
+                        th:classappend="${itemStat.first} ? ' active' : ''" th:attr="data-image=${image},aria-label=${'Xem ảnh ' + (itemStat.index + 1)}" data-gallery-image>
+                    <img th:src="${image}" th:alt="${product.name + ' ' + (itemStat.index + 1)}">
+                </button>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <span class="eyebrow" th:text="${product.category}">Quà cưới</span>
+            <h1 class="display-subtitle product-detail-title mt-3" th:text="${product.name}">Kỷ vật cưới</h1>
+            <p class="text-secondary mt-3" th:text="${product.description}">Mô tả sản phẩm</p>
+            <div class="d-flex flex-wrap align-items-center gap-3 mb-1">
+                <strong class="fs-3 text-primary text-nowrap" th:text="${#numbers.formatDecimal(product.unitPrice,0,'COMMA',0,'POINT')} + ' đ'">0 đ</strong>
+                <del th:if="${product.originalPrice != null and product.originalPrice.compareTo(product.unitPrice) > 0}" class="text-secondary text-nowrap" th:text="${#numbers.formatDecimal(product.originalPrice,0,'COMMA',0,'POINT')} + ' đ'"></del>
+                <span th:if="${product.discountPercent > 0}" class="badge bg-danger-subtle text-danger text-nowrap" th:text="${'Giảm ' + product.discountPercent + '%'}"></span>
+                <span class="small text-secondary">★ <span th:text="${product.rating}">5.0</span> · <span th:text="${product.reviewCount}">0</span> đánh giá</span>
+            </div>
+            <p th:if="${product.inventory > 0}" class="product-stock-status text-success mb-4">Còn hàng</p>
+            <p th:unless="${product.inventory > 0}" class="product-stock-status text-danger mb-4">Hết hàng</p>
+            <button sec:authorize="hasAnyRole('USER','CUSTOMER')" type="button" class="btn btn-outline-danger mb-4" data-favorite-product th:attr="data-product-id=${product.id}" aria-pressed="false">♡ <span data-favorite-label>Thêm vào yêu thích</span></button>
+
+            <div class="row g-2 small mb-4 product-detail-specs">
+                <div class="col-6" th:if="${product.material != null and !#strings.isEmpty(product.material)}"><div class="detail-fact"><span>Chất liệu</span><strong th:text="${product.material}">Gỗ tự nhiên</strong></div></div>
+                <div class="col-6"><div class="detail-fact"><span>Shop</span><strong th:text="${product.shopName}">UTEWedding</strong></div></div>
+            </div>
+            <div class="alert alert-light border small" th:if="${(product.customizable or (product.customizationGuide != null and !#strings.isEmpty(product.customizationGuide))) and product.photoSizeOptions.empty}">
+                <strong th:if="${product.customizable}">Có thể cá nhân hóa sản phẩm.</strong>
+                <span th:if="${product.customizationGuide != null and !#strings.isEmpty(product.customizationGuide)}" th:text="${product.customizationGuide}"></span>
+            </div>
+
+            <form sec:authorize="hasAnyRole('USER','CUSTOMER')" th:action="@{/cart/add}" method="post" data-cart-action="add" class="card border-0 shadow-sm p-4 product-purchase-actions">
+                <input type="hidden" name="productId" th:value="${product.id}">
+                <fieldset th:if="${!product.photoSizeOptions.empty}" class="product-size-picker mb-4">
+                    <legend class="form-label fw-semibold mb-2">Kích thước ảnh</legend>
+                    <div class="product-size-options">
+                        <label th:each="photoSize : ${product.photoSizeOptions}" class="product-size-option">
+                            <input type="radio" name="customizationText" th:value="${photoSize}" required>
+                            <span th:text="${photoSize}">10 × 15 cm</span>
+                        </label>
+                    </div>
+                    <small class="text-secondary d-block mt-2">Chọn kích thước trước khi thêm vào giỏ.</small>
+                </fieldset>
+                <div class="row g-3 align-items-end">
+                    <div class="col-4"><label class="form-label" for="quantity">Số lượng</label><input class="form-control" id="quantity" name="quantity" type="number" th:attr="min=${product.minOrderQuantity},max=${product.inventory}" th:value="${product.minOrderQuantity}" required></div>
+                    <div class="col-8"><button class="btn product-action-add w-100" type="submit" th:disabled="${product.inventory == 0}">Thêm vào giỏ hàng</button></div>
+                </div>
+                <button class="btn product-action-buy w-100 mt-3" type="submit" name="redirect" value="checkout" th:formaction="@{/cart/items/{id}(id=${product.id})}" th:disabled="${product.inventory == 0}">Mua ngay</button>
+            </form>
+            <div sec:authorize="!isAuthenticated()" class="card border-0 shadow-sm p-4">
+                <p class="text-secondary mb-3">Đăng nhập để thêm sản phẩm vào giỏ hàng và hoàn tất đơn mua.</p>
+                <a class="btn btn-primary rounded-pill" th:href="@{/login}">Đăng nhập để mua hàng</a>
+            </div>
+            <div sec:authorize="isAuthenticated() and !hasAnyRole('USER','CUSTOMER')" class="alert alert-light border small mt-3 mb-4">
+                Tài khoản vận hành không thể đặt mua sản phẩm. Hãy đăng nhập bằng tài khoản khách hàng để mua sắm.
+            </div>
+        </div>
+    </div>
+
+    <section class="row g-4 g-lg-5 mt-5 pt-4 border-top">
+        <div class="col-lg-7">
+            <p class="eyebrow">Loved by couples</p>
+            <h2 class="h3 mt-2">Đánh giá từ khách hàng</h2>
+            <div th:if="${reviews == null or reviews.empty}" class="empty-state p-4"><p class="mb-0 text-secondary">Sản phẩm chưa có đánh giá được duyệt.</p></div>
+            <div th:unless="${reviews == null or reviews.empty}" class="mt-4">
+                <article th:each="review : ${reviews}" class="review-item py-3 border-bottom">
+                    <div class="d-flex justify-content-between"><strong th:text="${review.reviewerName}">Khách hàng</strong><span class="text-primary" th:text="${'★'.repeat(review.rating)}">★★★★★</span></div>
+                    <p class="small text-secondary mb-0 mt-2" th:text="${review.content}">Nhận xét</p>
+                    <form sec:authorize="isAuthenticated()" class="mt-2" th:action="@{/products/reviews/{id}/report(id=${review.id})}" method="post">
+                        <input type="hidden" name="productId" th:value="${product.id}">
+                        <input class="form-control form-control-sm mb-1" name="reason" placeholder="Lý do báo cáo" required>
+                        <button class="btn btn-link btn-sm px-0" type="submit">Báo cáo</button>
+                    </form>
+                    <div th:if="${review.media != null and !review.media.empty}" class="d-flex flex-wrap gap-2 mt-3">
+                        <img th:each="media : ${review.media}" th:src="${media.url}" alt="Ảnh trong đánh giá" class="rounded-3 border" style="width:72px;height:72px;object-fit:cover">
+                    </div>
+                </article>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-sm p-4">
+                <h2 class="h5">Chia sẻ trải nghiệm</h2>
+                <form sec:authorize="hasAnyRole('USER','CUSTOMER')" th:if="${reviewEligibility != null and reviewEligibility.canReview()}" th:action="@{/products/{id}/reviews(id=${product.id})}" method="post" enctype="multipart/form-data" class="review-form" data-review-upload-form>
+                    <label class="form-label" for="reviewRating">Số sao</label>
+                    <select id="reviewRating" name="rating" class="form-select mb-2"><option value="5">5 sao</option><option value="4">4 sao</option><option value="3">3 sao</option><option value="2">2 sao</option><option value="1">1 sao</option></select>
+                    <label class="form-label" for="reviewComment">Nhận xét (tối thiểu 50 ký tự)</label>
+                    <textarea id="reviewComment" name="content" class="form-control" minlength="50" maxlength="2000" required rows="5"></textarea>
+                    <label class="form-label mt-3" for="reviewMedia">Ảnh đánh giá (tối đa 5 ảnh)</label>
+                    <input id="reviewMedia" name="media" type="file" class="form-control" accept="image/jpeg,image/png,image/webp" multiple data-review-media>
+                    <small class="text-secondary">JPG, PNG hoặc WEBP; mỗi ảnh tối đa 10MB.</small>
+                    <button class="btn btn-primary rounded-pill mt-3" type="submit">Gửi đánh giá</button>
+                </form>
+                <div th:if="${reviewEligibility != null and !reviewEligibility.canReview()}" class="alert alert-secondary border-0 mb-0" th:text="${reviewEligibility.reason}">Chưa đủ điều kiện đánh giá.</div>
+            </div>
+        </div>
+    </section>
+    <section th:replace="~{shop/ranking-section :: section('Bạn đã xem gần đây', ${recentlyViewedProducts}, 'Sản phẩm đã xem')}"></section>
+</main>
+
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

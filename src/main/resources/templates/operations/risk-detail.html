@@ -1,0 +1,7 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments :: head('Chi tiết cảnh báo · UTEWedding')}"></head>
+<body class="bg-cream" th:classappend="${profileRole == 'MANAGER' or profileRole == 'ADMIN' or profileRole == 'SUPER_ADMIN'} ? ' admin-dashboard-page' : ''"><nav th:replace="~{fragments :: navbar}"></nav><main class="container py-5">
+<div th:replace="~{operations/common :: messages}"></div>
+<h1 class="h3" th:text="${event.rule}"></h1><p th:text="${event.severity + ' · ' + event.score + ' · ' + event.status}"></p><p>Chủ thể: <span th:text="${event.subject}"></span></p><p th:text="'Hành động đề xuất: ' + ${event.recommendedAction}"></p><dl><th:block th:each="e : ${event.evidence}"><dt th:text="${e.key}"></dt><dd th:text="${e.value}"></dd></th:block></dl><form th:if="${event.status.name() == 'OPEN'}" th:action="@{/admin/risk-events/{id}/resolve(id=${event.id})}" method="post" class="card p-3"><input type="hidden" name="token" th:value="${token}"><select name="status" required><option th:each="status : ${statuses}" th:if="${status.name() != 'OPEN'}" th:value="${status}" th:text="${status}"></option></select><label>Ghi chú giải quyết<textarea class="form-control" name="note" maxlength="1000" required></textarea></label><button type="submit" class="btn btn-dark">Ghi nhận</button></form>
+</main><footer th:replace="~{fragments :: footer}"></footer><th:block th:replace="~{fragments :: scripts}"></th:block></body></html>
