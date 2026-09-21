@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 96" role="img" aria-labelledby="title desc">
+  <title id="title">UTEWedding</title>
+  <desc id="desc">A minimal wedding keepsake mark</desc>
+  <rect width="320" height="96" rx="24" fill="#211916"/>
+  <path d="M54 24c-13 0-23 10-23 23 0 17 23 28 23 28s23-11 23-28c0-13-10-23-23-23Z" fill="#c95642"/>
+  <path d="M54 35c-7 0-12 5-12 12 0 8 12 16 12 16s12-8 12-16c0-7-5-12-12-12Z" fill="#f8e8dc"/>
+  <text x="98" y="59" fill="#fffaf7" font-family="Georgia, serif" font-size="34" font-weight="600">UTEWedding</text>
+</svg>
