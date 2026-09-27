@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Sản phẩm yêu thích · UTEWedding')}"></head>
+<body class="bg-cream">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5">
+    <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}" data-flash-success></div>
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4">
+        <div>
+            <p class="eyebrow">Saved keepsakes</p>
+            <h1 class="display-subtitle mt-2 mb-0">Sản phẩm yêu thích</h1>
+            <p class="text-secondary mb-0 mt-2">Lưu lại những kỷ vật cưới bạn đang cân nhắc cho ngày trọng đại.</p>
+        </div>
+        <a class="btn btn-outline-dark rounded-pill" th:href="@{/products}">Khám phá thêm sản phẩm →</a>
+    </div>
+
+    <div th:if="${favorites == null or favorites.empty}" class="empty-state card border-0 shadow-sm rounded-4 p-5 text-center">
+        <div class="empty-icon" aria-hidden="true">♡</div>
+        <h2 class="h5 mt-3">Danh sách yêu thích đang trống</h2>
+        <p class="text-secondary mb-4">Hãy nhấn biểu tượng trái tim ở trang chi tiết kỷ vật cưới để lưu sản phẩm vào đây.</p>
+        <div><a class="btn btn-primary rounded-pill px-4" th:href="@{/products}">Xem bộ sưu tập kỷ vật</a></div>
+    </div>
+
+    <div th:unless="${favorites == null or favorites.empty}" class="row g-4">
+        <div class="col-12 col-sm-6 col-lg-4" th:each="item : ${favorites}">
+            <article class="card product-card h-100 border-0 shadow-sm rounded-4 overflow-hidden">
+                <a th:href="@{/products/{id}(id=${item.slug})}" class="product-image-wrap product-image-large">
+                    <img th:if="${item.imageUrl != null and !#strings.isEmpty(item.imageUrl)}"
+                         th:src="${!#strings.isEmpty(item.imageUrl) ? item.imageUrl : '/images/placeholder-product.svg'}" th:alt="${item.name}">
+                    <div th:unless="${item.imageUrl != null and !#strings.isEmpty(item.imageUrl)}"
+                         class="product-placeholder" aria-hidden="true">♡</div>
+                </a>
+                <div class="card-body p-4 d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                        <span class="badge rounded-pill"
+                              th:classappend="${item.stockQuantity > 0 ? 'text-bg-success' : 'text-bg-secondary'}"
+                              th:text="${item.stockQuantity > 0 ? 'Còn hàng (' + item.stockQuantity + ')' : 'Hết hàng'}">Còn hàng</span>
+                    </div>
+                    <h2 class="h5 mt-1">
+                        <a class="text-dark text-decoration-none" th:href="@{/products/{id}(id=${item.slug})}" th:text="${item.name}">Tên sản phẩm</a>
+                    </h2>
+                    <strong class="fs-5 text-primary mt-2" th:text="${#numbers.formatDecimal(item.unitPrice,0,'COMMA',0,'POINT')} + ' đ'">0 đ</strong>
+                    <div class="d-flex flex-wrap gap-2 mt-auto pt-3">
+                        <form th:if="${item.photoSizeOptions.empty}" th:action="@{/cart/add}" method="post" data-cart-action="add" class="flex-grow-1">
+                            <input type="hidden" name="productId" th:value="${item.productId}">
+                            <input type="hidden" name="quantity" value="1">
+                            <button class="btn btn-dark btn-sm rounded-pill w-100" type="submit" th:disabled="${item.stockQuantity == 0}"
+                                    th:text="${item.stockQuantity == 0 ? 'Tạm hết hàng' : 'Thêm vào giỏ'}">Thêm vào giỏ</button>
+                        </form>
+                        <a th:if="${!item.photoSizeOptions.empty}" class="btn btn-outline-dark btn-sm rounded-pill flex-grow-1" th:href="@{/products/{id}(id=${item.slug})}">Chọn kích thước</a>
+                        <form th:action="@{/account/favorites/{id}/remove(id=${item.productId})}" method="post">
+                            <button class="btn btn-outline-danger btn-sm rounded-pill" type="submit">Bỏ yêu thích</button>
+                        </form>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </div>
+
+    <nav th:if="${favorites != null and favorites.totalPages > 1}" class="mt-4" aria-label="Phân trang sản phẩm yêu thích">
+        <ul class="pagination justify-content-center">
+            <li class="page-item" th:classappend="${favorites.first ? ' disabled' : ''}">
+                <a class="page-link" th:href="@{/account/favorites(page=${favorites.number - 1})}">‹</a>
+            </li>
+            <li class="page-item disabled">
+                <span class="page-link" th:text="${favorites.number + 1 + ' / ' + favorites.totalPages}">1 / 1</span>
+            </li>
+            <li class="page-item" th:classappend="${favorites.last ? ' disabled' : ''}">
+                <a class="page-link" th:href="@{/account/favorites(page=${favorites.number + 1})}">›</a>
+            </li>
+        </ul>
+    </nav>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

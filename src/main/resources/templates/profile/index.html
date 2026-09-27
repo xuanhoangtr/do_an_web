@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Tài khoản · UTEWedding')}"></head>
+<body class="bg-cream">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5">
+    <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}" data-flash-success></div>
+    <div th:if="${errorMessage}" class="alert alert-danger" th:text="${errorMessage}"></div>
+    <h1 class="display-subtitle">Tài khoản của tôi</h1>
+    <section class="card border-0 shadow-sm mt-4 p-4">
+        <h2 class="h4">Hồ sơ</h2>
+        <form th:action="@{/profile}" method="post" class="row g-3">
+            <div class="col-md-8"><label class="form-label" for="displayName">Tên hiển thị</label><input id="displayName" class="form-control" name="displayName" th:value="${displayName}" required maxlength="120"></div>
+            <div class="col-md-4 d-flex align-items-end"><button class="btn btn-primary" type="submit">Lưu tên</button></div>
+        </form>
+    </section>
+    <section class="card border-0 shadow-sm mt-4 p-4" th:if="${sessions != null}">
+        <h2 class="h4">Phiên đăng nhập</h2>
+        <div th:if="${sessions.empty}" class="text-secondary">Không có phiên API đang hoạt động.</div>
+        <div th:each="activeSession : ${sessions}" class="d-flex justify-content-between border-bottom py-2">
+            <div><strong th:text="${activeSession.userAgent != null ? activeSession.userAgent : 'Phiên'}">Phiên</strong><small class="d-block text-secondary" th:text="${#temporals.format(activeSession.createdAt, 'dd/MM/yyyy HH:mm')}"></small></div>
+            <form th:action="@{/profile/sessions/{id}/revoke(id=${activeSession.id})}" method="post"><button class="btn btn-sm btn-outline-danger" type="submit">Thu hồi</button></form>
+        </div>
+    </section>
+    <section id="addresses" th:if="${customerProfile}" tabindex="-1" class="card border-0 shadow-sm mt-4 p-4">
+        <div th:if="${addressLoadError}" class="alert alert-warning" role="status" th:text="${addressLoadError}"></div>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="h4 mb-0">Địa chỉ giao hàng</h2>
+            <span class="small text-secondary">Địa chỉ được snapshot vào đơn hàng</span>
+        </div>
+        <div th:if="${addresses == null or addresses.empty}" class="text-secondary mb-3">Chưa có địa chỉ đã lưu.</div>
+        <div th:each="address : ${addresses}" class="border rounded-3 p-3 mb-2">
+            <div class="d-flex justify-content-between gap-2">
+                <strong th:text="${address.label != null ? address.label : 'Địa chỉ giao hàng'}"></strong>
+                <span th:if="${address.defaultAddress}" class="badge text-bg-primary">Mặc định</span>
+            </div>
+            <div class="small mt-2" th:text="${address.recipientName + ' · ' + address.phone}"></div>
+            <div class="small text-secondary" th:text="${address.addressLine + ', ' + (address.wardName != null ? address.wardName : address.ward) + ', ' + (address.provinceName != null ? address.provinceName : address.province)}"></div>
+            <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-edit-address
+                        th:attr="data-id=${address.id},data-label=${address.label},data-name=${address.recipientName},data-phone=${address.phone},data-line=${address.addressLine},data-province-code=${address.provinceCode},data-ward-code=${address.wardCode},data-catalog-source=${address.catalogSource}">Sửa</button>
+                <form th:if="${!address.defaultAddress}" th:action="@{/profile/addresses/{id}/default(id=${address.id})}" method="post"><button class="btn btn-sm btn-outline-dark" type="submit">Đặt mặc định</button></form>
+                <form th:if="${!address.defaultAddress}" th:action="@{/profile/addresses/{id}/delete(id=${address.id})}" method="post"><button class="btn btn-sm btn-outline-danger" type="submit">Xóa</button></form>
+            </div>
+        </div>
+        <form id="profileAddressForm" th:action="@{/profile/addresses}" th:object="${addressForm}" method="post" class="row g-3 mt-2" data-address-directory th:attr="data-selected-province=${addressForm.provinceCode},data-selected-ward=${addressForm.wardCode}">
+            <div class="col-md-4"><label class="form-label" for="addressLabel">Nhãn</label><input id="addressLabel" class="form-control" th:field="*{label}" placeholder="Nhà riêng"></div>
+            <div class="col-md-4"><label class="form-label" for="recipientName">Người nhận</label><input id="recipientName" class="form-control" th:field="*{recipientName}" required></div>
+            <div class="col-md-4"><label class="form-label" for="addressPhone">Điện thoại</label><input id="addressPhone" class="form-control" th:field="*{phone}" required></div>
+            <div class="col-12"><label class="form-label" for="addressLine">Địa chỉ</label><input id="addressLine" class="form-control" th:field="*{addressLine}" required></div>
+            <div class="col-md-6"><label class="form-label" for="profileProvinceCode">Tỉnh / thành</label><select id="profileProvinceCode" class="form-select" th:field="*{provinceCode}" data-address-province required><option value="">Đang tải tỉnh/thành...</option></select></div>
+            <div class="col-md-6"><label class="form-label" for="profileWardCode">Phường / xã</label><select id="profileWardCode" class="form-select" th:field="*{wardCode}" data-address-ward disabled required><option value="">Chọn tỉnh/thành trước</option></select></div>
+            <div class="col-12"><small class="text-secondary" data-address-status role="status"></small></div>
+            <div class="col-12 form-check ms-2"><input class="form-check-input" type="checkbox" th:field="*{defaultAddress}" id="defaultAddress"><label class="form-check-label" for="defaultAddress">Đặt làm mặc định</label></div>
+            <div class="col-12"><button class="btn btn-primary" type="submit">Lưu địa chỉ</button><button class="btn btn-link" type="button" data-cancel-address-edit hidden>Hủy sửa</button></div>
+        </form>
+    </section>
+    <section id="addresses" th:unless="${customerProfile}" tabindex="-1" class="card border-0 shadow-sm mt-4 p-4">
+        <h2 class="h4">Địa chỉ và đơn mua</h2>
+        <p>Tài khoản <span th:text="${profileRole}">vận hành</span> không có sổ địa chỉ / đơn mua. Dùng trang vận hành tương ứng.</p>
+        <a class="btn btn-outline-dark align-self-start" th:href="${operationsHome}">Đến trang vận hành</a>
+    </section>
+    <nav class="d-flex flex-wrap gap-2 mt-4" aria-label="Các phần tài khoản">
+        <a class="btn btn-sm btn-outline-dark rounded-pill" th:if="${customerProfile}" th:href="@{/profile#addresses}">Địa chỉ</a>
+        <a class="btn btn-sm btn-outline-dark rounded-pill" th:if="${customerProfile}" th:href="@{/orders/history}">Đơn mua</a>
+        <a class="btn btn-sm btn-outline-dark rounded-pill" th:href="@{/profile#password}">Đổi mật khẩu</a>
+        <a class="btn btn-sm btn-outline-dark rounded-pill" th:href="@{/profile/privacy}">Quyền riêng tư</a>
+    </nav>
+    <section id="password" tabindex="-1" class="card border-0 shadow-sm mt-4 p-4">
+        <h2 class="h4 mb-3">Đổi mật khẩu</h2>
+        <p class="small text-secondary">Phiên hiện tại được giữ. Các phiên đăng nhập khác sẽ bị thu hồi.</p>
+        <form th:action="@{/profile/password}" th:object="${passwordForm}" method="post" class="row g-3">
+            <div class="col-md-6"><label class="form-label" for="currentPassword">Mật khẩu hiện tại</label><input id="currentPassword" class="form-control" type="password" th:field="*{currentPassword}" autocomplete="current-password" required></div>
+            <div class="col-md-6"><label class="form-label" for="newPassword">Mật khẩu mới</label><input id="newPassword" class="form-control" type="password" th:field="*{newPassword}" minlength="10" autocomplete="new-password" required><small class="text-secondary">Tối thiểu 10 ký tự, gồm chữ hoa, chữ thường và số.</small></div>
+            <div class="col-12"><button class="btn btn-primary" type="submit">Đổi mật khẩu</button></div>
+        </form>
+    </section>
+    <section th:if="${customerProfile}" class="card border-0 shadow-sm mt-4 overflow-hidden">
+        <h2 class="h4 p-4 mb-0">Lịch sử đơn hàng</h2>
+        <div th:if="${orders == null or orders.empty}" class="p-4 text-secondary">Chưa có đơn hàng.</div>
+        <div th:unless="${orders == null or orders.empty}" class="table-responsive">
+            <table class="table table-hover align-middle mb-0" aria-label="Lịch sử đơn hàng">
+                <thead><tr><th>STT</th><th>Mã đơn</th><th>Trạng thái</th><th class="d-none d-md-table-cell">Thanh toán</th><th class="d-none d-md-table-cell">Giao hàng</th><th>Tổng tiền</th><th class="d-none d-md-table-cell">Ngày tạo</th><th></th></tr></thead>
+                <tbody><tr th:each="order, rowStat : ${orders}">
+                    <td th:text="${rowStat.count}">1</td>
+                    <td><a class="fw-semibold" th:href="@{/orders/{id}(id=${order.id})}" th:text="${order.orderNumber}"></a></td>
+                    <td><span class="badge rounded-pill" th:classappend="${T(com.utewedding.app.service.web.StatusLabels).orderStatusBadgeClass(order.status)}" th:text="${T(com.utewedding.app.service.web.StatusLabels).orderStatusLabel(order.status, order.paymentMethod)}"></span></td>
+                    <td class="d-none d-md-table-cell"><span class="badge rounded-pill" th:classappend="${T(com.utewedding.app.service.web.StatusLabels).paymentStatusBadgeClass(order.paymentStatus)}" th:text="${T(com.utewedding.app.service.web.StatusLabels).paymentStatusLabel(order.paymentStatus, order.paymentMethod)}"></span></td>
+                    <td class="d-none d-md-table-cell"><span class="badge rounded-pill" th:classappend="${T(com.utewedding.app.service.web.StatusLabels).fulfillmentStatusBadgeClass(order.overallFulfillmentStatus)}" th:text="${T(com.utewedding.app.service.web.StatusLabels).label(order.overallFulfillmentStatus)}">Chưa sẵn sàng giao</span></td>
+                    <td class="text-nowrap" th:text="${#numbers.formatDecimal(order.total,0,'COMMA',0,'POINT')} + ' đ'"></td>
+                    <td class="d-none d-md-table-cell text-nowrap" th:text="${#temporals.format(order.createdAt, 'dd/MM/yyyy HH:mm')}"></td>
+                    <td><a class="btn btn-sm btn-outline-dark" th:href="@{/orders/{id}(id=${order.id})}">Xem</a></td>
+                </tr></tbody>
+            </table>
+        </div>
+    </section>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer><th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

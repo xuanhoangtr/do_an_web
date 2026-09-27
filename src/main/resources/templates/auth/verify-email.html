@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Xác thực email · UTEWedding')}"></head>
+<body class="bg-cream">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5" style="max-width: 640px">
+    <h1 class="display-subtitle">Xác thực email</h1>
+    <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}"></div>
+    <div th:if="${errorMessage}" class="alert alert-danger" th:text="${errorMessage}"></div>
+    <form th:action="@{/verify-email}" method="post" class="card border-0 shadow-sm p-4 mb-3">
+        <div class="mb-3"><label class="form-label" for="email">Email</label><input id="email" class="form-control" type="email" name="email" th:value="${email}" required></div>
+        <div class="mb-3"><label class="form-label" for="code">Mã 6 số</label><input id="code" class="form-control" name="code" required pattern="\d{6}" maxlength="6"></div>
+        <button class="btn btn-primary" type="submit">Xác thực</button>
+    </form>
+    <form th:action="@{/verify-email/resend}" method="post" class="d-flex gap-2">
+        <input class="form-control" type="email" name="email" th:value="${email}" placeholder="Email cần gửi lại" required>
+        <button class="btn btn-outline-dark" type="submit">Gửi lại</button>
+    </form>
+    <a class="btn btn-link px-0" th:href="@{/login}">Về trang đăng nhập</a>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

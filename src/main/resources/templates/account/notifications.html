@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Thông báo · UTEWedding')}"></head>
+<body class="bg-cream">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4">
+        <div>
+            <p class="eyebrow">Inbox &amp; updates</p>
+            <h1 class="display-subtitle mt-2 mb-0">Thông báo</h1>
+            <p class="text-secondary mb-0 mt-2">Lời chúc mới và cập nhật về đơn hàng, vận chuyển, hoàn trả và tài khoản của bạn.</p>
+        </div>
+        <form th:if="${notifications != null and !notifications.empty}" th:action="@{/notifications/read-all}" method="post">
+            <button class="btn btn-outline-dark rounded-pill" type="submit">Đánh dấu tất cả đã đọc</button>
+        </form>
+    </div>
+
+    <div th:if="${notifications == null or notifications.empty}" class="empty-state card border-0 shadow-sm rounded-4 p-5 text-center">
+        <div class="empty-icon" aria-hidden="true">🔔</div>
+        <h2 class="h5 mt-3">Chưa có thông báo nào</h2>
+        <p class="text-secondary mb-0">Khi có lời chúc mới hoặc cập nhật đơn hàng, thông báo sẽ xuất hiện tại đây.</p>
+    </div>
+
+    <div th:unless="${notifications == null or notifications.empty}" class="d-grid gap-3">
+        <article class="card border-0 shadow-sm rounded-4 p-4"
+                 th:each="item : ${notifications}"
+                 th:classappend="${item.readAt == null} ? ' border-start border-4 border-primary' : ' opacity-75'">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge rounded-pill"
+                          th:classappend="${item.readAt == null ? 'text-bg-primary' : 'text-bg-secondary'}"
+                          th:text="${item.readAt == null ? 'Chưa đọc' : 'Đã đọc'}">Chưa đọc</span>
+                    <strong class="h6 mb-0" th:text="${item.title}">Tiêu đề thông báo</strong>
+                </div>
+                <small class="text-secondary" th:text="${#temporals.format(item.createdAt, 'dd/MM/yyyy HH:mm')}"></small>
+            </div>
+            <p class="mb-2 mt-2 text-secondary" th:text="${item.body}">Nội dung thông báo</p>
+            <div class="d-flex flex-wrap justify-content-end align-items-center gap-2 mt-2">
+                <form th:action="@{/notifications/{id}/read(id=${item.id})}" method="post">
+                    <button class="btn btn-sm rounded-pill"
+                            th:classappend="${item.readAt == null ? 'btn-dark' : 'btn-outline-dark'}"
+                            type="submit"
+                            th:text="${item.targetUrl != null and !#strings.isEmpty(item.targetUrl) ? 'Mở chi tiết →' : (item.readAt == null ? 'Đánh dấu đã đọc' : 'Xem lại')}">Mở chi tiết →</button>
+                </form>
+            </div>
+        </article>
+    </div>
+
+    <nav th:if="${notifications != null and notifications.totalPages > 1}" class="mt-4" aria-label="Phân trang thông báo">
+        <ul class="pagination justify-content-center">
+            <li class="page-item" th:classappend="${notifications.first ? ' disabled' : ''}">
+                <a class="page-link" th:href="@{/notifications(page=${notifications.number - 1})}">‹</a>
+            </li>
+            <li class="page-item disabled">
+                <span class="page-link" th:text="${notifications.number + 1 + ' / ' + notifications.totalPages}">1 / 1</span>
+            </li>
+            <li class="page-item" th:classappend="${notifications.last ? ' disabled' : ''}">
+                <a class="page-link" th:href="@{/notifications(page=${notifications.number + 1})}">›</a>
+            </li>
+        </ul>
+    </nav>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

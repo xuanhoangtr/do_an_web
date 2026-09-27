@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Trung tâm quyền riêng tư · UTEWedding')}"></head>
+<body class="bg-cream"><nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5" style="max-width: 850px"><h1 class="display-subtitle">Trung tâm quyền riêng tư</h1>
+    <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}" data-flash-success></div>
+    <div th:if="${errorMessage}" class="alert alert-danger" role="alert" th:text="${errorMessage}"></div>
+    <div class="card p-4 mb-4"><h2 class="h5">Email marketing</h2><p>Việc nhận marketing là tự nguyện và không ảnh hưởng đến dịch vụ chính.</p>
+        <form th:action="@{/profile/privacy/consent}" method="post">
+            <div class="form-check"><input class="form-check-input" type="checkbox" id="marketing" name="granted" value="true" th:checked="${marketingConsent}">
+                <label class="form-check-label" for="marketing">Tôi đồng ý nhận email marketing</label></div><button class="btn btn-outline-dark mt-3">Lưu lựa chọn</button></form></div>
+    <div class="card p-4 mb-4"><h2 class="h5">Tải dữ liệu cá nhân</h2><p>File JSON được tạo trực tiếp và không lưu thành bản sao trên máy chủ.</p>
+        <form th:action="@{/profile/privacy/export}" method="post"><button class="btn btn-primary">Tải dữ liệu</button></form></div>
+    <div class="card p-4 mb-4 border-danger"><h2 class="h5 text-danger">Yêu cầu xóa tài khoản</h2>
+        <p>Yêu cầu cần quản trị viên duyệt. Tài khoản chưa bị xóa khi gửi yêu cầu; sau khi được duyệt, hệ thống từ chối xóa nếu còn đơn đang xử lý. Chứng từ giao dịch và audit được giữ nhưng làm sạch dữ liệu cá nhân.</p>
+        <div th:if="${deletionPending}" class="alert alert-warning">Bạn đã có yêu cầu xóa đang chờ quản trị viên duyệt.</div>
+        <form th:unless="${deletionPending}" th:action="@{/profile/privacy/deletion}" method="post"
+              data-confirm-message="Yêu cầu sẽ được gửi cho quản trị viên duyệt. Bạn cần xác nhận mật khẩu hiện tại để tiếp tục.">
+            <div class="mb-3"><label class="form-label" for="currentPassword">Xác nhận mật khẩu hiện tại</label><input id="currentPassword" class="form-control" type="password" name="currentPassword" autocomplete="current-password" required></div>
+            <label class="form-label" for="deletionReason">Lý do (không bắt buộc)</label><textarea id="deletionReason" class="form-control" name="reason" maxlength="2000" rows="3"></textarea>
+            <button class="btn btn-danger mt-3" type="submit">Gửi yêu cầu xóa để chờ duyệt</button>
+        </form></div>
+    <h2 class="h5">Lịch sử yêu cầu</h2><table class="table bg-white"><thead><tr><th>STT</th><th>Ngày</th><th>Loại</th><th>Trạng thái</th><th>Kết quả</th></tr></thead>
+    <tbody><tr th:each="row, rowStat : ${privacyRequests}"><td th:text="${rowStat.count}">1</td><td th:text="${row.requestedAt}"></td><td th:text="${row.requestType}"></td><td><span class="badge rounded-pill" th:classappend="${T(com.utewedding.app.service.web.StatusLabels).badgeClass(row.status)}" th:text="${T(com.utewedding.app.service.web.StatusLabels).label(row.status)}">Đang chờ duyệt</span></td><td th:text="${row.decisionReason ?: '-'}"></td></tr></tbody></table>
+</main><footer th:replace="~{fragments :: footer}"></footer><th:block th:replace="~{fragments :: scripts}"></th:block></body></html>

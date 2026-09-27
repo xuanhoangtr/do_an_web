@@ -14,8 +14,24 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item"><a class="nav-link" th:href="@{/}">Trang chủ</a></li>
-                    <li class="nav-item"><a class="nav-link" th:href="@{/auth/login}">Đăng nhập</a></li>
-                    <li class="nav-item"><a class="nav-link" th:href="@{/auth/register}">Đăng ký</a></li>
+                    <!-- Menu người dùng sau khi đăng nhập / chưa đăng nhập -->
+                    <li class="nav-item" th:if="${#authentication == null or !#authorization.expression('isAuthenticated()')}">
+                        <a class="nav-link" th:href="@{/auth/login}">Đăng nhập</a>
+                    </li>
+                    <li class="nav-item" th:if="${#authentication == null or !#authorization.expression('isAuthenticated()')}">
+                        <a class="btn btn-outline-primary btn-sm ms-2 mt-1" th:href="@{/auth/register}">Đăng ký</a>
+                    </li>
+                    <li class="nav-item dropdown" th:if="${#authorization.expression('isAuthenticated()')}">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                            <span th:text="${#authentication.name}">Tài khoản</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" th:href="@{/account/profile}">Hồ sơ cá nhân</a></li>
+                            <li><a class="dropdown-item" th:href="@{/account/change-password}">Đổi mật khẩu</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" th:href="@{/auth/logout}">Đăng xuất</a></li>
+                        </ul>
+                    </li>
                 </ul>
             </div>
         </div>
