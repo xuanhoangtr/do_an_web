@@ -1,0 +1,5 @@
+-- Preserve explicit audit events emitted by the administrative product service.
+ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'PRODUCT_CREATED';
+ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'PRODUCT_UPDATED';
+ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'PRODUCT_STATUS_CHANGED';
+ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'PRODUCT_HIDDEN';

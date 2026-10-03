@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS order_idempotency_keys (
+    idempotency_key VARCHAR(120) PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    order_id UUID UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
