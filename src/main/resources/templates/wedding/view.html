@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Thiệp cưới · UTEWedding')}"></head>
+<body th:class="${wedding.available} ? 'wedding-page' : 'bg-cream'">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main th:if="${wedding.available}">
+    <section class="wedding-hero">
+        <img th:if="${wedding.coverImageUrl != null and !#strings.isEmpty(wedding.coverImageUrl)}" class="wedding-hero-image" th:src="${wedding.coverImageUrl}" th:alt="${wedding.coupleName}">
+        <div th:unless="${wedding.coverImageUrl != null and !#strings.isEmpty(wedding.coverImageUrl)}" class="wedding-hero-placeholder"></div>
+        <div class="wedding-hero-overlay"></div>
+        <div class="wedding-hero-content text-center text-white">
+            <p class="wedding-kicker">THE WEDDING OF</p>
+            <p th:if="${wedding.guestName != null and !#strings.isEmpty(wedding.guestName)}" class="guest-greeting">Thân mời <strong th:text="${wedding.guestName}"></strong></p>
+            <h1><span th:text="${wedding.brideName}"></span><em>&amp;</em><span th:text="${wedding.groomName}"></span></h1>
+            <p class="wedding-date" th:if="${wedding.weddingDate != null}" th:text="${#temporals.format(wedding.weddingDate, 'dd · MM · yyyy')}"></p>
+            <a class="scroll-cue" href="#details">Xem lời mời <span>↓</span></a>
+        </div>
+    </section>
+    <section id="details" class="wedding-content container section-padding-lg">
+        <div class="row justify-content-center text-center"><div class="col-lg-8"><p class="eyebrow">Một chương mới</p><h2 class="wedding-heading mt-3">Chúng mình sắp <em>về chung một nhà</em></h2><p class="wedding-story mt-4" th:text="${wedding.story}"></p></div></div>
+        <div class="row g-4 mt-4 mt-lg-5">
+            <div class="col-md-6"><div class="card h-100 border-0 shadow-sm text-center"><div class="card-body p-4"><span class="detail-icon" aria-hidden="true">✦</span><p class="eyebrow mt-3">Thời gian</p><h3 th:if="${wedding.weddingDate != null}" th:text="${#temporals.format(wedding.weddingDate, 'EEEE, dd MMMM yyyy')}"></h3><p class="text-secondary" th:if="${wedding.weddingTime != null}" th:text="${#temporals.format(wedding.weddingTime, 'HH:mm')} + ' · Đón khách'"></p></div></div></div>
+            <div class="col-md-6"><div class="card h-100 border-0 shadow-sm text-center"><div class="card-body p-4"><span class="detail-icon" aria-hidden="true">⌂</span><p class="eyebrow mt-3">Địa điểm</p><h3 th:text="${wedding.venue}"></h3><p class="text-secondary" th:text="${wedding.address}"></p><a th:if="${wedding.mapUrl != null and !#strings.isEmpty(wedding.mapUrl)}" class="btn btn-outline-dark btn-sm rounded-pill" th:href="${wedding.mapUrl}" target="_blank" rel="noopener noreferrer">Mở bản đồ ↗</a></div></div></div>
+        </div>
+        <div class="row g-4 g-xl-5 mt-5 pt-4 align-items-start">
+            <div class="col-lg-7">
+                <p class="eyebrow">Hộp lời chúc</p><h2 class="wedding-heading mt-2">Để lại vài dòng<br><em>cho ngày hôm nay</em></h2>
+                <div th:if="${successMessage}" class="alert alert-success border-0 small mt-4" role="status" tabindex="-1" data-form-feedback th:text="${successMessage}" data-flash-success></div>
+                <form th:action="@{/w/{slug}/wish(slug=${wedding.slug})}" th:object="${wishForm}" method="post" class="wish-form mt-4" novalidate>
+                    <div th:if="${#fields.hasGlobalErrors()}" class="alert alert-danger" role="alert"><p th:each="error : ${#fields.globalErrors()}" th:text="${error}"></p></div>
+                    <label for="wishSenderName" class="form-label">Tên của bạn <span class="text-secondary">(không bắt buộc)</span></label>
+                    <input id="wishSenderName" class="form-control" th:field="*{senderName}" maxlength="160" autocomplete="name" aria-describedby="wishSenderHint" placeholder="Bạn muốn ký tên là gì?" th:classappend="${#fields.hasErrors('senderName')} ? ' is-invalid' : ''">
+                    <div th:if="${#fields.hasErrors('senderName')}" class="invalid-feedback d-block" th:errors="*{senderName}"></div>
+                    <div id="wishSenderHint" class="form-text mb-3">Để trống sẽ hiển thị “Một người thương mến”.</div>
+                    <label for="wishMessage" class="form-label">Lời chúc</label>
+                    <textarea id="wishMessage" class="form-control" th:field="*{message}" rows="4" required maxlength="2000" placeholder="Viết lời chúc của bạn..." th:classappend="${#fields.hasErrors('message')} ? ' is-invalid' : ''"></textarea>
+                    <div th:if="${#fields.hasErrors('message')}" class="invalid-feedback d-block" th:errors="*{message}"></div>
+                    <button class="btn btn-primary rounded-pill mt-3 px-4" type="submit">Gửi lời chúc ♡</button>
+                </form>
+                <div th:if="${wedding.wishes == null or wedding.wishes.empty}" class="empty-state border rounded-3 p-4 text-center mt-4"><p class="mb-0 text-secondary">Hãy là người đầu tiên gửi lời chúc.</p></div>
+                <div th:unless="${wedding.wishes == null or wedding.wishes.empty}" class="wish-list mt-4"><div th:each="wish : ${wedding.wishes}" class="wish-item"><span>“</span><p th:text="${wish}"></p></div></div>
+            </div>
+            <div class="col-lg-4 offset-lg-1">
+                <div class="card border-0 shadow-sm text-center">
+                    <div class="card-body p-4" id="rsvp">
+                        <p class="eyebrow">Xác nhận tham dự</p>
+                        <h3 class="h4 mt-2">Bạn sẽ đến chứ?</h3>
+                        <div th:if="${rsvpError}" class="alert alert-danger mt-3" role="alert" th:text="${rsvpError}"></div>
+                        <form th:if="${!wedding.preview}" th:action="@{/w/{slug}/rsvp(slug=${wedding.slug})}" th:object="${rsvpForm}" method="post" class="text-start mt-3">
+                            <input type="hidden" th:field="*{token}">
+                            <input type="hidden" th:field="*{publicResponseId}">
+                            <div th:if="${rsvpForm.token == null or #strings.isEmpty(rsvpForm.token)}">
+                                <label for="rsvpGuestName" class="form-label">Họ và tên</label>
+                                <input id="rsvpGuestName" class="form-control mb-2" th:field="*{guestName}" maxlength="160" autocomplete="name" required>
+                            </div>
+                            <label for="attendanceStatus" class="form-label">Trạng thái tham dự</label>
+                            <select id="attendanceStatus" class="form-select mb-2" th:field="*{attendanceStatus}">
+                                <option value="ATTENDING">Mình sẽ tham dự</option>
+                                <option value="NOT_ATTENDING">Mình không thể tham dự</option>
+                                <option value="UNSURE">Mình chưa chắc chắn</option>
+                            </select>
+                            <label for="attendeeCount" class="form-label">Số người tham dự</label>
+                            <input id="attendeeCount" class="form-control mb-2" type="number" min="1" th:max="${wedding.rsvpInviteeCount ?: 20}" th:field="*{attendeeCount}" placeholder="Số người tham dự">
+                            <div class="form-text mb-2" th:if="${wedding.rsvpInviteeCount != null}" th:text="'Nhóm của bạn được mời tối đa ' + ${wedding.rsvpInviteeCount} + ' người.'"></div>
+                            <label for="rsvpNote" class="form-label">Ghi chú <span class="text-secondary">(không bắt buộc)</span></label>
+                            <textarea id="rsvpNote" class="form-control mb-2" rows="2" th:field="*{note}" placeholder="Ghi chú (không bắt buộc)"></textarea>
+                            <button class="btn btn-outline-dark rounded-pill w-100" type="submit">Gửi phản hồi</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+<section th:unless="${wedding.available}" class="container py-5"><div class="card border-0 shadow-sm text-center"><div class="card-body p-5"><h1 class="display-subtitle">Không tìm thấy thiệp</h1><p class="text-secondary">Đường dẫn này chưa có dữ liệu thiệp cưới.</p><a class="btn btn-primary rounded-pill" th:href="@{/}">Về trang chủ</a></div></div></section>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

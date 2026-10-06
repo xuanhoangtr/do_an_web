@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Lịch trình ngày cưới · UTEWedding')}"></head>
+<body class="bg-cream"><nav th:replace="~{fragments :: navbar}"></nav>
+<main class="wedding-timeline container py-5">
+    <a class="text-decoration-none" th:href="@{/wedding}">← Studio thiệp cưới</a>
+    <div th:if="${successMessage}" class="alert alert-success mt-3" th:text="${successMessage}" data-flash-success></div>
+    <div th:if="${errorMessage}" class="alert alert-danger mt-3" th:text="${errorMessage}"></div>
+    <header class="mt-3 mb-4"><p class="eyebrow mb-1">Kế hoạch ngày vui</p><h1 class="display-subtitle mb-1">Dòng thời gian</h1><p class="text-secondary mb-0">Các mốc được sắp theo thời gian. Lưu sẽ thay toàn bộ danh sách hiện tại; tối đa 100 mốc.</p></header>
+    <form th:action="@{/wedding/{id}/timeline(id=${weddingId})}" method="post" id="timelineForm" class="card border-0 shadow-sm rounded-4 p-4">
+        <div class="row g-2 small text-secondary fw-semibold d-none d-lg-flex mb-1"><div class="col-lg-2">Nghi lễ</div><div class="col-lg-2">Tên sự kiện *</div><div class="col-lg-2">Bắt đầu *</div><div class="col-lg-2">Địa điểm</div><div class="col-lg-3">Địa chỉ</div><div class="col-lg-1"></div></div>
+        <div id="timelineRows">
+            <div class="timeline-row row g-2 align-items-start mb-3" th:each="item : ${timeline}" data-saved="true">
+                <div class="col-12 col-lg-2"><label class="form-label d-lg-none">Nghi lễ</label><select class="form-select" name="type" required><option th:each="kind : ${ceremonyTypes}" th:value="${kind}" th:text="${kind.name() == 'VU_QUY' ? 'Lễ vu quy' : (kind.name() == 'THANH_HON' ? 'Lễ thành hôn' : (kind.name() == 'TIEC_NHA_GAI' ? 'Tiệc nhà gái' : (kind.name() == 'TIEC_NHA_TRAI' ? 'Tiệc nhà trai' : (kind.name() == 'TIEC_BAO_HY' ? 'Tiệc báo hỷ' : (kind.name() == 'LE_DINH_HON' ? 'Lễ đính hôn' : 'Khác')))))}" th:selected="${kind == item.type}"></option></select></div>
+                <div class="col-12 col-lg-2"><label class="form-label d-lg-none">Tên sự kiện *</label><input class="form-control" name="title" th:value="${item.title}" maxlength="160" placeholder="Tên mốc" required></div>
+                <div class="col-12 col-lg-2"><label class="form-label d-lg-none">Thời gian bắt đầu *</label><input class="form-control" type="datetime-local" name="start" th:value="${#temporals.format(item.startDateTime, 'yyyy-MM-dd') + 'T' + #temporals.format(item.startDateTime, 'HH:mm')}" required></div>
+                <div class="col-12 col-lg-2"><label class="form-label d-lg-none">Địa điểm</label><input class="form-control" name="venue" th:value="${item.venueName}" maxlength="200" placeholder="Tên địa điểm"></div>
+                <div class="col-12 col-lg-3"><label class="form-label d-lg-none">Địa chỉ</label><input class="form-control" name="address" th:value="${item.venueAddress}" maxlength="500" placeholder="Địa chỉ cụ thể"></div>
+                <div class="col-12 col-lg-1 d-grid"><button class="btn btn-wedding-danger remove-timeline-row" type="button" aria-label="Xóa mốc">Xóa</button></div>
+            </div>
+        </div>
+        <div id="timelineEmpty" class="text-center rounded-3 bg-light p-4 mb-3" th:if="${timeline == null or timeline.empty}"><strong>Chưa có mốc sự kiện</strong><p class="small text-secondary mb-0 mt-1">Bạn có thể bắt đầu với lễ thành hôn, tiệc cưới và giờ đón khách.</p></div>
+        <div class="d-flex flex-wrap gap-2 mt-2"><button class="btn btn-wedding-secondary" type="button" id="addTimelineRow">＋ Thêm mốc sự kiện</button><button class="btn btn-wedding-primary" type="submit">Lưu lịch trình</button></div>
+    </form>
+    <template id="timelineTemplate"><div class="timeline-row row g-2 align-items-start mb-3">
+        <div class="col-12 col-lg-2"><label class="form-label d-lg-none">Nghi lễ</label><select class="form-select" name="type" required><option th:each="kind : ${ceremonyTypes}" th:value="${kind}" th:text="${kind.name() == 'VU_QUY' ? 'Lễ vu quy' : (kind.name() == 'THANH_HON' ? 'Lễ thành hôn' : (kind.name() == 'TIEC_NHA_GAI' ? 'Tiệc nhà gái' : (kind.name() == 'TIEC_NHA_TRAI' ? 'Tiệc nhà trai' : (kind.name() == 'TIEC_BAO_HY' ? 'Tiệc báo hỷ' : (kind.name() == 'LE_DINH_HON' ? 'Lễ đính hôn' : 'Khác')))))}"></option></select></div>
+        <div class="col-12 col-lg-2"><label class="form-label d-lg-none">Tên sự kiện *</label><input class="form-control" name="title" maxlength="160" placeholder="Tên mốc" required></div>
+        <div class="col-12 col-lg-2"><label class="form-label d-lg-none">Thời gian bắt đầu *</label><input class="form-control" type="datetime-local" name="start" required></div>
+        <div class="col-12 col-lg-2"><label class="form-label d-lg-none">Địa điểm</label><input class="form-control" name="venue" maxlength="200" placeholder="Tên địa điểm"></div>
+        <div class="col-12 col-lg-3"><label class="form-label d-lg-none">Địa chỉ</label><input class="form-control" name="address" maxlength="500" placeholder="Địa chỉ cụ thể"></div>
+        <div class="col-12 col-lg-1 d-grid"><button class="btn btn-wedding-danger remove-timeline-row" type="button" aria-label="Xóa mốc">Xóa</button></div>
+    </div></template>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer><th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

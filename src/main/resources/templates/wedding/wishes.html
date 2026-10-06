@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Quản lý lời chúc · UTEWedding')}"></head>
+<body class="bg-cream"><nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5">
+    <a class="text-decoration-none" th:href="@{/wedding}">← Studio thiệp cưới</a>
+    <div th:if="${successMessage}" class="alert alert-success mt-3" th:text="${successMessage}" data-flash-success></div>
+    <div th:if="${errorMessage}" class="alert alert-danger mt-3" th:text="${errorMessage}"></div>
+    <header class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mt-3 mb-4">
+        <div><p class="eyebrow mb-1">Khoảnh khắc sẻ chia</p><h1 class="display-subtitle mb-1">Lời chúc</h1><p class="text-secondary mb-0">Duyệt lời chúc trước khi hiển thị trên thiệp công khai.</p></div>
+        <form method="get" th:action="@{/wedding/{id}/wishes(id=${weddingId})}" class="d-flex flex-wrap gap-2">
+            <label class="visually-hidden" for="wishStatusFilter">Lọc trạng thái</label>
+            <select id="wishStatusFilter" name="status" class="form-select" style="max-width:240px">
+                <option value="">Tất cả lời chúc</option>
+                <option th:each="wishStatus : ${wishStatuses}" th:value="${wishStatus}" th:text="${wishStatus.name() == 'APPROVED' ? 'Đã duyệt' : (wishStatus.name() == 'PENDING' ? 'Chờ duyệt' : (wishStatus.name() == 'REJECTED' ? 'Đã từ chối' : 'Đã ẩn'))}" th:selected="${wishStatus.name() == selectedStatus}"></option>
+            </select>
+            <button class="btn btn-outline-dark" type="submit">Lọc</button>
+        </form>
+    </header>
+    <section id="wishCards" class="row g-3">
+        <article class="col-12" th:each="wish : ${wishes.content}">
+            <div class="card border-0 shadow-sm rounded-4 p-4">
+                <div class="d-flex flex-column flex-md-row justify-content-between gap-2">
+                    <div><strong class="fs-5" th:text="${wish.senderName}">Người gửi</strong><small class="d-block text-secondary" th:text="${#temporals.format(wish.submittedAt, 'dd/MM/yyyy HH:mm')}">Ngày gửi</small></div>
+                    <span class="badge rounded-pill align-self-start" th:classappend="${wish.status.name() == 'APPROVED' ? ' text-bg-success' : (wish.status.name() == 'PENDING' ? ' text-bg-warning' : (wish.status.name() == 'REJECTED' ? ' text-bg-danger' : ' text-bg-secondary'))}" th:text="${wish.status.name() == 'APPROVED' ? 'Đã duyệt' : (wish.status.name() == 'PENDING' ? 'Chờ duyệt' : (wish.status.name() == 'REJECTED' ? 'Đã từ chối' : 'Đã ẩn'))}">Chờ duyệt</span>
+                </div>
+                <p class="mt-3 mb-4 text-break" style="white-space:pre-line" th:text="${wish.message}">Nội dung lời chúc</p>
+                <div class="d-flex flex-wrap gap-2">
+                    <form th:if="${wish.status.name() != 'APPROVED'}" th:action="@{/wedding/{id}/wishes/{wishId}(id=${weddingId},wishId=${wish.id})}" method="post" data-confirm-title="Duyệt lời chúc" data-confirm-label="Duyệt" data-confirm-tone="success" data-confirm-message="Lời chúc sẽ được hiển thị trên thiệp công khai."><input type="hidden" name="status" value="APPROVED"><button class="btn btn-sm btn-success" type="submit" th:text="${wish.status.name() == 'PENDING' ? 'Duyệt' : 'Duyệt lại'}">Duyệt</button></form>
+                    <form th:if="${wish.status.name() == 'PENDING'}" th:action="@{/wedding/{id}/wishes/{wishId}(id=${weddingId},wishId=${wish.id})}" method="post" data-confirm-title="Từ chối lời chúc" data-confirm-label="Từ chối" data-confirm-message="Lời chúc sẽ không được hiển thị trên thiệp."><input type="hidden" name="status" value="REJECTED"><button class="btn btn-sm btn-outline-danger" type="submit">Từ chối</button></form>
+                    <form th:if="${wish.status.name() == 'APPROVED'}" th:action="@{/wedding/{id}/wishes/{wishId}(id=${weddingId},wishId=${wish.id})}" method="post" data-confirm-title="Ẩn lời chúc" data-confirm-label="Ẩn lời chúc" data-confirm-message="Lời chúc sẽ được ẩn khỏi trang thiệp."><input type="hidden" name="status" value="HIDDEN"><button class="btn btn-sm btn-outline-secondary" type="submit">Ẩn</button></form>
+                </div>
+            </div>
+        </article>
+        <div id="wishEmpty" class="col-12" th:if="${wishes == null or wishes.empty}"><div class="card border-0 shadow-sm rounded-4 p-5 text-center"><div class="display-6">♡</div><h2 class="h5">Chưa có lời chúc nào</h2><p class="text-secondary mb-0">Lời chúc của khách sẽ xuất hiện tại đây để bạn duyệt.</p></div></div>
+    </section>
+    <nav th:if="${wishes != null and wishes.totalPages > 1}" class="mt-4" aria-label="Phân trang lời chúc">
+        <ul class="pagination justify-content-center">
+            <li class="page-item" th:classappend="${wishes.first ? ' disabled' : ''}"><a class="page-link" th:href="@{/wedding/{id}/wishes(id=${weddingId},page=${wishes.number - 1},status=${selectedStatus})}" aria-label="Trang trước">‹</a></li>
+            <li class="page-item disabled"><span class="page-link" th:text="${wishes.number + 1 + ' / ' + wishes.totalPages}">1 / 1</span></li>
+            <li class="page-item" th:classappend="${wishes.last ? ' disabled' : ''}"><a class="page-link" th:href="@{/wedding/{id}/wishes(id=${weddingId},page=${wishes.number + 1},status=${selectedStatus})}" aria-label="Trang tiếp">›</a></li>
+        </ul>
+    </nav>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer><th:block th:replace="~{fragments :: scripts}"></th:block><script th:src="@{/js/marketplace-admin.js}" defer></script>
+</body>
+</html>

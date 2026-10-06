@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Khách mời & RSVP · UTEWedding')}"></head>
+<body class="bg-cream">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5">
+    <a class="text-decoration-none" th:href="@{/wedding}">← Studio thiệp cưới</a>
+    <div th:if="${successMessage}" class="alert alert-success mt-3" th:text="${successMessage}" data-flash-success></div>
+    <div th:if="${errorMessage}" class="alert alert-danger mt-3" th:text="${errorMessage}"></div>
+    <header class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mt-3 mb-4">
+        <div><p class="eyebrow mb-1" th:text="${wedding.slug}">Thiệp</p><h1 class="display-subtitle">Khách mời & RSVP</h1></div>
+        <a class="btn btn-outline-dark" th:href="@{/wedding/{id}/guests/export(id=${wedding.id})}">Xuất danh sách CSV</a>
+    </header>
+    <section class="row g-3 mb-4" aria-label="Thống kê phản hồi">
+        <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm rounded-4 p-3 h-100"><span class="small text-secondary">Tổng khách</span><strong class="fs-3" th:text="${guestCount}">0</strong></div></div>
+        <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm rounded-4 p-3 h-100"><span class="small text-secondary">Đồng ý tham dự</span><strong class="fs-3 text-success" th:text="${attendingCount}">0</strong><span class="small text-secondary"><span th:text="${attendeeCount}">0</span> người dự kiến</span></div></div>
+        <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm rounded-4 p-3 h-100"><span class="small text-secondary">Từ chối</span><strong class="fs-3 text-danger" th:text="${declinedCount}">0</strong></div></div>
+        <div class="col-6 col-lg-3"><div class="card border-0 shadow-sm rounded-4 p-3 h-100"><span class="small text-secondary">Chưa phản hồi</span><strong class="fs-3 text-warning-emphasis" th:text="${pendingCount}">0</strong></div></div>
+    </section>
+    <section class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+        <h2 class="h5">Thêm khách mời</h2>
+        <form th:action="@{/wedding/{id}/guests(id=${wedding.id})}" method="post" class="row g-3 mt-1">
+            <div class="col-md-4"><label class="form-label" for="guest-name">Tên khách *</label><input id="guest-name" class="form-control" name="name" maxlength="160" autocomplete="name" required></div>
+            <div class="col-md-3"><label class="form-label" for="guest-relationship">Mối quan hệ</label><select id="guest-relationship" class="form-select" name="relationship"><option value="">Chọn mối quan hệ</option><option>Bạn bè</option><option>Đồng nghiệp</option><option>Họ hàng</option><option>Gia đình</option><option>Khác</option></select></div>
+            <div class="col-md-2"><label class="form-label" for="guest-max">Số người tối đa</label><input id="guest-max" class="form-control" name="maxAttendees" type="number" min="1" max="20" value="2" required></div>
+            <div class="col-md-3"><label class="form-label" for="guest-note">Lời mời riêng</label><input id="guest-note" class="form-control" name="invitation" maxlength="1000" placeholder="Lời nhắn gửi riêng"></div>
+            <div class="col-12"><button class="btn btn-primary" type="submit">Thêm khách mời</button></div>
+        </form>
+    </section>
+    <section class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div><h2 class="h5 mb-1">Nhập danh sách từ CSV</h2><p class="small text-secondary mb-0">Mỗi dòng gồm: name,relationship,maxAttendees,invitation</p></div>
+            <button class="btn btn-outline-dark" type="button" data-bs-toggle="collapse" data-bs-target="#guestCsv">Mở phần nhập CSV</button>
+        </div>
+        <div class="collapse mt-3" id="guestCsv"><form th:action="@{/wedding/{id}/guests/import(id=${wedding.id})}" method="post">
+            <label class="form-label" for="guest-csv">Dán dữ liệu CSV</label><textarea id="guest-csv" class="form-control mb-3" name="csv" rows="5" placeholder="Nguyễn An,Bạn bè,2,Rất mong bạn đến chung vui"></textarea>
+            <button class="btn btn-primary" type="submit">Nhập danh sách</button>
+        </form></div>
+    </section>
+    <section class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="p-4 border-bottom d-flex flex-column flex-lg-row justify-content-between gap-3 align-items-lg-end">
+            <div><h2 class="h5 mb-1">Danh sách khách</h2><p class="small text-secondary mb-0">Link riêng giúp khách xác nhận tham dự và xem lời mời cá nhân.</p></div>
+            <div class="d-flex gap-2"><input class="form-control" id="guestSearch" type="search" placeholder="Tìm theo tên khách" aria-label="Tìm theo tên khách">
+                <select class="form-select" id="rsvpFilter" aria-label="Lọc trạng thái RSVP"><option value="">Mọi trạng thái</option><option value="ATTENDING">Đồng ý</option><option value="NOT_ATTENDING">Từ chối</option><option value="PENDING">Chưa phản hồi</option></select></div>
+        </div>
+        <div class="table-responsive"><table class="table align-middle mb-0"><thead class="table-light"><tr><th>STT</th><th class="ps-4">Khách mời</th><th>Quan hệ</th><th>RSVP</th><th>Link cá nhân</th><th class="text-end pe-4">Thao tác</th></tr></thead>
+            <tbody id="guestTableBody">
+            <tr th:each="guest, rowStat : ${guestRows}" th:attr="data-guest-name=${guest.name()},data-rsvp=${guest.rsvpStatus() == 'ATTENDING' ? 'ATTENDING' : (guest.rsvpStatus() == 'NOT_ATTENDING' ? 'NOT_ATTENDING' : 'PENDING')}">
+                <td class="text-secondary" th:text="${rowStat.count}">1</td>
+                <td class="ps-4"><strong th:text="${guest.name()}">Tên khách</strong><small class="d-block text-secondary" th:text="${guest.invitation() ?: 'Chưa có lời mời riêng'}"></small></td>
+                <td th:text="${guest.relationship() ?: '—'}">Bạn bè</td>
+                <td><span class="badge rounded-pill" th:classappend="${guest.rsvpStatus() == 'ATTENDING' ? ' text-bg-success' : (guest.rsvpStatus() == 'NOT_ATTENDING' ? ' text-bg-danger' : ' text-bg-warning')}" th:text="${guest.rsvpStatus() == 'ATTENDING' ? 'Đồng ý' : (guest.rsvpStatus() == 'NOT_ATTENDING' ? 'Từ chối' : 'Chưa phản hồi')}">Chưa phản hồi</span>
+                    <small class="d-block text-secondary" th:if="${guest.rsvpStatus() == 'ATTENDING'}" th:text="${(guest.attendeeCount() ?: 0) + ' người tham dự'}"></small><small class="d-block text-secondary" th:if="${guest.note() != null}" th:text="${guest.note()}"></small></td>
+                <td><button class="btn btn-sm btn-outline-dark" type="button" th:attr="data-copy-text=@{/w/{slug}/k/{token}(slug=${wedding.slug},token=${guest.token()})}">Sao chép link</button></td>
+                <td class="text-end pe-4 text-nowrap">
+                    <form class="d-inline" th:action="@{/wedding/{id}/guests/{guestId}/token(id=${wedding.id},guestId=${guest.id()})}" method="post" data-confirm-title="Tạo lại link khách mời" data-confirm-label="Tạo link mới" data-confirm-message="Link cũ sẽ mất hiệu lực. Khách cần nhận đường dẫn mới để mở thiệp."><button class="btn btn-sm btn-outline-secondary" type="submit">Tạo lại token</button></form>
+                    <form class="d-inline" th:action="@{/wedding/{id}/guests/{guestId}/delete(id=${wedding.id},guestId=${guest.id()})}" method="post" data-confirm-title="Xóa khách mời" data-confirm-label="Xóa khách" data-confirm-message="Khách mời và RSVP của người này sẽ bị xóa khỏi danh sách."><button class="btn btn-sm btn-outline-danger" type="submit">Xóa</button></form>
+                </td>
+            </tr>
+            <tr id="guestEmpty" th:if="${guestRows == null or guestRows.empty}"><td colspan="6" class="text-center p-5"><h3 class="h5">Danh sách còn trống</h3><p class="text-secondary mb-0">Thêm khách đầu tiên hoặc dán danh sách CSV ở phía trên.</p></td></tr>
+            <tr id="guestNoMatches" class="d-none"><td colspan="6" class="text-center p-4 text-secondary">Không tìm thấy khách phù hợp bộ lọc.</td></tr>
+            </tbody></table></div>
+    </section>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer><th:block th:replace="~{fragments :: scripts}"></th:block>
+<script th:src="@{/js/marketplace-admin.js}" defer></script>
+</body>
+</html>

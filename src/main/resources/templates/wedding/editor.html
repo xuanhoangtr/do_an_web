@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Trình tạo thiệp · UTEWedding')}"></head>
+<body class="bg-cream">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5">
+    <div class="row g-4 align-items-start">
+        <div class="col-xl-8">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4">
+                <div><p class="eyebrow">Wedding editor</p><h1 class="display-subtitle mt-2">Kể câu chuyện của hai bạn</h1><p class="text-secondary mb-0">Điền nội dung theo từng bước để cập nhật thiệp.</p></div>
+                <a th:if="${weddingForm.id != null and weddingForm.status != null and weddingForm.status.name() == 'PUBLISHED'}" class="btn btn-outline-dark rounded-pill" th:href="@{/w/{slug}(slug=${weddingForm.slug})}" target="_blank" rel="noopener noreferrer">Mở thiệp công khai ↗</a>
+                <a th:if="${weddingForm.id != null and weddingForm.status != null and weddingForm.status.name() != 'PUBLISHED' and !#strings.isEmpty(weddingForm.previewToken)}" class="btn btn-outline-dark rounded-pill" th:href="@{/preview/{token}(token=${weddingForm.previewToken})}" target="_blank" rel="noopener noreferrer">Xem bản đã lưu ↗</a>
+                <span th:if="${weddingForm.id == null}" class="small text-secondary" role="status">Lưu thiệp trước để mở bản xem trước. Bản xem bên cạnh cập nhật khi bạn nhập.</span>
+            </div>
+            <div th:if="${successMessage}" class="alert alert-success border-0 shadow-sm" th:text="${successMessage}"></div><div th:if="${errorMessage}" class="alert alert-danger border-0 shadow-sm" th:text="${errorMessage}"></div>
+            <form id="weddingEditor" th:action="@{/wedding/save}" th:object="${weddingForm}" method="post" enctype="multipart/form-data" class="card border-0 shadow-sm rounded-4 overflow-hidden" th:attr="data-active-step=${activeEditorStep}" novalidate>
+                <div th:if="${#fields.hasGlobalErrors()}" class="alert alert-danger m-4 mb-0" role="alert"><p th:each="error : ${#fields.globalErrors()}" th:text="${error}"></p></div>
+                <input type="hidden" th:field="*{id}">
+                <input type="hidden" id="editorStep" name="editorStep" th:value="${activeEditorStep}">
+                <div class="card-body p-4 p-lg-5">
+                    <ul class="nav nav-pills mb-3 editor-tabs" id="editorTabs" role="tablist">
+                        <li class="nav-item" role="presentation"><button id="couple-tab" class="nav-link" th:classappend="${activeEditorStep == 'couple'} ? ' active' : ''" data-editor-step="couple" data-bs-toggle="pill" data-bs-target="#couple" type="button" role="tab" aria-controls="couple" th:attr="aria-selected=${activeEditorStep == 'couple'}"><span>01</span> Cặp đôi</button></li>
+                        <li class="nav-item" role="presentation"><button id="event-tab" class="nav-link" th:classappend="${activeEditorStep == 'event'} ? ' active' : ''" data-editor-step="event" data-bs-toggle="pill" data-bs-target="#event" type="button" role="tab" aria-controls="event" th:attr="aria-selected=${activeEditorStep == 'event'}"><span>02</span> Hôn lễ</button></li>
+                        <li class="nav-item" role="presentation"><button id="media-tab" class="nav-link" th:classappend="${activeEditorStep == 'media'} ? ' active' : ''" data-editor-step="media" data-bs-toggle="pill" data-bs-target="#media" type="button" role="tab" aria-controls="media" th:attr="aria-selected=${activeEditorStep == 'media'}"><span>03</span> Ảnh cưới</button></li>
+                        <li class="nav-item" role="presentation"><button id="guests-tab" class="nav-link" th:classappend="${activeEditorStep == 'guests'} ? ' active' : ''" data-editor-step="guests" data-bs-toggle="pill" data-bs-target="#guests" type="button" role="tab" aria-controls="guests" th:attr="aria-selected=${activeEditorStep == 'guests'}"><span>04</span> Khách mời</button></li>
+                    </ul>
+                    <div class="tab-content" id="editorTabsContent">
+                        <div class="tab-pane fade" th:classappend="${activeEditorStep == 'couple'} ? ' show active' : ''" id="couple" role="tabpanel" aria-labelledby="couple-tab">
+                            <div class="mb-4"><p class="eyebrow mb-1">Thông tin cơ bản</p><h2 class="h4">Cô dâu &amp; chú rể</h2></div>
+                            <div class="row g-3">
+                                <div class="col-md-6"><label for="brideName" class="form-label">Tên cô dâu</label><input id="brideName" class="form-control" th:field="*{brideName}" placeholder="Nhập tên cô dâu" th:classappend="${#fields.hasErrors('brideName')} ? ' is-invalid' : ''"><div th:if="${#fields.hasErrors('brideName')}" class="invalid-feedback d-block" th:errors="*{brideName}"></div></div>
+                                <div class="col-md-6"><label for="groomName" class="form-label">Tên chú rể</label><input id="groomName" class="form-control" th:field="*{groomName}" placeholder="Nhập tên chú rể" th:classappend="${#fields.hasErrors('groomName')} ? ' is-invalid' : ''"><div th:if="${#fields.hasErrors('groomName')}" class="invalid-feedback d-block" th:errors="*{groomName}"></div></div>
+                                <div class="col-12"><label for="story" class="form-label">Câu chuyện của hai bạn</label><textarea id="story" rows="5" class="form-control" th:field="*{story}" placeholder="Hãy kể một chút về hành trình của hai bạn..." th:classappend="${#fields.hasErrors('story')} ? ' is-invalid' : ''"></textarea><div th:if="${#fields.hasErrors('story')}" class="invalid-feedback d-block" th:errors="*{story}"></div></div>
+                                <div class="col-12"><label for="slug" class="form-label">Đường dẫn thiệp</label><div class="input-group"><span class="input-group-text">utewedding.vn/</span><input id="slug" class="form-control" th:field="*{slug}" placeholder="ten-hai-ban" th:classappend="${#fields.hasErrors('slug')} ? ' is-invalid' : ''"></div><div th:if="${#fields.hasErrors('slug')}" class="invalid-feedback d-block" th:errors="*{slug}"></div><small class="text-secondary">Link riêng của khách có dạng <code>/w/{slug}/k/{token}</code>.</small></div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" th:classappend="${activeEditorStep == 'event'} ? ' show active' : ''" id="event" role="tabpanel" aria-labelledby="event-tab">
+                            <div class="mb-4"><p class="eyebrow mb-1">Ngày trọng đại</p><h2 class="h4">Thời gian &amp; địa điểm hôn lễ</h2><p class="text-secondary small mb-0">Ngày tổ chức và tên địa điểm hoặc địa chỉ là thông tin bắt buộc để xuất bản. Giờ đón khách không bắt buộc. Dùng Timeline để thêm các mốc khác<span th:if="${weddingForm.id == null}"> sau khi lưu thiệp</span><span th:if="${weddingForm.id != null}"> (<a th:href="@{/wedding/{id}/timeline(id=${weddingForm.id})}">mở Timeline</a>)</span>.</p></div>
+                            <div class="row g-3">
+                                <div class="col-md-6"><label for="weddingDate" class="form-label">Ngày tổ chức</label><input id="weddingDate" type="date" class="form-control" th:field="*{weddingDate}" th:value="${weddingForm.weddingDate != null ? #temporals.format(weddingForm.weddingDate, 'yyyy-MM-dd') : ''}" th:classappend="${#fields.hasErrors('weddingDate')} ? ' is-invalid' : ''"><div th:if="${#fields.hasErrors('weddingDate')}" class="invalid-feedback d-block" th:errors="*{weddingDate}"></div></div>
+                                <div class="col-md-6"><label for="weddingTime" class="form-label">Giờ đón khách</label><input id="weddingTime" type="time" class="form-control" th:field="*{weddingTime}" th:value="${weddingForm.weddingTime != null ? #temporals.format(weddingForm.weddingTime, 'HH:mm') : ''}" th:classappend="${#fields.hasErrors('weddingTime')} ? ' is-invalid' : ''"><div th:if="${#fields.hasErrors('weddingTime')}" class="invalid-feedback d-block" th:errors="*{weddingTime}"></div></div>
+                                <div class="col-12"><label for="venue" class="form-label">Tên địa điểm</label><input id="venue" class="form-control" th:field="*{venue}" placeholder="Tên địa điểm" th:classappend="${#fields.hasErrors('venue')} ? ' is-invalid' : ''"><div th:if="${#fields.hasErrors('venue')}" class="invalid-feedback d-block" th:errors="*{venue}"></div></div>
+                                <div class="col-12"><label for="address" class="form-label">Địa chỉ</label><input id="address" class="form-control" th:field="*{address}" placeholder="Địa chỉ đầy đủ" th:classappend="${#fields.hasErrors('address')} ? ' is-invalid' : ''"><div th:if="${#fields.hasErrors('address')}" class="invalid-feedback d-block" th:errors="*{address}"></div></div>
+                                <div class="col-12"><label for="mapUrl" class="form-label">Link bản đồ</label><input id="mapUrl" class="form-control" th:field="*{mapUrl}" placeholder="https://maps.google.com/..." th:classappend="${#fields.hasErrors('mapUrl')} ? ' is-invalid' : ''"><div th:if="${#fields.hasErrors('mapUrl')}" class="invalid-feedback d-block" th:errors="*{mapUrl}"></div></div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" th:classappend="${activeEditorStep == 'media'} ? ' show active' : ''" id="media" role="tabpanel" aria-labelledby="media-tab">
+                            <div class="mb-4"><p class="eyebrow mb-1">Khoảnh khắc</p><h2 class="h4">Tải ảnh cưới</h2><p class="text-secondary small">Chọn ảnh bìa để lưu cùng nội dung thiệp.</p></div>
+                            <div class="row g-4 align-items-center">
+                                <div class="col-md-5"><img th:if="${weddingForm.coverImageUrl != null and !#strings.isEmpty(weddingForm.coverImageUrl)}" class="editor-cover" th:src="${weddingForm.coverImageUrl}" alt="Ảnh bìa thiệp"><div th:unless="${weddingForm.coverImageUrl != null and !#strings.isEmpty(weddingForm.coverImageUrl)}" class="editor-cover-placeholder d-flex align-items-center justify-content-center text-center">Chưa có ảnh bìa</div></div>
+                                <div class="col-md-7"><label for="coverImage" class="form-label">Ảnh bìa</label><input id="coverImage" name="coverImage" type="file" accept="image/jpeg,image/png,image/webp" class="form-control"><small class="text-secondary d-block mt-2">JPG, PNG hoặc WEBP · tối đa 10MB</small><div th:if="${#fields.hasErrors('coverImageUrl')}" class="invalid-feedback d-block" th:errors="*{coverImageUrl}"></div></div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" th:classappend="${activeEditorStep == 'guests'} ? ' show active' : ''" id="guests" role="tabpanel" aria-labelledby="guests-tab">
+                            <div class="mb-4">
+                                <p class="eyebrow mb-1">Khách được mời riêng</p>
+                                <h2 class="h4">Khách mời &amp; đường dẫn riêng</h2>
+                                <p class="text-secondary small mb-2">Bước này hiển thị khách đã có và link cá nhân của họ. Bạn thêm khách, nhập danh sách CSV và theo dõi RSVP trong trang Quản lý khách mời.</p>
+                                <a th:if="${weddingForm.id != null}" class="btn btn-sm btn-outline-dark" th:href="@{/wedding/{id}/guests(id=${weddingForm.id})}" target="_blank" rel="noopener noreferrer">Quản lý khách mời</a>
+                                <p th:if="${weddingForm.id == null}" class="text-secondary small mb-0">Lưu thiệp trước để mở trang Quản lý khách mời.</p>
+                            </div>
+                            <div th:if="${weddingForm.guests == null or weddingForm.guests.empty}" class="empty-state border rounded-3 p-4 text-center">
+                                <p th:if="${weddingForm.id == null}" class="mb-0 text-secondary">Lưu thiệp trước, rồi thêm khách và tạo link mời riêng.</p>
+                                <p th:if="${weddingForm.id != null}" class="mb-0 text-secondary">Thiệp này chưa có khách mời. Chọn “Quản lý khách mời” để thêm người hoặc nhập danh sách CSV.</p>
+                            </div>
+                            <div th:unless="${weddingForm.guests == null or weddingForm.guests.empty}" class="table-responsive"><table class="table align-middle guest-table"><thead><tr><th>STT</th><th>Tên khách</th><th>Mối quan hệ</th><th>Link riêng</th></tr></thead><tbody><tr th:each="guest, rowStat : ${weddingForm.guests}"><td th:text="${rowStat.count}">1</td><td class="fw-semibold" th:text="${guest.name}"></td><td class="text-secondary" th:text="${guest.relationship}"></td><td><a class="small text-primary text-decoration-none" th:href="@{/w/{slug}/k/{token}(slug=${weddingForm.slug},token=${guest.token})}" th:text="@{/w/{slug}/k/{token}(slug=${weddingForm.slug},token=${guest.token})}" target="_blank" rel="noopener noreferrer"></a></td></tr></tbody></table></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-white border-top p-4 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3">
+                    <p class="small text-secondary mb-0">Chuyển bước không tự lưu. Bấm “Lưu thay đổi” để lưu toàn bộ nội dung thiệp.</p>
+                    <div class="d-flex flex-wrap justify-content-sm-end gap-2">
+                        <button id="editorPrevious" class="btn btn-editor-step rounded-pill px-4" type="button" th:hidden="${activeEditorStep == 'couple'}">Quay lại</button>
+                        <button id="editorNext" class="btn btn-editor-step rounded-pill px-4" type="button" th:hidden="${activeEditorStep == 'guests'}">Tiếp tục</button>
+                        <button id="editorSave" class="btn btn-editor-save rounded-pill px-4" type="submit">Lưu thay đổi</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="col-xl-4">
+<div class="preview-sticky"><p class="eyebrow mb-2">Live preview</p><div class="phone-preview shadow-lg"><img id="previewCoverImage" th:src="${weddingForm.coverImageUrl}" alt="Ảnh xem trước" th:style="${weddingForm.coverImageUrl != null and !#strings.isEmpty(weddingForm.coverImageUrl)} ? '' : 'display:none'"><div id="previewCoverPlaceholder" class="phone-preview-placeholder" th:style="${weddingForm.coverImageUrl != null and !#strings.isEmpty(weddingForm.coverImageUrl)} ? 'display:none' : ''">Ảnh bìa thiệp</div><div class="phone-overlay"></div><div class="phone-content"><small>THE WEDDING OF</small><h2><span id="previewBrideName" th:text="${weddingForm.brideName}"></span><i aria-hidden="true">&amp;</i><span id="previewGroomName" th:text="${weddingForm.groomName}"></span></h2><p id="previewWeddingDate" th:text="${weddingForm.weddingDate != null ? #temporals.format(weddingForm.weddingDate, 'dd · MM · yyyy') : ''}" th:style="${weddingForm.weddingDate != null} ? '' : 'display:none'"></p></div></div><div class="d-flex gap-2 mt-3 small text-secondary"><span class="status-dot" aria-hidden="true"></span> Bản xem trước cập nhật theo dữ liệu form</div></div>
+        </div>
+    </div>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+<script th:src="@{/js/wedding-editor.js}"></script>
+</body>
+</html>

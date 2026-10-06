@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Studio thiệp cưới · UTEWedding')}"></head>
+<body class="bg-cream">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main class="wedding-dashboard container py-5">
+    <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}" data-flash-success></div>
+    <div th:if="${errorMessage}" class="alert alert-danger" role="alert">
+        <span th:text="${errorMessage}"></span>
+        <a th:if="${errorActionUrl != null and errorActionLabel != null}" class="alert-link ms-2" th:href="${errorActionUrl}" th:text="${errorActionLabel}"></a>
+    </div>
+    <header class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4">
+        <div><p class="eyebrow">Wedding studio</p><h1 class="display-subtitle mt-2 mb-1">Studio Thiệp Cưới</h1>
+            <p class="text-secondary mb-0">Quản lý thiệp, khách mời và những khoảnh khắc trong ngày vui.</p></div>
+        <a class="btn btn-create-wedding rounded-pill px-4" th:href="@{/wedding/create}">＋ Tạo thiệp mới</a>
+    </header>
+    <section class="row g-4" aria-label="Thiệp cưới của tôi">
+        <article class="col-md-6 col-xl-4" th:each="wedding : ${myWeddings}">
+            <div class="card border-0 shadow-sm rounded-4 h-100 overflow-hidden">
+                <div class="position-relative" style="height: 190px; background: linear-gradient(135deg,#f4d9d5,#faeee4 55%,#e9d6c5)">
+                    <img th:if="${wedding.coverImageUrl != null}" th:src="${wedding.coverImageUrl}" alt="Ảnh bìa thiệp cưới" class="w-100 h-100" style="object-fit:cover">
+                    <div th:unless="${wedding.coverImageUrl != null}" class="h-100 d-flex flex-column justify-content-center align-items-center text-center text-dark">
+                        <span aria-hidden="true" style="font-size:2.5rem">♡</span><span class="small">Ảnh bìa thiệp cưới</span>
+                    </div>
+                    <span class="badge position-absolute top-0 end-0 m-3 rounded-pill px-3 py-2"
+                          th:classappend="${T(com.utewedding.app.service.web.StatusLabels).badgeClass(wedding.status)}"
+                          th:text="${T(com.utewedding.app.service.web.StatusLabels).label(wedding.status)}">Bản nháp</span>
+                </div>
+                <div class="card-body p-4 d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start gap-2">
+                        <div class="wedding-card-heading"><h2 class="h5 mb-1 wedding-card-title" th:title="${wedding.internalTitle ?: wedding.slug ?: 'Thiệp cưới mới'}" th:text="${wedding.internalTitle ?: wedding.slug ?: 'Thiệp cưới mới'}">Thiệp cưới</h2>
+                            <div class="small text-secondary" th:if="${wedding.slug != null and !#strings.isEmpty(wedding.slug)}" th:text="${'/' + wedding.slug}">/slug</div></div>
+                        <span class="small text-nowrap text-secondary flex-shrink-0" th:if="${wedding.weddingDate != null}" th:text="${#temporals.format(wedding.weddingDate, 'dd/MM/yyyy')}">Ngày cưới</span>
+                    </div>
+                    <div class="row g-2 mt-3 text-center">
+                        <div class="col-3"><div class="rounded-3 bg-light p-2"><strong th:text="${wedding.guestCount}">0</strong><span class="d-block small text-secondary">Khách</span></div></div>
+                        <div class="col-3"><div class="rounded-3 bg-light p-2"><strong class="text-success" th:text="${wedding.attendingCount}">0</strong><span class="d-block small text-secondary">Đồng ý</span></div></div>
+                        <div class="col-3"><div class="rounded-3 bg-light p-2"><strong class="text-danger" th:text="${wedding.declinedCount}">0</strong><span class="d-block small text-secondary">Từ chối</span></div></div>
+                        <div class="col-3"><div class="rounded-3 bg-light p-2"><strong class="text-warning-emphasis" th:text="${wedding.pendingCount}">0</strong><span class="d-block small text-secondary">Chờ</span></div></div>
+                    </div>
+                    <p class="small text-secondary mt-2 mb-3"><span th:text="${wedding.pendingWishCount}">0</span> lời chúc mới chờ duyệt</p>
+                    <div class="d-flex flex-wrap gap-2 mt-auto">
+                        <a class="btn btn-wedding-primary btn-sm" th:href="@{/wedding/{id}/edit(id=${wedding.id})}">Chỉnh sửa</a>
+                        <a th:if="${wedding.status.name() != 'ARCHIVED'}" class="btn btn-wedding-secondary btn-sm" th:href="@{/preview/{token}(token=${wedding.previewToken})}" target="_blank" rel="noopener">Xem trước</a>
+                        <form th:if="${wedding.status.name() == 'ARCHIVED'}" th:action="@{/wedding/{id}/restore(id=${wedding.id})}" method="post" data-confirm-title="Mở lại thiệp" data-confirm-label="Mở lại" data-confirm-tone="primary" data-confirm-message="Thiệp sẽ được khôi phục ở chế độ riêng tư. Bạn có thể xem trước hoặc xuất bản lại khi sẵn sàng."><button class="btn btn-wedding-primary btn-sm" type="submit">Mở lại</button></form>
+                        <form th:if="${wedding.status.name() != 'PUBLISHED' and wedding.status.name() != 'SUSPENDED' and wedding.status.name() != 'ARCHIVED'}" th:action="@{/wedding/{id}/publish(id=${wedding.id})}" method="post" data-confirm-title="Xuất bản thiệp" data-confirm-label="Xuất bản" data-confirm-tone="primary" data-confirm-message="Thiệp sẽ được công khai theo đường dẫn hiện tại."><button class="btn btn-wedding-primary btn-sm" type="submit">Xuất bản</button></form>
+                        <form th:if="${wedding.status.name() == 'PUBLISHED'}" th:action="@{/wedding/{id}/unpublish(id=${wedding.id})}" method="post" data-confirm-title="Gỡ thiệp khỏi công khai" data-confirm-label="Gỡ thiệp" data-confirm-message="Khách sẽ không thể mở thiệp qua đường dẫn công khai trong thời gian gỡ."><button class="btn btn-wedding-danger btn-sm" type="submit">Gỡ thiệp</button></form>
+                        <form th:if="${wedding.status.name() != 'ARCHIVED'}" th:action="@{/wedding/{id}/archive(id=${wedding.id})}" method="post" data-confirm-title="Lưu trữ thiệp" data-confirm-label="Lưu trữ" data-confirm-message="Thiệp sẽ được chuyển vào trạng thái lưu trữ."><button class="btn btn-wedding-danger btn-sm" type="submit">Lưu trữ</button></form>
+                    </div>
+                    <hr>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a class="btn btn-wedding-link btn-sm" th:href="@{/wedding/{id}/guests(id=${wedding.id})}">Khách mời</a>
+                        <a class="btn btn-wedding-link btn-sm" th:href="@{/wedding/{id}/wishes(id=${wedding.id})}">Lời chúc</a>
+                        <a class="btn btn-wedding-link btn-sm" th:href="@{/wedding/{id}/album(id=${wedding.id})}">Album ảnh</a>
+                        <a class="btn btn-wedding-link btn-sm" th:href="@{/wedding/{id}/timeline(id=${wedding.id})}">Timeline</a>
+                        <button th:if="${wedding.status.name() == 'PUBLISHED'}" class="btn btn-wedding-link btn-sm" type="button" th:attr="data-copy-text=@{/w/{slug}(slug=${wedding.slug})}">Sao chép link công khai</button>
+                    </div>
+                </div>
+            </div>
+        </article>
+        <li class="col-12 list-unstyled" th:if="${myWeddings == null or myWeddings.empty}">
+            <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
+                <div aria-hidden="true" class="display-4 text-danger">♡</div><h2 class="h4 mt-2">Bắt đầu câu chuyện của hai bạn</h2>
+                <p class="text-secondary mx-auto" style="max-width: 520px">Chọn mẫu thiệp, thêm thông tin cô dâu chú rể, lịch trình và danh sách khách mời. Bạn có thể xem trước trước khi xuất bản.</p>
+                <a class="btn btn-wedding-primary rounded-pill mx-auto px-4" th:href="@{/wedding/create}">Tạo thiệp đầu tiên</a>
+            </div>
+        </li>
+    </section>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+<script th:src="@{/js/marketplace-admin.js}" defer></script>
+</body>
+</html>

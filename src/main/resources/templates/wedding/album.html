@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Album thiệp cưới · UTEWedding')}"></head>
+<body class="bg-cream"><nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5">
+    <a class="text-decoration-none" th:href="@{/wedding}">← Studio thiệp cưới</a>
+    <div th:if="${successMessage}" class="alert alert-success mt-3" th:text="${successMessage}" data-flash-success></div>
+    <div th:if="${errorMessage}" class="alert alert-danger mt-3" th:text="${errorMessage}"></div>
+    <header class="mt-3 mb-4"><p class="eyebrow mb-1">Khoảnh khắc của hai bạn</p><h1 class="display-subtitle mb-1">Album ảnh</h1><p class="text-secondary mb-0">Ảnh bìa được dùng làm hình đại diện cho thiệp.</p></header>
+    <section class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+        <h2 class="h5">Tải ảnh lên</h2>
+        <form th:action="@{/wedding/{id}/album(id=${weddingId})}" method="post" enctype="multipart/form-data" id="albumUploadForm" class="row g-3 align-items-end">
+            <div class="col-lg-8"><label class="form-label" for="albumImage">Chọn ảnh (JPEG hoặc PNG)</label>
+                <input class="form-control" id="albumImage" type="file" name="image" accept="image/jpeg,image/png,.jpg,.jpeg,.png" required>
+                <div class="form-text">Hệ thống kiểm tra định dạng, dung lượng và kích thước ảnh trước khi lưu.</div></div>
+            <div class="col-lg-4"><button class="btn btn-primary w-100" type="submit">Tải ảnh vào album</button></div>
+            <div class="col-12 d-none" id="imagePreviewWrap"><div class="d-flex align-items-center gap-3 p-3 rounded-3 bg-light"><img id="imagePreview" alt="Xem trước ảnh sẽ tải lên" class="rounded" style="width:96px;height:72px;object-fit:cover"><div><strong id="imagePreviewName"></strong><span id="imagePreviewSize" class="d-block small text-secondary"></span></div></div></div>
+        </form>
+    </section>
+    <section class="row g-3">
+        <article class="col-6 col-md-4 col-xl-3" th:each="asset : ${album}">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100">
+                <div class="position-relative"><img class="w-100" style="height:230px;object-fit:cover" th:src="${asset.secureUrl}" alt="Ảnh album thiệp cưới">
+                    <span th:if="${asset.kind.name() == 'COVER'}" class="badge text-bg-dark position-absolute top-0 start-0 m-2">Ảnh bìa</span></div>
+                <div class="card-body p-3"><p class="small text-secondary mb-3" th:text="${asset.altText ?: asset.caption ?: 'Ảnh trong album'}">Ảnh trong album</p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <form th:if="${asset.kind.name() != 'COVER'}" th:action="@{/wedding/{id}/album/{mediaId}/cover(id=${weddingId},mediaId=${asset.id})}" method="post"><button class="btn btn-sm btn-outline-dark" type="submit">Đặt làm ảnh bìa</button></form>
+                        <button class="btn btn-sm btn-light" type="button" data-bs-toggle="modal" data-bs-target="#albumLightbox" th:attr="data-image-url=${asset.secureUrl},data-image-caption=${asset.caption ?: asset.altText ?: 'Ảnh album'}">Xem phóng to</button>
+                        <form th:action="@{/wedding/{id}/album/{mediaId}/delete(id=${weddingId},mediaId=${asset.id})}" method="post" data-confirm-title="Xóa ảnh khỏi album" data-confirm-label="Xóa ảnh" data-confirm-message="Ảnh này sẽ bị gỡ khỏi thiệp. Nếu đây là ảnh bìa, hãy chọn ảnh bìa mới sau khi xóa."><button class="btn btn-sm btn-outline-danger" type="submit">Xóa</button></form>
+                    </div>
+                </div>
+            </div>
+        </article>
+        <div class="col-12" th:if="${album == null or album.empty}"><div class="card border-0 shadow-sm rounded-4 p-5 text-center"><div class="display-6">♡</div><h2 class="h5">Album đang trống</h2><p class="text-secondary mb-0">Tải lên những bức ảnh bạn muốn chia sẻ cùng khách mời.</p></div></div>
+    </section>
+</main>
+<div class="modal fade" id="albumLightbox" tabindex="-1" aria-labelledby="albumLightboxTitle" aria-hidden="true"><div class="modal-dialog modal-dialog-centered modal-xl"><div class="modal-content bg-dark"><div class="modal-header border-0"><h2 class="modal-title text-white fs-6" id="albumLightboxTitle">Ảnh album</h2><button class="btn-close btn-close-white" type="button" data-bs-dismiss="modal" aria-label="Đóng"></button></div><div class="modal-body text-center p-2"><img id="albumLightboxImage" class="img-fluid rounded" alt="Ảnh album phóng to" style="max-height:78vh"></div></div></div></div>
+<footer th:replace="~{fragments :: footer}"></footer><th:block th:replace="~{fragments :: scripts}"></th:block><script th:src="@{/js/marketplace-admin.js}" defer></script>
+</body>
+</html>
