@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" role="img" aria-labelledby="title desc">
+  <title id="title">Product placeholder</title>
+  <desc id="desc">A neutral placeholder image for a wedding keepsake product</desc>
+  <rect width="640" height="480" rx="24" fill="#f3ece4"/>
+  <path d="M320 130c-52 0-94 42-94 94 0 70 94 126 94 126s94-56 94-126c0-52-42-94-94-94Z" fill="#e7c8b8"/>
+  <path d="M320 176c-27 0-48 21-48 48 0 32 48 72 48 72s48-40 48-72c0-27-21-48-48-48Z" fill="#c95642"/>
+  <text x="320" y="415" text-anchor="middle" fill="#6f625c" font-family="Arial, sans-serif" font-size="24" letter-spacing="3">UTEWEDDING</text>
+</svg>

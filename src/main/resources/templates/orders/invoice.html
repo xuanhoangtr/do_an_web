@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Biên nhận · UTEWedding')}"></head>
+<body class="bg-white">
+<main class="container py-4">
+    <div class="d-flex justify-content-between">
+        <div>
+            <h1 class="h3">Biên nhận / phiếu xác nhận</h1>
+            <p class="mb-0" th:text="${accountingDocument != null ? accountingDocument.document.documentNumber : order.orderNumber}">WT</p>
+        </div>
+        <button class="btn btn-outline-dark d-print-none" type="button" data-print-invoice>In chứng từ</button>
+    </div>
+    <hr>
+    <p>Ngày: <span th:text="${#temporals.format(accountingDocument != null ? accountingDocument.document.issuedAt : order.createdAt, 'dd/MM/yyyy HH:mm')}"></span></p>
+    <p>Thanh toán: <span th:text="${order.paymentMethod}"></span> · <span th:text="${order.paymentStatus}"></span></p>
+    <table class="table">
+        <thead><tr><th>STT</th><th>Sản phẩm</th><th class="text-end">SL</th><th class="text-end">Thành tiền</th></tr></thead>
+        <tbody>
+        <tr th:each="item, rowStat : ${accountingDocument != null ? accountingDocument.lines : order.items}">
+            <td th:text="${rowStat.count}">1</td>
+            <td th:text="${item.productName}"></td>
+            <td class="text-end" th:text="${item.quantity}"></td>
+            <td class="text-end" th:text="${#numbers.formatDecimal(item.lineTotal,0,'COMMA',0,'POINT')} + ' đ'"></td>
+        </tr>
+        </tbody>
+    </table>
+    <th:block th:with="snapshot=${accountingDocument != null ? accountingDocument.document : null}">
+        <p>Tạm tính: <span th:text="${#numbers.formatDecimal(snapshot != null ? snapshot.subtotal : order.subtotal,0,'COMMA',0,'POINT')} + ' đ'"></span></p>
+        <p>Giảm giá sản phẩm: <span th:text="${#numbers.formatDecimal(snapshot != null ? snapshot.productDiscount : productDiscountTotal,0,'COMMA',0,'POINT')} + ' đ'"></span></p>
+        <p>Voucher giảm tiền hàng: <span th:text="${#numbers.formatDecimal(snapshot != null ? snapshot.voucherDiscount : order.voucherDiscountAmount,0,'COMMA',0,'POINT')} + ' đ'"></span></p>
+        <p th:if="${order.discountCode != null and !#strings.isEmpty(order.discountCode)}">Mã ưu đãi: <strong th:text="${order.discountCode}"></strong> <span th:text="${order.voucherType != null and order.voucherType.name() == 'SHIPPING_FREE' ? '(Miễn phí vận chuyển)' : order.voucherType != null and order.voucherType.name() == 'SHIPPING_FIXED' ? '(Giảm phí vận chuyển)' : '(Giảm tiền hàng)'}"></span></p>
+        <p>Phí vận chuyển: <span th:text="${#numbers.formatDecimal(snapshot != null ? snapshot.shippingFeeBeforeDiscount : order.shippingFeeBeforeDiscount,0,'COMMA',0,'POINT')} + ' đ'"></span></p>
+        <p>Giảm phí vận chuyển: <span th:text="${#numbers.formatDecimal(snapshot != null ? snapshot.shippingDiscountAmount : order.shippingDiscountAmount,0,'COMMA',0,'POINT')} + ' đ'"></span></p>
+        <p>Phí vận chuyển khách trả: <span th:text="${#numbers.formatDecimal(snapshot != null ? snapshot.shippingFee : order.shippingFee,0,'COMMA',0,'POINT')} + ' đ'"></span></p>
+        <p class="fs-5">Tổng: <strong th:text="${#numbers.formatDecimal(snapshot != null ? snapshot.totalAmount : order.total,0,'COMMA',0,'POINT')} + ' đ'"></strong></p>
+    </th:block>
+    <div th:if="${order.shipping != null}">
+        <p class="mb-0" th:text="${order.shipping.recipientName}"></p>
+        <p class="mb-0" th:text="${order.shipping.phone}"></p>
+        <p th:text="${order.shipping.addressLine}"></p>
+    </div>
+    <p class="small text-muted mt-4">Đây là biên nhận/phiếu xác nhận giao dịch, không phải hóa đơn điện tử hợp pháp.</p>
+</main>
+</body>
+</html>

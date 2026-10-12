@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Đặt hàng thành công · UTEWedding')}"></head>
+<body class="bg-cream">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5">
+    <div class="success-card card border-0 shadow-sm text-center mx-auto p-4 p-md-5">
+        <div class="success-mark" aria-hidden="true">✓</div>
+        <p class="eyebrow mt-4">Thank you for choosing with heart</p>
+        <h1 class="display-subtitle mt-2">Đơn hàng đã được ghi nhận</h1>
+        <p class="text-secondary">Cảm ơn bạn đã trao gửi một món quà thật ý nghĩa. Chúng mình sẽ liên hệ để xác nhận giao hàng.</p>
+        <div class="order-reference my-4"><span>Mã đơn hàng</span><strong th:text="${order.orderNumber}">UTE-2026-0001</strong></div>
+        <div class="row g-3 text-start small mb-4">
+            <div class="col-md-6"><span class="text-secondary d-block">Trạng thái</span><strong th:text="${order.paymentMethod != null and order.paymentMethod.name() == 'COD' and order.status.name() == 'PENDING' ? 'Đã ghi nhận đơn COD' : T(com.utewedding.app.service.web.StatusLabels).label(order.status)}">Đã ghi nhận</strong></div>
+            <div class="col-md-6"><span class="text-secondary d-block">Tổng cộng</span><strong th:text="${#numbers.formatDecimal(order.total,0,'COMMA',0,'POINT')} + ' đ'">0 đ</strong></div>
+            <div class="col-12"><span class="text-secondary d-block">Sản phẩm</span><span th:each="item, itemStat : ${order.items}"><strong th:text="${item.productName + ' × ' + item.quantity}">Kỷ vật cưới × 1</strong><span th:if="${!itemStat.last}">, </span></span></div>
+        </div>
+        <div th:if="${order.paymentMethod != null and order.paymentMethod.name() == 'COD' and (order.paymentStatus == null or order.paymentStatus.name() != 'SUCCEEDED')}" class="alert alert-info border-0 text-start small">Bạn sẽ thanh toán khi nhận hàng. Chúng mình sẽ xử lý và giao đơn hàng cho bạn.</div>
+        <div th:if="${order.payments != null and !order.payments.empty and (order.paymentMethod == null or order.paymentMethod.name() != 'COD' or (order.paymentStatus != null and order.paymentStatus.name() == 'SUCCEEDED'))}" class="alert alert-success border-0 text-start small">Thông tin thanh toán đã được ghi nhận.</div>
+        <div class="d-flex flex-wrap justify-content-center gap-2 mt-3">
+            <a th:if="${trackingAccessCode != null}" class="btn btn-primary rounded-pill px-4" th:href="@{/orders/track/{code}(code=${trackingAccessCode})}">Xem hành trình đơn</a>
+            <a class="btn btn-outline-dark rounded-pill px-4" th:href="@{/products}">Tiếp tục mua sắm</a>
+        </div>
+    </div>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer><th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

@@ -16,6 +16,12 @@
                     <li class="nav-item"><a class="nav-link" th:href="@{/}">Trang chủ</a></li>
                     <li class="nav-item"><a class="nav-link" th:href="@{/wedding/create}">Tạo Thiệp Cưới</a></li>
                     <li class="nav-item"><a class="nav-link" th:href="@{/shop/catalog}">Dịch Vụ Cưới</a></li>
+                    <li class="nav-item position-relative">
+                        <a class="nav-link" th:href="@{/cart}">
+                            🛒 Giỏ hàng
+                            <span class="badge bg-danger rounded-pill" id="cartCountBadge" th:text="${cartItemCount ?: 0}">0</span>
+                        </a>
+                    </li>
                     <!-- Menu người dùng sau khi đăng nhập / chưa đăng nhập -->
                     <li class="nav-item" th:if="${#authentication == null or !#authorization.expression('isAuthenticated()')}">
                         <a class="nav-link" th:href="@{/auth/login}">Đăng nhập</a>

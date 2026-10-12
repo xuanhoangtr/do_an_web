@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments :: head('Tra cứu đơn hàng · UTEWedding')}"></head>
+<body class="bg-cream">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5">
+    <section class="card border-0 shadow-sm rounded-4 p-4 p-md-5 mx-auto" style="max-width: 680px">
+        <p class="eyebrow mb-2">Đơn hàng</p>
+        <h1 class="h3">Tra cứu đơn hàng</h1>
+        <p class="text-secondary">Nhập mã tra cứu riêng trong đường dẫn theo dõi để xem trạng thái, nhật ký xử lý và thời gian giao dự kiến.</p>
+        <div th:if="${errorMessage}" class="alert alert-danger" role="alert" th:text="${errorMessage}"></div>
+        <form method="get" th:action="@{/orders/track}" class="row g-2">
+            <div class="col-12 col-md-8">
+                <label class="form-label" for="orderCode">Mã tra cứu</label>
+                <input class="form-control" id="orderCode" name="code" th:value="${code}" maxlength="36" pattern="[0-9a-fA-F-]{36}" autocomplete="off" required>
+            </div>
+            <div class="col-12 col-md-4 d-flex align-items-end">
+                <button class="btn btn-dark w-100" type="submit">Tiếp tục</button>
+            </div>
+        </form>
+        <section th:if="${tracking != null}" class="border-top mt-4 pt-4" aria-live="polite">
+            <p class="eyebrow mb-1">Trạng thái đơn hàng</p>
+            <h2 class="h5" th:text="${tracking.orderNumber}">Mã đơn</h2>
+            <p class="mb-3">Trạng thái đơn hàng: <strong th:text="${T(com.utewedding.app.service.web.StatusLabels).label(tracking.status)}">Chờ thanh toán</strong></p>
+            <div th:if="${tracking.expectedDeliveryFrom != null}" class="alert alert-light border rounded-3 mb-4">
+                <p class="eyebrow mb-1">Dự kiến nhận hàng</p>
+                <strong th:text="${#temporals.format(tracking.expectedDeliveryFrom, 'dd/MM') + ' – ' + #temporals.format(tracking.expectedDeliveryTo, 'dd/MM/yyyy')}">28/10 – 29/10/2026</strong>
+                <span class="text-secondary ms-2" th:text="${tracking.deliveryArea + ' · ' + tracking.expectedDeliveryMinDays + '–' + tracking.expectedDeliveryMaxDays + ' ngày'}">TP. Hồ Chí Minh · 1–2 ngày</span>
+                <p class="small text-secondary mb-0 mt-1">Ước tính theo ngày đặt hàng; thời gian thực tế có thể thay đổi theo khâu chuẩn bị và lịch của đơn vị vận chuyển.</p>
+            </div>
+            <h3 class="h6">Nhật ký đơn hàng</h3>
+            <ol class="list-unstyled border-start ms-2 ps-4 mb-4" aria-label="Nhật ký xử lý đơn hàng">
+                <li th:each="event : ${tracking.timeline}" class="position-relative pb-3">
+                    <span class="position-absolute rounded-circle border border-2 bg-white"
+                          th:classappend="${event.warning} ? ' border-danger' : ' border-primary'"
+                          style="width: .75rem; height: .75rem; left: -1.78rem; top: .25rem" aria-hidden="true"></span>
+                    <strong th:text="${event.title}" th:classappend="${event.warning} ? ' text-danger' : ''">Đơn hàng đã được đặt</strong>
+                    <time class="d-block small text-secondary" th:datetime="${event.occurredAt}"
+                          th:text="${#temporals.format(event.occurredAt, 'HH:mm · dd/MM/yyyy')}">10:30 · 27/10/2026</time>
+                    <small th:if="${event.detail != null}" class="text-secondary" th:text="${event.detail}"></small>
+                </li>
+            </ol>
+            <h3 class="h6">Vận chuyển</h3>
+            <div th:if="${#lists.isEmpty(tracking.fulfillments)}" class="text-secondary">Chưa có thông tin vận chuyển.</div>
+            <ul th:unless="${#lists.isEmpty(tracking.fulfillments)}" class="list-group list-group-flush">
+                <li th:each="shipment : ${tracking.fulfillments}" class="list-group-item px-0">
+                    <span class="fw-semibold" th:text="${T(com.utewedding.app.service.web.StatusLabels).label(shipment.status)}">Đã xác nhận</span>
+                    <span th:if="${shipment.trackingNumber != null}" class="ms-2 text-secondary">
+                        Mã vận đơn: <span th:text="${shipment.trackingNumber}">123456</span>
+                    </span>
+                </li>
+            </ul>
+        </section>
+    </section>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

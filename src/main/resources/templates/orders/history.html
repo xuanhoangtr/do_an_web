@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Đơn hàng của tôi · UTEWedding')}"></head>
+<body class="bg-cream">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5">
+    <h1 class="display-subtitle">Đơn hàng của tôi</h1>
+    <nav class="nav nav-pills flex-wrap gap-2 mt-3" aria-label="Lọc nhóm trạng thái đơn hàng">
+        <a th:each="group : ${historyGroups}"
+           class="nav-link d-inline-flex align-items-center gap-2"
+           th:classappend="${group == selectedTab} ? ' active' : ''"
+           th:aria-current="${group == selectedTab} ? 'page' : null"
+           th:href="@{/orders/history(tab=${group.name()},q=${q},status=${status},paymentStatus=${paymentStatus},fulfillmentStatus=${fulfillmentStatus},from=${from},to=${to})}">
+            <span th:text="${group.label()}">Tất cả</span>
+            <span class="badge rounded-pill"
+                  th:classappend="${group == selectedTab} ? ' text-bg-light' : ' text-bg-secondary'"
+                  th:text="${historyCounts[group]}">0</span>
+        </a>
+    </nav>
+    <form method="get" th:action="@{/orders/history}" class="order-history-filters mt-3">
+        <input type="hidden" name="tab" th:value="${selectedTab}">
+        <div class="order-history-filter order-history-filter--search">
+            <label class="form-label mb-1" for="orderSearch">Mã đơn hàng</label>
+            <input class="form-control" id="orderSearch" name="q" th:value="${q}" placeholder="Nhập mã đơn">
+        </div>
+        <div class="order-history-filter order-history-filter--status">
+            <label class="form-label mb-1" for="orderStatus">Trạng thái đơn hàng</label>
+            <select class="form-select" id="orderStatus" name="status"><option value="">Tất cả</option><option th:each="item : ${orderStatuses}" th:value="${item}" th:text="${T(com.utewedding.app.service.web.StatusLabels).label(item)}" th:selected="${item.name() == status}"></option></select>
+        </div>
+        <div class="order-history-filter order-history-filter--status">
+            <label class="form-label mb-1" for="paymentStatus">Trạng thái thanh toán</label>
+            <select class="form-select" id="paymentStatus" name="paymentStatus"><option value="">Tất cả</option><option th:each="item : ${paymentStatuses}" th:value="${item}" th:text="${T(com.utewedding.app.service.web.StatusLabels).label(item)}" th:selected="${item.name() == paymentStatus}"></option></select>
+        </div>
+        <div class="order-history-filter order-history-filter--status">
+            <label class="form-label mb-1" for="fulfillmentStatus">Trạng thái giao hàng</label>
+            <select class="form-select" id="fulfillmentStatus" name="fulfillmentStatus"><option value="">Tất cả</option><option th:each="item : ${fulfillmentStatuses}" th:value="${item}" th:text="${T(com.utewedding.app.service.web.StatusLabels).label(item)}" th:selected="${item.name() == fulfillmentStatus}"></option></select>
+        </div>
+        <div class="order-history-filter order-history-filter--date">
+            <label class="form-label mb-1" for="orderFrom">Từ ngày</label>
+            <input class="form-control" id="orderFrom" type="date" name="from" th:value="${from}">
+        </div>
+        <div class="order-history-filter order-history-filter--date">
+            <label class="form-label mb-1" for="orderTo">Đến ngày</label>
+            <input class="form-control" id="orderTo" type="date" name="to" th:value="${to}">
+        </div>
+        <div class="order-history-filter order-history-filter--action"><button class="btn btn-dark w-100" type="submit">Lọc</button></div>
+    </form>
+    <div class="card border-0 shadow-sm mt-4 overflow-hidden">
+        <div th:if="${orders == null or orders.empty}" class="p-5 text-center text-secondary">
+            <p class="mb-3" th:text="${selectedTab == T(com.utewedding.app.service.web.OrderHistoryGroup).SHIPPING ? 'Chưa có đơn đang giao.' : 'Chưa có đơn hàng trong nhóm này.'}">Chưa có đơn hàng trong nhóm này.</p>
+            <a class="btn btn-outline-dark" th:href="@{/products}">Tiếp tục mua sắm</a>
+        </div>
+        <div th:unless="${orders == null or orders.empty}" class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead><tr><th>STT</th><th>Mã đơn</th><th>Đơn</th><th>Thanh toán</th><th>Giao hàng</th><th>Tổng tiền</th><th>Ngày tạo</th><th></th></tr></thead>
+                <tbody>
+                <tr th:each="order, rowStat : ${orders.content}">
+                    <td th:text="${orders.number * orders.size + rowStat.count}">1</td>
+                    <td><a class="fw-semibold text-decoration-none" th:href="@{/orders/{id}(id=${order.id})}" th:text="${order.orderNumber}">UTE</a></td>
+                    <td><span class="badge rounded-pill" th:classappend="${T(com.utewedding.app.service.web.StatusLabels).orderStatusBadgeClass(order.status)}" th:text="${T(com.utewedding.app.service.web.StatusLabels).orderStatusLabel(order.status, order.paymentMethod)}">Đã thanh toán</span></td>
+                    <td><span class="badge rounded-pill" th:classappend="${T(com.utewedding.app.service.web.StatusLabels).paymentStatusBadgeClass(order.paymentStatus)}" th:text="${T(com.utewedding.app.service.web.StatusLabels).paymentStatusLabel(order.paymentStatus, order.paymentMethod)}">Thanh toán thành công</span></td>
+                    <td><span class="badge rounded-pill" th:classappend="${T(com.utewedding.app.service.web.StatusLabels).fulfillmentStatusBadgeClass(order.overallFulfillmentStatus)}" th:text="${T(com.utewedding.app.service.web.StatusLabels).label(order.overallFulfillmentStatus)}">Đang giao</span></td>
+                    <td th:text="${#numbers.formatDecimal(order.total,0,'COMMA',0,'POINT')} + ' đ'"></td>
+                    <td th:text="${#temporals.format(order.createdAt, 'dd/MM/yyyy HH:mm')}"></td>
+                    <td><a class="btn btn-sm btn-outline-dark" th:href="@{/orders/{id}(id=${order.id})}">Xem chi tiết</a></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <nav th:if="${orders != null and orders.totalPages > 1}" class="mt-3" aria-label="Phân trang đơn hàng">
+        <ul class="pagination flex-wrap">
+            <li class="page-item" th:classappend="${!orders.hasPrevious()} ? ' disabled' : ''">
+                <a class="page-link" th:if="${orders.hasPrevious()}" th:href="@{/orders/history(q=${q},status=${status},paymentStatus=${paymentStatus},fulfillmentStatus=${fulfillmentStatus},tab=${selectedTab},from=${from},to=${to},page=${orders.number - 1})}">Trước</a>
+                <span class="page-link" th:unless="${orders.hasPrevious()}">Trước</span>
+            </li>
+            <li class="page-item" th:each="number : ${#numbers.sequence(0, orders.totalPages - 1)}"
+                th:classappend="${number == orders.number} ? ' active' : ''">
+                <a class="page-link" th:href="@{/orders/history(q=${q},status=${status},paymentStatus=${paymentStatus},fulfillmentStatus=${fulfillmentStatus},tab=${selectedTab},from=${from},to=${to},page=${number})}"
+                   th:attr="aria-current=${number == orders.number ? 'page' : null}" th:text="${number + 1}">1</a>
+            </li>
+            <li class="page-item" th:classappend="${!orders.hasNext()} ? ' disabled' : ''">
+                <a class="page-link" th:if="${orders.hasNext()}" th:href="@{/orders/history(q=${q},status=${status},paymentStatus=${paymentStatus},fulfillmentStatus=${fulfillmentStatus},tab=${selectedTab},from=${from},to=${to},page=${orders.number + 1})}">Sau</a>
+                <span class="page-link" th:unless="${orders.hasNext()}">Sau</span>
+            </li>
+        </ul>
+    </nav>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

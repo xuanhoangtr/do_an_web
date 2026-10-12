@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Chi tiết đơn hàng · UTEWedding')}"></head>
+<body class="bg-cream">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5">
+    <a class="text-decoration-none" th:href="@{/orders}">← Đơn hàng của tôi</a>
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mt-3">
+        <div>
+            <p class="eyebrow mb-1">Chi tiết đơn hàng</p>
+            <h1 class="display-subtitle order-number mb-2" th:text="${order.orderNumber}">Mã đơn</h1>
+            <p class="text-secondary mb-0" th:text="${#temporals.format(order.createdAt, 'dd/MM/yyyy HH:mm')}">Ngày tạo</p>
+        </div>
+        <div class="text-md-end">
+            <span class="badge rounded-pill" th:classappend="${T(com.utewedding.app.service.web.StatusLabels).orderStatusBadgeClass(order.status)}"
+                  th:text="${T(com.utewedding.app.service.web.StatusLabels).orderStatusLabel(order.status, order.paymentMethod)}">Trạng thái đơn</span>
+            <p class="small text-secondary mt-2 mb-0">Thanh toán:
+                <span class="badge rounded-pill" th:classappend="${T(com.utewedding.app.service.web.StatusLabels).paymentStatusBadgeClass(order.paymentStatus)}"
+                      th:text="${T(com.utewedding.app.service.web.StatusLabels).paymentStatusLabel(order.paymentStatus, order.paymentMethod)}">Trạng thái thanh toán</span>
+            </p>
+            <a class="btn btn-sm btn-outline-dark mt-2" th:href="@{/orders/track/{code}(code=${trackingAccessCode})}">Theo dõi đơn hàng</a>
+        </div>
+    </div>
+
+    <div class="alert alert-danger mt-3" role="alert" th:if="${errorMessage != null}" th:text="${errorMessage}"></div>
+
+    <div class="row g-4 mt-1">
+        <div class="col-lg-8">
+            <section class="card border-0 shadow-sm overflow-hidden">
+                <div class="card-header bg-white py-3"><h2 class="h5 mb-0">Sản phẩm</h2></div>
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead class="table-light"><tr><th>STT</th><th class="ps-3">Sản phẩm</th><th>SKU</th><th class="text-end">SL</th><th class="text-end">Đơn giá</th><th class="text-end">Giảm giá</th><th class="text-end pe-3">Thành tiền</th></tr></thead>
+                        <tbody>
+                        <tr th:each="item, rowStat : ${detail.items}">
+                            <td th:text="${rowStat.count}">1</td>
+                            <td class="ps-3"><div class="d-flex align-items-center gap-3"><img class="rounded border" width="56" height="56" style="object-fit:cover" th:src="${item.imageUrl != null and !#strings.isEmpty(item.imageUrl) ? item.imageUrl : '/images/placeholder-product.svg'}" alt="Ảnh sản phẩm"><span class="fw-semibold" th:text="${item.productName}">Sản phẩm</span></div></td>
+                            <td class="small text-secondary" th:text="${item.sku != null ? item.sku : '—'}">SKU</td>
+                            <td class="text-end" th:text="${item.quantity}">1</td>
+                            <td class="text-end text-nowrap" th:text="${#numbers.formatDecimal(item.unitPrice,0,'COMMA',0,'POINT')} + ' đ'">0 đ</td>
+                            <td class="text-end text-nowrap" th:text="${#numbers.formatDecimal(item.discountAmount,0,'COMMA',0,'POINT')} + ' đ'">0 đ</td>
+                            <td class="text-end text-nowrap pe-3 fw-semibold" th:text="${#numbers.formatDecimal(item.lineTotal,0,'COMMA',0,'POINT')} + ' đ'">0 đ</td>
+                        </tr>
+                        <tr th:if="${detail.items.empty}"><td colspan="7" class="p-4 text-center text-secondary">Không có thông tin sản phẩm.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="small text-secondary px-3 py-2 mb-0">SKU và ảnh hiển thị theo thông tin catalog hiện tại; giá và số lượng là dữ liệu tại thời điểm đặt hàng.</p>
+            </section>
+
+            <section class="card border-0 shadow-sm mt-4" th:if="${!detail.statusHistory.empty}">
+                <div class="card-body p-4">
+                    <h2 class="h5 mb-3">Lịch sử trạng thái</h2>
+                    <ol class="status-timeline order-status-timeline">
+                        <li class="status-timeline-item" th:each="transition, transitionStat : ${detail.statusHistory}"
+                            th:classappend="${transitionStat.last} ? ' is-latest' : ''">
+                            <span class="status-timeline-marker" aria-hidden="true"></span>
+                            <div class="status-timeline-entry">
+                                <div class="status-timeline-heading">
+                                    <div class="status-timeline-title">
+                                        <span class="status-timeline-subject" th:text="${T(com.utewedding.app.service.web.TimelineStatusLabels).subjectLabel(transition.subject)}">Đơn hàng</span>
+                                        <strong class="status-timeline-status"
+                                                th:text="${T(com.utewedding.app.service.web.TimelineStatusLabels).statusLabel(transition.subject, transition.toStatus != null ? transition.toStatus : transition.fromStatus)}">Đã thanh toán</strong>
+                                        <span class="status-timeline-latest" th:if="${transitionStat.last}">Mới nhất</span>
+                                    </div>
+                                    <time class="status-timeline-time" th:if="${transition.changedAt != null}"
+                                          th:text="${#temporals.format(transition.changedAt, 'dd/MM/yyyy HH:mm')}">Ngày cập nhật</time>
+                                </div>
+                                <p class="status-timeline-change" th:if="${transition.fromStatus != null and transition.toStatus != null}">
+                                    <span th:text="${T(com.utewedding.app.service.web.TimelineStatusLabels).statusLabel(transition.subject, transition.fromStatus)}">Trạng thái trước</span>
+                                    <span class="status-timeline-arrow" aria-hidden="true">→</span>
+                                    <span th:text="${T(com.utewedding.app.service.web.TimelineStatusLabels).statusLabel(transition.subject, transition.toStatus)}">Trạng thái mới</span>
+                                </p>
+                            </div>
+                        </li>
+                    </ol>
+                </div>
+            </section>
+
+            <section class="card border-0 shadow-sm mt-4">
+                <div class="card-body p-4">
+                    <h2 class="h5 mb-3">Địa chỉ giao hàng</h2>
+                    <div th:if="${order.shipping != null}">
+                        <p class="fw-semibold mb-1" th:text="${order.shipping.recipientName}">Người nhận</p>
+                        <p class="mb-1" th:text="${order.shipping.phone}">Số điện thoại</p>
+                        <p class="mb-1" th:text="${order.shipping.addressLine}">Địa chỉ</p>
+                        <p class="text-secondary mb-0"><span th:if="${order.shipping.ward != null}" th:text="${order.shipping.ward}">Phường</span><span th:if="${order.shipping.ward != null and (order.shipping.district != null or order.shipping.province != null)}">, </span><span th:if="${order.shipping.district != null}" th:text="${order.shipping.district}">Quận</span><span th:if="${order.shipping.district != null and order.shipping.province != null}">, </span><span th:if="${order.shipping.province != null}" th:text="${order.shipping.province}">Tỉnh</span></p>
+                    </div>
+                    <p class="text-secondary mb-0" th:if="${order.shipping == null}">Không có thông tin địa chỉ.</p>
+                </div>
+            </section>
+        </div>
+
+        <aside class="col-lg-4">
+            <section class="card border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <h2 class="h5 mb-3">Thanh toán</h2>
+                    <div th:if="${order.paymentMethod != null and order.paymentMethod.name() == 'VNPAY' and order.status.name() == 'PENDING'}" class="alert alert-light border small">
+                        <p class="mb-1"><strong>Hạn thanh toán đơn:</strong> <span th:text="${paymentExpiresAtVn != null ? #temporals.format(paymentExpiresAtVn, 'dd/MM/yyyy HH:mm')} : '—'">27/10/2026 22:18</span> (giờ Việt Nam)</p>
+                        <p class="mb-0">Link có hiệu lực tối đa 15 phút; bạn có thể lấy link mới khi đơn còn hạn.</p>
+                    </div>
+                    <p class="d-flex justify-content-between gap-3"><span>Phương thức</span><strong th:text="${order.paymentMethod != null ? order.paymentMethod : '—'}">COD</strong></p>
+                    <hr>
+                    <p class="d-flex justify-content-between gap-3"><span>Tạm tính</span><strong class="text-nowrap" th:text="${#numbers.formatDecimal(order.subtotal,0,'COMMA',0,'POINT')} + ' đ'">0 đ</strong></p>
+                    <p class="d-flex justify-content-between gap-3"><span>Giảm giá sản phẩm</span><strong class="text-nowrap" th:text="${#numbers.formatDecimal(detail.productDiscountTotal,0,'COMMA',0,'POINT')} + ' đ'">0 đ</strong></p>
+                    <p class="d-flex justify-content-between gap-3" th:if="${order.voucherDiscountAmount > 0}"><span>Voucher giảm tiền hàng · <span th:text="${order.discountCode}">Mã</span></span><strong class="text-nowrap" th:text="${'-' + #numbers.formatDecimal(order.voucherDiscountAmount,0,'COMMA',0,'POINT') + ' đ'}">-0 đ</strong></p>
+                    <p class="d-flex justify-content-between gap-3"><span>Phí vận chuyển</span><strong class="text-nowrap" th:text="${#numbers.formatDecimal(order.shippingFeeBeforeDiscount,0,'COMMA',0,'POINT')} + ' đ'">0 đ</strong></p>
+                    <p class="d-flex justify-content-between gap-3 text-success" th:if="${order.shippingDiscountAmount > 0}"><span th:text="${order.voucherType != null and order.voucherType.name() == 'SHIPPING_FREE' ? 'Miễn phí vận chuyển · ' + order.discountCode : 'Giảm phí vận chuyển · ' + order.discountCode}">Giảm phí vận chuyển</span><strong class="text-nowrap" th:text="${'-' + #numbers.formatDecimal(order.shippingDiscountAmount,0,'COMMA',0,'POINT') + ' đ'}">-0 đ</strong></p>
+                    <p class="d-flex justify-content-between gap-3"><span>Phí vận chuyển khách trả</span><strong class="text-nowrap" th:text="${#numbers.formatDecimal(order.shippingFee,0,'COMMA',0,'POINT')} + ' đ'">0 đ</strong></p>
+                    <p class="small text-secondary">Ưu đãi sản phẩm và voucher tiền hàng đã được tính vào tạm tính; không trừ lại lần nữa.</p>
+                    <hr>
+                    <p class="d-flex justify-content-between gap-3 fs-5 mb-0"><span>Tổng cộng</span><strong class="text-nowrap" th:text="${#numbers.formatDecimal(order.total,0,'COMMA',0,'POINT')} + ' đ'">0 đ</strong></p>
+                </div>
+            </section>
+
+            <section class="card border-0 shadow-sm mt-4">
+                <div class="card-body p-4">
+                    <h2 class="h5 mb-3">Giao hàng</h2>
+                    <p class="mb-2">Trạng thái: <strong th:text="${T(com.utewedding.app.service.web.TimelineStatusLabels).statusLabel('fulfillment', order.overallFulfillmentStatus)}">NOT_READY</strong></p>
+                    <div th:if="${order.fulfillments != null and !order.fulfillments.empty}">
+                        <div class="border-top pt-3 mt-3" th:each="fulfillment : ${order.fulfillments}">
+                            <p class="mb-1">Đợt giao: <strong th:text="${T(com.utewedding.app.service.web.TimelineStatusLabels).statusLabel('fulfillment', fulfillment.status)}">PROCESSING</strong></p>
+                            <p class="small text-secondary mb-0" th:if="${fulfillment.trackingNumber != null}" th:text="'Mã vận đơn: ' + ${fulfillment.trackingNumber}">Mã vận đơn</p>
+                        </div>
+                    </div>
+                    <a class="btn btn-outline-dark w-100 mb-2" th:href="@{/orders/{id}/invoice(id=${order.id})}" target="_blank" rel="noopener">Tải / in hóa đơn</a>
+                    <form class="mb-2" th:if="${canRepay}" th:action="@{/orders/{id}/pay(id=${order.id})}" method="post">
+                        <button class="btn btn-primary w-100" type="submit" th:text="${order.paymentMethod != null and order.paymentMethod.name() == 'VNPAY' ? 'Thanh toán VNPAY' : 'Thanh toán lại'}">Thanh toán VNPAY</button>
+                    </form>
+                    <form class="mt-3" th:if="${canCancelOrder}" th:action="@{/orders/{id}/cancel(id=${order.id})}" method="post">
+                        <label class="form-label" for="cancelReason">Lý do hủy</label>
+                        <textarea id="cancelReason" class="form-control mb-2" name="reason" rows="2" th:required="${order.paymentMethod != null and order.paymentMethod.name() == 'COD'}"></textarea>
+                        <button class="btn btn-outline-danger w-100" type="submit">Hủy đơn hàng</button>
+                        <small class="d-block text-secondary mt-2">Đơn COD chỉ hủy được trước khi bất kỳ kiện nào bắt đầu giao.</small>
+                    </form>
+                </div>
+            </section>
+        </aside>
+    </div>
+    <section th:if="${returnOptions != null}" class="card p-4 my-4"><h2 class="h5">Trả hàng / hoàn tiền</h2><div th:each="option : ${returnOptions}" class="mb-2"><a th:if="${option.eligible}" th:href="@{/returns/new(orderId=${order.id},fulfillmentId=${option.fulfillmentId})}">Yêu cầu trả hàng / hoàn tiền cho fulfillment</a><span th:unless="${option.eligible}" th:text="${option.reason}"></span></div><div th:each="case : ${returnCases}"><a th:href="@{/returns/{id}(id=${case.id})}" th:text="${case.caseNumber + ' · ' + case.status}"></a></div><a th:href="@{/returns}">Xem các yêu cầu đã tạo</a></section>
+    <a class="btn btn-outline-dark support-chat-context-link" th:href="@{/support/new(orderId=${order.id})}"
+       th:data-support-chat-order-id="${order.id}">Liên hệ hỗ trợ</a>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>
