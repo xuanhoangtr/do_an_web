@@ -1,0 +1,441 @@
+package com.utewedding.app.controller;
+
+import com.utewedding.app.domain.AuditAction;
+import com.utewedding.app.domain.FulfillmentStatus;
+import com.utewedding.app.domain.OrderStatus;
+import com.utewedding.app.domain.PaymentMethod;
+import com.utewedding.app.domain.PaymentStatus;
+import com.utewedding.app.domain.entity.AuditLogEntity;
+import com.utewedding.app.domain.entity.ProductEntity;
+import com.utewedding.app.dto.request.CreateOrderRequest;
+import com.utewedding.app.dto.request.ShippingAddressRequest;
+import com.utewedding.app.dto.response.OrderItemResponse;
+import com.utewedding.app.dto.response.OrderResponse;
+import com.utewedding.app.dto.response.CheckoutPricingPreview;
+import com.utewedding.app.dto.response.CheckoutVoucherPreview;
+import com.utewedding.app.integration.VNPayService;
+import com.utewedding.app.integration.MoMoService;
+import com.utewedding.app.repository.AuditLogRepository;
+import com.utewedding.app.repository.ProductRepository;
+import com.utewedding.app.service.OrderService;
+import com.utewedding.app.service.ShipInfoService;
+import com.utewedding.app.service.RequestContext;
+import com.utewedding.app.service.web.CurrentUserContext;
+import com.utewedding.app.service.web.OrderDetailView;
+import com.utewedding.app.service.web.OrderHistoryGroup;
+import com.utewedding.app.service.web.WebCartService;
+import com.utewedding.app.service.web.WebViewModels;
+import com.utewedding.app.service.impl.ShippingQuoteService;
+import com.utewedding.app.service.impl.AccountingDocumentService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import org.springframework.validation.BindingResult;
+import java.time.LocalDate;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.springframework.stereotype.Controller;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.access.prepost.PreAuthorize;
+import com.utewedding.app.exception.CheckoutPriceChangedException;
+import com.utewedding.app.exception.ShippingQuoteExpiredException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+@Controller
+@PreAuthorize("hasAnyRole('USER','CUSTOMER')")
+public class OrderWebController {
+
+    private static final Logger log = LoggerFactory.getLogger(OrderWebController.class);
+
+    private final WebCartService cartService;
+    private final OrderService orderService;
+    private final VNPayService vnPayService;
+    private final MoMoService momoService;
+    private final CurrentUserContext currentUser;
+    private final ShipInfoService shipInfoService;
+    private final ProductRepository productRepository;
+    private final AuditLogRepository auditLogRepository;
+    private ShippingQuoteService shippingQuotes;
+    private AccountingDocumentService accountingDocuments;
+    private com.utewedding.app.service.AdministrativeAddressService addressDirectory;
+
+    @Autowired
+    public OrderWebController(WebCartService cartService, OrderService orderService,
+                              VNPayService vnPayService, CurrentUserContext currentUser,
+                              ShipInfoService shipInfoService, MoMoService momoService,
+                              ProductRepository productRepository, AuditLogRepository auditLogRepository) {
+        this.cartService = cartService;
+        this.orderService = orderService;
+        this.vnPayService = vnPayService;
+        this.currentUser = currentUser;
+        this.shipInfoService = shipInfoService;
+        this.momoService = momoService;
+        this.productRepository = productRepository;
+        this.auditLogRepository = auditLogRepository;
+    }
+
+    @Autowired(required = false)
+    void attachShippingQuotes(ShippingQuoteService service) { this.shippingQuotes = service; }
+    @Autowired(required = false)
+    void attachAddressDirectory(com.utewedding.app.service.AdministrativeAddressService service) {
+        this.addressDirectory = service;
+    }
+    @Autowired(required = false)
+    void attachAccountingDocuments(AccountingDocumentService service) { this.accountingDocuments = service; }
+
+    @Autowired(required=false) private com.utewedding.app.service.impl.ReturnCaseQueryService returnQueries;
+
+    @GetMapping("/checkout")
+    public String checkout(Authentication authentication, Model model) {
+        populateCheckout(authentication, model);
+        return "cart/checkout";
+    }
+
+    @PostMapping("/checkout/preview")
+    @ResponseBody
+    public CheckoutVoucherPreview previewVoucher(Authentication authentication,
+                                                  @ModelAttribute("checkoutRequest") WebViewModels.CheckoutForm form) {
+        UUID userId = currentUser.requireUserId(authentication);
+        UUID shippingQuoteId = null;
+        Instant shippingQuoteExpiresAt = null;
+        CheckoutPricingPreview basePricing;
+        try {
+            if (shippingQuotes != null) {
+                ShippingQuoteService.QuoteResponse quote = shippingQuotes.quote(userId, shippingRequest(form));
+                shippingQuoteId = quote.id();
+                shippingQuoteExpiresAt = quote.expiresAt();
+                form.setShippingQuoteId(shippingQuoteId);
+            }
+            CreateOrderRequest baseRequest = toOrderRequest(form, null, null);
+            basePricing = orderService.preview(userId, baseRequest);
+        } catch (RuntimeException exception) {
+            return new CheckoutVoucherPreview(false, WebErrorMessages.forException(exception), null, null, null);
+        }
+        if (form.getDiscountCode() == null || form.getDiscountCode().isBlank()) {
+            return new CheckoutVoucherPreview(true, "", basePricing, shippingQuoteId, shippingQuoteExpiresAt);
+        }
+        try {
+            CheckoutPricingPreview pricing = orderService.preview(userId,
+                    toOrderRequest(form, form.getDiscountCode(), null));
+            String successMessage = switch (pricing.voucherType() == null ? "" : pricing.voucherType().name()) {
+                case "SHIPPING_FREE" -> "Đã áp dụng miễn phí vận chuyển.";
+                case "SHIPPING_FIXED" -> "Đã áp dụng giảm phí vận chuyển.";
+                default -> "Mã giảm giá đã được áp dụng.";
+            };
+            return new CheckoutVoucherPreview(true, successMessage, pricing,
+                    shippingQuoteId, shippingQuoteExpiresAt);
+        } catch (RuntimeException exception) {
+            return new CheckoutVoucherPreview(false, WebErrorMessages.forException(exception), basePricing,
+                    shippingQuoteId, shippingQuoteExpiresAt);
+        }
+    }
+
+    @PostMapping("/checkout/place-order")
+    public String placeOrder(Authentication authentication,
+                             @Valid @ModelAttribute("checkoutRequest") WebViewModels.CheckoutForm form,
+                             BindingResult bindingResult,
+                             Model model, RedirectAttributes redirectAttributes,
+                             HttpServletRequest request) {
+        UUID userId = currentUser.requireUserId(authentication);
+        if (bindingResult.hasErrors()) {
+            populateCheckout(authentication, model);
+            return "cart/checkout";
+        }
+        if (form.getPaymentMethod() != null && !form.getPaymentMethod().isEnabled()) {
+            model.addAttribute("checkoutError", "MoMo đang được cập nhật. Vui lòng chọn COD hoặc VNPAY.");
+            populateCheckout(authentication, model);
+            return "cart/checkout";
+        }
+        try {
+            if (shippingQuotes != null) {
+                if (form.getShippingQuoteId() == null) {
+                    form.setShippingQuoteId(shippingQuotes.quote(userId, shippingRequest(form)).id());
+                }
+            }
+            RequestContext context = new RequestContext(request.getRemoteAddr(), request.getHeader("User-Agent"),
+                    request.getHeader("X-Request-Id"));
+            OrderResponse order;
+            try {
+                order = orderService.create(userId,
+                        toOrderRequest(form, form.getDiscountCode(), form.getExpectedTotalAmount()), context);
+            } catch (ShippingQuoteExpiredException exception) {
+                if (shippingQuotes == null) throw exception;
+                shippingQuotes.refreshExpired(userId, form.getShippingQuoteId(), shippingRequest(form));
+                order = orderService.create(userId,
+                        toOrderRequest(form, form.getDiscountCode(), form.getExpectedTotalAmount()), context);
+            }
+            if (form.getPaymentMethod() == WebViewModels.PaymentOption.VNPAY) {
+                try {
+                    String paymentUrl = vnPayService.createPaymentUrl(userId, order.orderNumber(),
+                            "Thanh toan don " + order.orderNumber(), request.getRemoteAddr()).paymentUrl();
+                    return "redirect:" + paymentUrl;
+                } catch (RuntimeException exception) {
+                    redirectAttributes.addFlashAttribute("errorMessage", WebErrorMessages.forException(exception));
+                    return "redirect:/orders/" + order.id();
+                }
+            }
+            if (form.getPaymentMethod() == WebViewModels.PaymentOption.MOMO && momoService != null) {
+                String paymentUrl = momoService.create(userId, order.id()).endpoint();
+                return "redirect:" + paymentUrl;
+            }
+            return "redirect:/order/success/" + order.id();
+        } catch (CheckoutPriceChangedException exception) {
+            form.setExpectedTotalAmount(exception.getPricing().totalAmount());
+            populateCheckout(authentication, model);
+            model.addAttribute("pricing", exception.getPricing());
+            model.addAttribute("priceChanged", true);
+            return "cart/checkout";
+        } catch (RuntimeException exception) {
+            log.error("Checkout order submission failed for payment method {}", form.getPaymentMethod(), exception);
+            model.addAttribute("checkoutError", WebErrorMessages.forException(exception));
+            populateCheckout(authentication, model);
+            return "cart/checkout";
+        }
+    }
+
+    @GetMapping("/order/success/{orderId}")
+    public String success(Authentication authentication, @PathVariable UUID orderId, Model model) {
+        UUID userId = currentUser.requireUserId(authentication);
+        model.addAttribute("order", orderService.get(userId, orderId));
+        model.addAttribute("trackingAccessCode", orderService.getTrackingAccessCode(userId, orderId));
+        return "cart/success";
+    }
+
+    @GetMapping({"/orders", "/orders/history"})
+    public String history(Authentication authentication,
+                          @RequestParam(defaultValue = "") String q,
+                          @RequestParam(required = false) OrderStatus status,
+                          @RequestParam(required = false) PaymentStatus paymentStatus,
+                          @RequestParam(required = false) FulfillmentStatus fulfillmentStatus,
+                          @RequestParam(defaultValue = "ALL") OrderHistoryGroup tab,
+                          @RequestParam(required = false) LocalDate from,
+                          @RequestParam(required = false) LocalDate to,
+                          @RequestParam(defaultValue = "0") int page,
+                          Model model) {
+        ZoneId zone = ZoneId.of("Asia/Ho_Chi_Minh");
+        var orders = orderService.searchMine(currentUser.requireUserId(authentication), q, status,
+                paymentStatus, fulfillmentStatus, tab,
+                from == null ? null : from.atStartOfDay(zone).toInstant(),
+                to == null ? null : to.plusDays(1).atStartOfDay(zone).toInstant(),
+                org.springframework.data.domain.PageRequest.of(Math.max(page, 0), 10));
+        model.addAttribute("orders", orders);
+        model.addAttribute("q", q);
+        model.addAttribute("status", status == null ? "" : status.name());
+        model.addAttribute("paymentStatus", paymentStatus == null ? "" : paymentStatus.name());
+        model.addAttribute("fulfillmentStatus", fulfillmentStatus == null ? "" : fulfillmentStatus.name());
+        model.addAttribute("selectedTab", tab);
+        model.addAttribute("historyGroups", OrderHistoryGroup.values());
+        model.addAttribute("historyCounts", orderService.countMineByGroup(currentUser.requireUserId(authentication)));
+        model.addAttribute("from", from);
+        model.addAttribute("to", to);
+        model.addAttribute("orderStatuses", OrderStatus.values());
+        model.addAttribute("paymentStatuses", PaymentStatus.values());
+        model.addAttribute("fulfillmentStatuses", FulfillmentStatus.values());
+        return "orders/history";
+    }
+
+    @GetMapping("/orders/{orderId}")
+    public String detail(Authentication authentication, @PathVariable UUID orderId, Model model) {
+        UUID userId = currentUser.requireUserId(authentication);
+        OrderResponse order = orderService.get(userId, orderId);
+        Map<UUID, ProductEntity> currentProducts = order.items().isEmpty()
+                ? Map.of()
+                : productRepository.findAllById(order.items().stream()
+                        .map(OrderItemResponse::productId).toList()).stream()
+                        .collect(Collectors.toMap(ProductEntity::getId, Function.identity()));
+        List<OrderDetailView.Item> items = order.items().stream().map(item -> {
+            ProductEntity product = currentProducts.get(item.productId());
+            return new OrderDetailView.Item(item.productName(), product == null ? null : product.getSku(),
+                    product == null ? null : product.getImageUrl(), item.quantity(), item.unitPrice(),
+                    item.discountAmount(), item.lineTotal());
+        }).toList();
+        List<OrderDetailView.StatusTransition> statusHistory = auditLogRepository
+                .findByTargetTypeAndTargetIdAndActionOrderByCreatedAtAsc(
+                        "Order", orderId, AuditAction.ORDER_STATUS_CHANGED).stream()
+                .map(event -> toStatusTransition(event, "Đơn hàng"))
+                .filter(transition -> transition.fromStatus() != null || transition.toStatus() != null)
+                .collect(Collectors.toCollection(ArrayList::new));
+        List<UUID> fulfillmentIds = order.fulfillments().stream()
+                .map(com.utewedding.app.dto.response.FulfillmentResponse::id).toList();
+        if (!fulfillmentIds.isEmpty()) {
+            statusHistory.addAll(auditLogRepository
+                    .findByTargetTypeAndTargetIdInAndActionOrderByCreatedAtAsc(
+                            "OrderFulfillment", fulfillmentIds, AuditAction.FULFILLMENT_STATUS_CHANGED).stream()
+                    .map(event -> toStatusTransition(event, "Giao hàng"))
+                    .filter(transition -> transition.fromStatus() != null || transition.toStatus() != null)
+                    .toList());
+        }
+        statusHistory.sort(Comparator.comparing(OrderDetailView.StatusTransition::changedAt));
+        long productDiscountTotal = order.items().stream()
+                .mapToLong(OrderItemResponse::discountAmount).sum();
+
+        if(returnQueries!=null){model.addAttribute("returnOptions",returnQueries.eligibility(userId,orderId));model.addAttribute("returnCases",returnQueries.existing(userId,orderId));}
+        model.addAttribute("order", order);
+        model.addAttribute("paymentExpiresAtVn", order.expiresAt() == null ? null
+                : order.expiresAt().atZone(ZoneId.of("Asia/Ho_Chi_Minh")));
+        model.addAttribute("trackingAccessCode", orderService.getTrackingAccessCode(userId, orderId));
+        model.addAttribute("detail", new OrderDetailView(items, statusHistory, productDiscountTotal));
+        boolean shippingStarted = order.fulfillments().stream()
+                .anyMatch(row -> row.status() != null && row.status().hasLeftTheWarehouse());
+        boolean pending = order.status() == OrderStatus.PENDING;
+        model.addAttribute("canCancelOrder", pending && !shippingStarted);
+        boolean online = order.paymentMethod() == PaymentMethod.VNPAY || order.paymentMethod() == PaymentMethod.MOMO;
+        boolean paymentWindowOpen = order.paymentMethod() == PaymentMethod.VNPAY
+                ? vnPayService.paymentWindowOpen(order.expiresAt())
+                : order.paymentMethod() == PaymentMethod.MOMO && momoService != null
+                        && momoService.paymentWindowOpen(order.expiresAt());
+        model.addAttribute("canRepay", pending && online && paymentWindowOpen);
+        return "orders/detail";
+    }
+
+    @PostMapping("/orders/{orderId}/cancel")
+    public String cancel(Authentication authentication, @PathVariable UUID orderId,
+                         @RequestParam(required = false) String reason,
+                         HttpServletRequest request, RedirectAttributes redirectAttributes) {
+        try {
+            orderService.cancel(currentUser.requireUserId(authentication), orderId, reason,
+                    new RequestContext(request.getRemoteAddr(), request.getHeader("User-Agent"),
+                            request.getHeader("X-Request-Id")));
+            redirectAttributes.addFlashAttribute("successMessage", "Đã hủy đơn hàng.");
+        } catch (RuntimeException exception) {
+            redirectAttributes.addFlashAttribute("errorMessage", WebErrorMessages.forException(exception));
+        }
+        return "redirect:/orders/" + orderId;
+    }
+
+    @PostMapping("/orders/{orderId}/pay")
+    public String repay(Authentication authentication, @PathVariable UUID orderId, HttpServletRequest request,
+                        RedirectAttributes redirectAttributes) {
+        try {
+            UUID userId = currentUser.requireUserId(authentication);
+            var order = orderService.get(userId, orderId);
+            if (order.paymentMethod() == PaymentMethod.VNPAY) {
+                return "redirect:" + vnPayService.createPaymentUrl(userId,
+                        order.orderNumber(), "Thanh toan don " + order.orderNumber(), request.getRemoteAddr()).paymentUrl();
+            }
+            if (order.paymentMethod() == PaymentMethod.MOMO && momoService != null) {
+                return "redirect:" + momoService.create(userId, order.id()).endpoint();
+            }
+        } catch (RuntimeException exception) {
+            redirectAttributes.addFlashAttribute("errorMessage", WebErrorMessages.forException(exception));
+        }
+        return "redirect:/orders/" + orderId;
+    }
+
+    @GetMapping("/orders/{orderId}/invoice")
+    public String invoice(Authentication authentication, @PathVariable UUID orderId, Model model) {
+        var order = orderService.get(currentUser.requireUserId(authentication), orderId);
+        model.addAttribute("order", order);
+        model.addAttribute("productDiscountTotal", order.items().stream()
+                .mapToLong(OrderItemResponse::discountAmount).sum());
+        if (accountingDocuments != null) {
+            model.addAttribute("accountingDocument", accountingDocuments.invoice(orderId,
+                    order.paymentStatus() == PaymentStatus.SUCCEEDED
+                            || order.paymentStatus() == PaymentStatus.PARTIALLY_REFUNDED
+                            || order.paymentStatus() == PaymentStatus.REFUNDED));
+        }
+        return "orders/invoice";
+    }
+
+    private void populateCheckout(Authentication authentication, Model model) {
+        UUID userId = currentUser.requireUserId(authentication);
+        model.addAttribute("cart", cartService.get(userId));
+        List<com.utewedding.app.dto.response.ShippingAddressResponse> addresses =
+                shipInfoService == null ? List.of() : shipInfoService.list(userId);
+        if (!model.containsAttribute("checkoutRequest")) {
+            WebViewModels.CheckoutForm form = new WebViewModels.CheckoutForm();
+            addresses.stream().filter(com.utewedding.app.dto.response.ShippingAddressResponse::defaultAddress)
+                    .findFirst().ifPresent(address -> applySavedAddress(form, address));
+            model.addAttribute("checkoutRequest", form);
+        }
+        WebViewModels.CheckoutForm form = (WebViewModels.CheckoutForm) model.getAttribute("checkoutRequest");
+        if (form.getIdempotencyKey() == null || form.getIdempotencyKey().isBlank()) {
+            form.setIdempotencyKey(UUID.randomUUID().toString());
+        }
+        model.addAttribute("checkoutForm", form);
+        model.addAttribute("paymentMethods", List.of(WebViewModels.PaymentOption.values()));
+        model.addAttribute("savedAddresses", addresses);
+        String activeCatalogSource = addressDirectory == null ? "LOCAL" : addressDirectory.activeCatalogSource();
+        model.addAttribute("activeAddressCatalogSource", activeCatalogSource);
+        model.addAttribute("hasLegacySavedAddress", addresses.stream().anyMatch(address ->
+                java.util.Objects.equals(address.id(), form.getShippingAddressId())
+                        && (!java.util.Objects.equals(address.catalogSource(), activeCatalogSource)
+                        || address.provinceCode() == null || address.provinceCode().isBlank()
+                        || address.wardCode() == null || address.wardCode().isBlank())));
+        if (!model.containsAttribute("pricing")) {
+            try {
+                CheckoutPricingPreview pricing = orderService.preview(userId, toOrderRequest(form,
+                        form.getDiscountCode(), null));
+                form.setExpectedTotalAmount(pricing.totalAmount());
+                model.addAttribute("pricing", pricing);
+            } catch (RuntimeException exception) {
+                if (form.getDiscountCode() != null && !form.getDiscountCode().isBlank()) {
+                    model.addAttribute("voucherError", WebErrorMessages.forException(exception));
+                    form.setDiscountCode(null);
+                    try {
+                        CheckoutPricingPreview pricing = orderService.preview(userId,
+                                toOrderRequest(form, null, null));
+                        form.setExpectedTotalAmount(pricing.totalAmount());
+                        model.addAttribute("pricing", pricing);
+                    } catch (RuntimeException pricingException) {
+                        model.addAttribute("pricingError", WebErrorMessages.forException(pricingException));
+                    }
+                } else {
+                    model.addAttribute("pricingError", WebErrorMessages.forException(exception));
+                }
+            }
+        }
+    }
+
+    private CreateOrderRequest toOrderRequest(WebViewModels.CheckoutForm form,
+                                             String discountCode, Long expectedTotalAmount) {
+        return new CreateOrderRequest(form.getWeddingId(), form.getIdempotencyKey(), discountCode,
+                form.getPaymentMethod() == null ? com.utewedding.app.domain.PaymentMethod.COD
+                        : form.getPaymentMethod().toDomain(),
+                new ShippingAddressRequest(form.getFullName(), form.getPhone(), form.getShippingAddress(),
+                        form.getProvinceCode(), form.getWardCode()),
+                form.getShippingAddressId(), expectedTotalAmount, form.getShippingQuoteId());
+    }
+
+    private ShippingAddressRequest shippingRequest(WebViewModels.CheckoutForm form) {
+        return new ShippingAddressRequest(form.getFullName(), form.getPhone(), form.getShippingAddress(),
+                form.getProvinceCode(), form.getWardCode());
+    }
+
+    private void applySavedAddress(WebViewModels.CheckoutForm form,
+                                   com.utewedding.app.dto.response.ShippingAddressResponse address) {
+        form.setShippingAddressId(address.id());
+        form.setFullName(address.recipientName());
+        form.setPhone(address.phone());
+        form.setShippingAddress(address.addressLine());
+        form.setProvinceCode(address.provinceCode());
+        form.setWardCode(address.wardCode());
+    }
+
+    private OrderDetailView.StatusTransition toStatusTransition(AuditLogEntity event, String subject) {
+        Map<String, Object> metadata = event.getMetadata();
+        return new OrderDetailView.StatusTransition(subject, metadataValue(metadata, "from"),
+                metadataValue(metadata, "to"), event.getCreatedAt());
+    }
+
+    private String metadataValue(Map<String, Object> metadata, String key) {
+        Object value = metadata == null ? null : metadata.get(key);
+        return value == null ? null : value.toString();
+    }
+}
