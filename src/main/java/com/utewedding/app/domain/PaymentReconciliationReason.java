@@ -1,0 +1,12 @@
+package com.utewedding.app.domain;
+
+public enum PaymentReconciliationReason {
+    MATCHED,
+    LOCAL_PENDING_PROVIDER_CAPTURED,
+    LOCAL_CAPTURED_PROVIDER_FAILED,
+    LOCAL_CLOSED_PROVIDER_CAPTURED,
+    AMOUNT_MISMATCH,
+    REFUND_NOT_REFLECTED,
+    PROVIDER_PENDING,
+    QUERY_FAILED
+}
