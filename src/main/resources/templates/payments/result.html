@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Kết quả thanh toán · UTEWedding')}"></head>
+<body class="bg-cream">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5" style="max-width: 720px">
+    <div id="payment-status-poll" class="d-none" th:if="${awaitingPayment and orderId != null}"
+         th:attr="data-url=@{/orders/{id}/payment-status(id=${orderId})},data-order-status=${orderStatus},data-provider=${provider}"></div>
+    <p class="eyebrow" th:text="${provider}">VNPay</p>
+    <h1 class="display-subtitle" th:text="${paid ? 'Thanh toán đã được ghi nhận' : (awaitingPayment ? 'Đang xác minh thanh toán' : 'Kết quả thanh toán')}">Kết quả</h1>
+    <div class="card border-0 shadow-sm p-4 mt-3">
+        <p>Mã đơn: <strong th:text="${orderNumber}">WT</strong></p>
+        <p>Trạng thái đơn hiện tại: <strong id="payment-order-status" th:text="${orderStatus}">PENDING</strong></p>
+        <p>Mã phản hồi từ cổng: <strong th:text="${responseCode}">00</strong></p>
+        <p id="payment-live-message" class="mb-0" th:text="${message}">Thông báo</p>
+        <p class="small text-secondary mt-3 mb-0" th:if="${!signatureValid}">Chữ ký không hợp lệ. Kết quả này không được dùng để xác nhận thanh toán.</p>
+        <p class="small text-secondary mt-3 mb-0" th:if="${awaitingPayment}">Hệ thống đang kiểm tra giao dịch với VNPAY. Trạng thái sẽ tự cập nhật; không cần thanh toán lại trong lúc xác minh.</p>
+    </div>
+    <div class="d-flex gap-2 mt-4">
+        <a th:if="${orderId != null}" class="btn btn-primary" th:href="@{/orders/{id}(id=${orderId})}">Xem chi tiết đơn</a>
+        <a th:if="${orderId == null}" class="btn btn-primary" th:href="@{/login}">Đăng nhập để xem đơn</a>
+        <a class="btn btn-outline-dark" th:href="@{/orders/history}">Lịch sử đơn hàng</a>
+        <button id="payment-check-again" class="btn btn-outline-primary d-none" type="button" th:if="${awaitingPayment}">Kiểm tra lại</button>
+    </div>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+<script th:src="@{/js/payment-status-poll.js}" defer></script>
+</body>
+</html>
