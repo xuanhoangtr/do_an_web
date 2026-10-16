@@ -2,6 +2,7 @@ package com.utewedding.app.domain.entity;
 
 import com.utewedding.app.domain.OrderStatus;
 import com.utewedding.app.domain.PaymentStatus;
+import com.utewedding.app.domain.ShopDefaults;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -23,13 +24,18 @@ import java.util.UUID;
         @Index(name = "idx_orders_user_status", columnList = "user_id, status"),
         @Index(name = "idx_orders_wedding_status", columnList = "wedding_id, status"),
         @Index(name = "idx_orders_status_created_at", columnList = "status, created_at"),
-        @Index(name = "idx_orders_shipper_status", columnList = "shipper_id, status, created_at")
+        @Index(name = "idx_orders_shipper_status", columnList = "shipper_id, status, created_at"),
+        @Index(name = "idx_orders_checkout_group", columnList = "checkout_group_id, created_at")
 })
 public class OrderEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
+    @Column(name = "shop_id", nullable = false, updatable = false) private UUID shopId = ShopDefaults.PLATFORM_SHOP_ID;
+    @Column(name = "shop_name_snapshot", nullable = false, length = 160, updatable = false)
+    private String shopNameSnapshot = ShopDefaults.PLATFORM_SHOP_NAME;
+    @Column(name = "checkout_group_id") private UUID checkoutGroupId;
     @Column(name = "user_id", nullable = false) private UUID userId;
     @Column(name = "wedding_id") private UUID weddingId;
     @Column(name = "ship_info_id") private UUID shipInfoId;
@@ -44,6 +50,8 @@ public class OrderEntity {
     @Column(name = "discount_code", length = 80) private String discountCode;
     @Column(name = "idempotency_key", unique = true, length = 120) private String idempotencyKey;
     @Column(name = "payment_method", length = 40) private String paymentMethod;
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "customer_note", length = 4096) private String customerNote;
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_status", nullable = false, length = 32)
     private PaymentStatus paymentStatus = PaymentStatus.PENDING;
@@ -95,6 +103,10 @@ public class OrderEntity {
 
     @PrePersist
     void onCreate() {
+        if (shopId == null) shopId = ShopDefaults.PLATFORM_SHOP_ID;
+        if (shopNameSnapshot == null || shopNameSnapshot.isBlank()) {
+            shopNameSnapshot = ShopDefaults.PLATFORM_SHOP_NAME;
+        }
         if (trackingAccessCode == null) trackingAccessCode = UUID.randomUUID();
         if (createdAt == null) {
             createdAt = Instant.now();
@@ -105,6 +117,12 @@ public class OrderEntity {
     void onUpdate() { updatedAt = Instant.now(); }
 
     public UUID getId() { return id; }
+    public UUID getShopId() { return shopId; }
+    public void setShopId(UUID value) { shopId = value; }
+    public String getShopNameSnapshot() { return shopNameSnapshot; }
+    public void setShopNameSnapshot(String value) { shopNameSnapshot = value; }
+    public UUID getCheckoutGroupId() { return checkoutGroupId; }
+    public void setCheckoutGroupId(UUID value) { checkoutGroupId = value; }
     public UUID getUserId() { return userId; }
     public void setUserId(UUID value) { userId = value; }
     public UUID getWeddingId() { return weddingId; }
@@ -138,6 +156,8 @@ public class OrderEntity {
     public void setIdempotencyKey(String value) { idempotencyKey = value; }
     public String getPaymentMethod() { return paymentMethod; }
     public void setPaymentMethod(String value) { paymentMethod = value; }
+    public String getCustomerNote() { return customerNote; }
+    public void setCustomerNote(String value) { customerNote = value; }
     public PaymentStatus getPaymentStatus() { return paymentStatus; }
     public void setPaymentStatus(PaymentStatus value) { paymentStatus = value; }
     public String getShippingRecipientName() { return shippingRecipientName; }
