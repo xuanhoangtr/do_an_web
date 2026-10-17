@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Thanh toán · UTEWedding')}"></head>
+<body class="bg-cream">
+<nav th:replace="~{fragments :: navbar}"></nav>
+
+<main class="container py-5">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4">
+        <div>
+            <p class="eyebrow">UTEWedding marketplace</p>
+            <h1 class="display-subtitle mt-2 mb-0">Hoàn tất đơn hàng</h1>
+        </div>
+        <a class="text-decoration-none text-dark" th:href="@{/cart}">← Quay lại giỏ hàng</a>
+    </div>
+
+    <nav class="checkout-steps mb-5" aria-label="Tiến trình thanh toán">
+        <div class="checkout-step completed">
+            <span class="checkout-step-number">1</span>
+            <span><small>Giỏ hàng</small><strong>Đã chọn sản phẩm</strong></span>
+        </div>
+        <span class="checkout-step-line" aria-hidden="true"></span>
+        <div class="checkout-step active" aria-current="step">
+            <span class="checkout-step-number">2</span>
+            <span><small>Giao hàng</small><strong>Thông tin nhận hàng</strong></span>
+        </div>
+        <span class="checkout-step-line" aria-hidden="true"></span>
+        <div class="checkout-step">
+            <span class="checkout-step-number">3</span>
+            <span><small>Thanh toán</small><strong>Xác nhận đơn hàng</strong></span>
+        </div>
+    </nav>
+
+    <div class="row g-4 align-items-start">
+        <div class="col-lg-7">
+            <section class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4 p-lg-5">
+                    <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
+                        <div>
+                            <p class="eyebrow mb-1">Bước 2 · Giao hàng</p>
+                            <h2 class="h3 mb-0">Thông tin nhận hàng</h2>
+                        </div>
+                        <span class="step-badge">02</span>
+                    </div>
+
+                    <div th:if="${checkoutError}" class="alert alert-warning border-0" role="alert" th:text="${checkoutError}"></div>
+                    <div th:if="${selectionCheckoutMessage}" class="alert alert-info border-0" role="status" th:text="${selectionCheckoutMessage}"></div>
+                    <div th:if="${checkoutSelectionRequired}" class="alert alert-warning border-0" role="status">
+                        <span th:text="${checkoutSelectionMessage}">Vui lòng chọn một cửa hàng.</span>
+                        <a class="alert-link ms-1" th:href="@{/cart}">Quay lại giỏ hàng</a>
+                    </div>
+                    <div th:if="${priceChanged}" class="alert alert-warning border-0" role="alert">Giá hoặc phí giao hàng đã thay đổi. Vui lòng kiểm tra tổng tiền mới rồi xác nhận lại.</div>
+                    <div th:if="${pricingError}" class="alert alert-danger border-0" role="alert" data-initial-pricing-error th:text="${pricingError}"></div>
+                    <div th:if="${hasLegacySavedAddress}" class="alert alert-warning border-0" role="status" data-legacy-address-warning>
+                        Địa chỉ đã lưu dùng danh mục cũ. Thông tin người nhận và địa chỉ chi tiết được giữ lại; hãy chọn lại tỉnh và phường/xã theo danh mục hiện hành để tiếp tục. Bạn có thể cập nhật địa chỉ trong <a th:href="@{/profile#addresses}">sổ địa chỉ</a>.
+                    </div>
+                    <div data-pricing-feedback class="alert alert-danger border-0 d-none" role="status" aria-live="polite" tabindex="-1"></div>
+                    <form id="checkoutForm" th:action="@{/checkout/place-order}" th:object="${checkoutRequest}" method="post" novalidate data-address-directory data-checkout-voucher th:attr="data-selected-province=${checkoutRequest.provinceCode},data-selected-ward=${checkoutRequest.wardCode},data-active-catalog-source=${activeAddressCatalogSource}">
+                        <input type="hidden" th:field="*{expectedTotalAmount}" id="expectedTotalAmount">
+                        <input type="hidden" th:field="*{idempotencyKey}">
+                        <input type="hidden" th:field="*{shippingQuoteId}">
+                        <input type="hidden" th:field="*{selectedShopId}" id="selectedShopId">
+                        <input type="hidden" th:field="*{selectionFingerprint}" id="selectionFingerprint">
+                        <div class="mb-3" th:if="${savedAddresses != null and !savedAddresses.empty}">
+                            <label class="form-label" for="savedAddress">Dùng địa chỉ đã lưu</label>
+                            <select class="form-select" id="savedAddress" data-fill-saved-address>
+                                <option value="">Nhập địa chỉ mới</option>
+                                <option th:each="address : ${savedAddresses}" th:value="${address.id}"
+                                        th:attr="data-name=${address.recipientName},data-phone=${address.phone},data-line=${address.addressLine},data-province-code=${address.provinceCode},data-ward-code=${address.wardCode},data-catalog-source=${address.catalogSource}"
+                                        th:selected="${checkoutRequest.shippingAddressId != null and checkoutRequest.shippingAddressId == address.id}"
+                                        th:text="${(address.label != null ? address.label : 'Địa chỉ') + ' · ' + address.recipientName}"></option>
+                            </select>
+                            <input type="hidden" th:field="*{shippingAddressId}" id="shippingAddressId">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="discountCode">Mã voucher giảm tiền hàng</label>
+                            <input id="discountCode" class="form-control" th:field="*{discountCode}" maxlength="80" placeholder="Nhập mã giảm giá sản phẩm">
+                            <small class="form-text text-secondary">Mỗi đơn chỉ áp dụng tối đa một mã giảm tiền hàng.</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="shippingDiscountCode">Mã giảm phí vận chuyển</label>
+                            <input id="shippingDiscountCode" class="form-control" th:field="*{shippingDiscountCode}" maxlength="80" placeholder="Áp dụng cho đơn GHN có phí vận chuyển">
+                            <small class="form-text text-secondary">Chỉ áp dụng cho đơn ngoại tỉnh giao qua GHN.</small>
+                        </div>
+                        <div class="mb-3">
+                            <button class="btn btn-outline-primary" type="button" data-voucher-preview>Kiểm tra mã voucher</button>
+                            <small class="d-block mt-2" data-voucher-feedback role="status" aria-live="polite"
+                                   th:classappend="${voucherError != null} ? ' text-danger' : ' text-success'"
+                                   th:text="${voucherError != null ? voucherError : ''}"></small>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="fullName" class="form-label">Họ và tên</label>
+                                <input id="fullName" type="text" class="form-control" th:field="*{fullName}"
+                                       placeholder="Nguyễn Văn An" autocomplete="name"
+                                       th:classappend="${#fields.hasErrors('fullName')} ? ' is-invalid' : ''">
+                                <div th:if="${#fields.hasErrors('fullName')}" class="invalid-feedback d-block" th:errors="*{fullName}"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="phone" class="form-label">Số điện thoại</label>
+                                <input id="phone" type="tel" class="form-control" th:field="*{phone}"
+                                       placeholder="0901 234 567" autocomplete="tel"
+                                       th:classappend="${#fields.hasErrors('phone')} ? ' is-invalid' : ''">
+                                <div th:if="${#fields.hasErrors('phone')}" class="invalid-feedback d-block" th:errors="*{phone}"></div>
+                            </div>
+                            <div class="col-12">
+                                <label for="shippingAddress" class="form-label">Địa chỉ giao hàng</label>
+                                <textarea id="shippingAddress" rows="4" class="form-control" th:field="*{shippingAddress}"
+                                          placeholder="Số nhà, tên đường, thôn/xóm..." autocomplete="street-address"
+                                          th:classappend="${#fields.hasErrors('shippingAddress')} ? ' is-invalid' : ''"></textarea>
+                                <div th:if="${#fields.hasErrors('shippingAddress')}" class="invalid-feedback d-block" th:errors="*{shippingAddress}"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="provinceCode" class="form-label">Tỉnh / thành</label>
+                                <select id="provinceCode" class="form-select" th:field="*{provinceCode}" data-address-province required>
+                                    <option value="">Đang tải tỉnh/thành...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="wardCode" class="form-label">Phường / xã</label>
+                                <select id="wardCode" class="form-select" th:field="*{wardCode}" data-address-ward disabled required>
+                                    <option value="">Chọn tỉnh/thành trước</option>
+                                </select>
+                            </div>
+                            <div class="col-12"><small class="text-secondary" data-address-status role="status"></small></div>
+                            <div class="col-12">
+                                <label class="form-label">Phương thức thanh toán</label>
+                                <div class="row g-2">
+                                    <div th:each="method : ${paymentMethods}" class="col-md-6">
+                                        <label th:if="${method.enabled}" class="payment-option d-flex gap-2 align-items-start h-100">
+                                            <input class="form-check-input mt-1" type="radio" th:field="*{paymentMethod}" th:value="${method}">
+                                            <span>
+                                                <strong th:text="${method.label}">COD</strong>
+                                                <small class="d-block text-secondary" th:text="${method.description}">Thanh toán khi nhận hàng</small>
+                                            </span>
+                                        </label>
+                                        <div th:unless="${method.enabled}" class="payment-option payment-option-unavailable d-flex gap-2 align-items-start h-100" aria-disabled="true">
+                                            <input class="form-check-input mt-1" type="radio" disabled aria-label="MoMo đang cập nhật">
+                                            <span>
+                                                <strong th:text="${method.label}">MoMo</strong>
+                                                <small class="d-block text-secondary" th:text="${method.description}">Thanh toán online qua MoMo</small>
+                                                <small class="payment-option-state d-inline-block mt-2">Đang cập nhật</small>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div th:if="${#fields.hasErrors('paymentMethod')}" class="invalid-feedback d-block" th:errors="*{paymentMethod}"></div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mt-4 pt-4 border-top">
+                            <p class="small text-secondary mb-0">Thông tin của bạn được dùng để xử lý và giao đơn hàng.</p>
+                            <button class="btn btn-primary rounded-pill px-4 py-3" type="submit"
+                                    th:disabled="${pricing == null or cart == null or cart.empty or selectionCheckoutPending or checkoutSelectionRequired or selectionCheckoutInvalid}">
+                                Xác nhận đặt hàng <span aria-hidden="true">→</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+        </div>
+
+        <div class="col-lg-5">
+            <section class="card border-0 shadow-sm rounded-4 sticky-lg-top summary-card">
+                <div class="card-body p-4 p-lg-5">
+                    <p class="eyebrow mb-2">Bước 3 · Thanh toán</p>
+                    <h2 class="h4 mb-4">Tóm tắt đơn hàng</h2>
+
+                    <div class="checkout-items mb-4">
+                        <th:block th:each="shop : ${cart.shopGroups}">
+                        <div class="small text-uppercase fw-semibold text-secondary pt-2" th:text="${shop.shopName}">Gian hàng</div>
+                        <div th:each="item : ${shop.items}" class="d-flex gap-3 align-items-center py-3 border-bottom">
+                            <img th:if="${item.imageUrl != null and !#strings.isEmpty(item.imageUrl)}" class="cart-thumb" th:src="${item.imageUrl}" th:alt="${item.name}">
+                            <div th:unless="${item.imageUrl != null and !#strings.isEmpty(item.imageUrl)}" class="cart-thumb-placeholder" aria-hidden="true">♡</div>
+                            <div class="flex-grow-1 min-width-0">
+                                <h3 class="h6 mb-1 text-truncate" th:text="${item.name}">Sản phẩm</h3>
+                                <small th:if="${item.customizationText != null and !#strings.isEmpty(item.customizationText)}" class="d-block text-secondary mb-1">Kích thước ảnh: <span th:text="${item.customizationText}"></span></small>
+                                <small class="text-secondary">SL <span th:text="${item.quantity}">1</span> · <span th:text="${item.shopName}">Gian hàng</span></small>
+                            </div>
+                            <strong class="small text-nowrap" data-preview-line-total th:attr="data-preview-product=${item.productId}"
+                                    th:text="${#numbers.formatDecimal(item.lineTotal, 0, 'COMMA', 0, 'POINT')} + ' đ'">0 đ</strong>
+                        </div>
+                        </th:block>
+                    </div>
+
+                    <div class="d-flex justify-content-between text-secondary mb-3">
+                        <span>Giá sản phẩm</span>
+                        <span class="text-nowrap" id="pricingSubtotal" th:text="${pricing != null ? #numbers.formatDecimal(pricing.subtotal, 0, 'COMMA', 0, 'POINT') + ' đ' : '—'}">—</span>
+                    </div>
+                    <div class="d-flex justify-content-between text-success mb-3" id="productDiscountRow"
+                         th:classappend="${pricing == null or pricing.productDiscountAmount == 0} ? ' d-none' : ''">
+                        <span>Ưu đãi sản phẩm</span>
+                        <span class="text-nowrap" id="pricingProductDiscount" th:text="${pricing != null ? '-' + #numbers.formatDecimal(pricing.productDiscountAmount, 0, 'COMMA', 0, 'POINT') + ' đ' : '—'}">—</span>
+                    </div>
+                    <div class="d-flex justify-content-between text-success mb-3" id="voucherDiscountRow"
+                         th:classappend="${pricing == null or pricing.voucherDiscountAmount == 0} ? ' d-none' : ''">
+                        <span>Voucher giảm tiền hàng</span>
+                        <span class="text-nowrap" id="pricingVoucherDiscount" th:text="${pricing != null ? '-' + #numbers.formatDecimal(pricing.voucherDiscountAmount, 0, 'COMMA', 0, 'POINT') + ' đ' : '—'}">—</span>
+                    </div>
+                    <div class="d-flex justify-content-between text-secondary mb-3">
+                        <span>Phí giao hàng theo báo giá</span>
+                        <span class="text-nowrap" id="pricingShipping" th:text="${pricing != null ? #numbers.formatDecimal(pricing.shippingFeeBeforeDiscount, 0, 'COMMA', 0, 'POINT') + ' đ' : '—'}">—</span>
+                    </div>
+                    <div class="d-flex justify-content-between text-success mb-3" id="shippingDiscountRow"
+                         th:classappend="${pricing == null or pricing.shippingDiscountAmount == 0} ? ' d-none' : ''">
+                        <span id="pricingShippingDiscountLabel" th:text="${pricing != null and pricing.shippingVoucherType != null and pricing.shippingVoucherType.name() == 'SHIPPING_FREE' ? 'Miễn phí vận chuyển' : 'Giảm phí vận chuyển'}">Giảm phí vận chuyển</span>
+                        <span class="text-nowrap" id="pricingShippingDiscount" th:text="${pricing != null ? '-' + #numbers.formatDecimal(pricing.shippingDiscountAmount, 0, 'COMMA', 0, 'POINT') + ' đ' : '—'}">—</span>
+                    </div>
+                    <p class="small text-secondary mb-2" data-shipping-provider-copy>TP.HCM giao nội bộ miễn phí; ngoài TP.HCM, cước GHN Staging được lấy trực tiếp theo địa chỉ và kiện hàng.</p>
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 border-top pt-3 mb-3" aria-live="polite">
+                        <small class="text-secondary" id="shippingQuoteStatus" data-shipping-quote-status role="status">Chưa có báo giá còn hiệu lực.</small>
+                        <button class="btn btn-sm btn-outline-primary" type="button" data-shipping-refresh aria-describedby="shippingQuoteStatus">Làm mới báo giá giao hàng</button>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between align-items-end mt-3">
+                        <span class="fw-semibold">Tổng thanh toán</span>
+                        <strong class="fs-4 text-primary text-nowrap" id="pricingTotal" th:text="${pricing != null ? #numbers.formatDecimal(pricing.totalAmount, 0, 'COMMA', 0, 'POINT') + ' đ' : '—'}">—</strong>
+                    </div>
+                    <p class="small text-secondary mt-3 mb-0">Đã bao gồm VAT (nếu có). Chúng mình sẽ xác nhận đơn sau khi bạn hoàn tất.</p>
+                </div>
+            </section>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

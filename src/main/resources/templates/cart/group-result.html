@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Đơn hàng đã ghi nhận · UTEWedding')}"></head>
+<body class="bg-cream">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5">
+    <section class="success-card card border-0 shadow-sm mx-auto p-4 p-md-5" data-checkout-group-result
+             th:attr="data-group-id=${checkoutGroupId},data-group-url=@{/api/checkout-groups/{id}(id=${checkoutGroupId})}">
+        <div class="success-mark text-center" aria-hidden="true">✓</div>
+        <div class="text-center">
+            <p class="eyebrow mt-4">Xác nhận đơn hàng</p>
+            <h1 class="display-subtitle mt-2">Các đơn hàng đã được ghi nhận</h1>
+            <p class="text-secondary">Mỗi cửa hàng nhận một đơn riêng. Bạn có thể xem trạng thái của từng đơn bên dưới.</p>
+        </div>
+        <div class="alert alert-info border-0 mt-3" data-group-load-status role="status" aria-live="polite">Đang tải trạng thái đơn hàng…</div>
+        <div class="d-none" data-group-result-body>
+            <div class="row g-3 text-center border rounded-3 p-3 my-4">
+                <div class="col-md-4"><span class="text-secondary d-block small">Mã nhóm</span><strong data-group-number>—</strong></div>
+                <div class="col-md-4"><span class="text-secondary d-block small">Thanh toán</span><strong data-group-payment-status>—</strong></div>
+                <div class="col-md-4"><span class="text-secondary d-block small">Giao hàng</span><strong data-group-fulfillment-status>—</strong></div>
+                <div class="col-12 border-top pt-3"><span class="text-secondary d-block small">Tổng thanh toán</span><strong class="fs-4 text-primary" data-group-total>—</strong></div>
+            </div>
+            <p class="small text-secondary" data-group-payment-guidance></p>
+            <div class="text-center mt-3" data-group-payment-action hidden>
+                <button type="button" class="btn btn-warning rounded-pill px-4" data-start-group-payment>
+                    Thanh toán bằng VNPAY
+                </button>
+            </div>
+            <div class="alert alert-info border-0 mt-3" data-group-payment-action-status role="status" aria-live="polite" hidden></div>
+            <h2 class="h4 mb-3">Đơn theo từng cửa hàng</h2>
+            <div class="d-grid gap-3" data-group-orders></div>
+        </div>
+        <div class="d-flex flex-wrap justify-content-center gap-2 mt-4">
+            <a class="btn btn-outline-dark rounded-pill px-4" th:href="@{/orders/history}">Xem lịch sử đơn hàng</a>
+            <a class="btn btn-primary rounded-pill px-4" th:href="@{/products}">Tiếp tục mua sắm</a>
+        </div>
+    </section>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+<script th:src="@{/js/grouped-checkout-result.js(v='mco-09-v2')}" defer></script>
+</body>
+</html>

@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.Min;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
@@ -25,10 +26,16 @@ public class CartWebController {
 
     private final WebCartService cartService;
     private final CurrentUserContext currentUser;
+    private com.utewedding.app.config.MarketplaceFeatureFlags featureFlags;
 
     public CartWebController(WebCartService cartService, CurrentUserContext currentUser) {
         this.cartService = cartService;
         this.currentUser = currentUser;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void attachFeatureFlags(com.utewedding.app.config.MarketplaceFeatureFlags featureFlags) {
+        this.featureFlags = featureFlags;
     }
 
     @GetMapping("/cart")
@@ -102,10 +109,27 @@ public class CartWebController {
                             Model model,
                             RedirectAttributes redirectAttributes) {
         try {
-            cartService.add(currentUser.requireUserId(authentication), id, quantity,
-                    customizationText);
+            UUID userId = currentUser.requireUserId(authentication);
+            cartService.add(userId, id, quantity, customizationText);
             if ("checkout".equalsIgnoreCase(redirect)) {
-                return "redirect:/checkout";
+                WebViewModels.CartView cart = cartService.get(userId);
+                WebViewModels.ShopGroupView shop = cart.getShopGroups().stream()
+                        .filter(group -> group.getItems().stream()
+                                .anyMatch(item -> id.equals(item.getProductId())))
+                        .findFirst()
+                        .orElseThrow(() -> new com.utewedding.app.exception.BusinessConflictException(
+                                "Không tìm thấy sản phẩm trong giỏ hàng. Vui lòng thử lại."));
+                if (!shop.isCheckoutAvailable()) {
+                    throw new com.utewedding.app.exception.BusinessConflictException(
+                            shop.getUnavailableReason() == null
+                                    ? "Nhóm sản phẩm này hiện chưa thể thanh toán."
+                                    : shop.getUnavailableReason());
+                }
+                String checkoutUrl = UriComponentsBuilder.fromPath("/checkout")
+                        .queryParam("shopId", shop.getShopId())
+                        .queryParam("selectionFingerprint", shop.getSelectionFingerprint())
+                        .build().encode().toUriString();
+                return "redirect:" + checkoutUrl;
             }
             return afterMutation(authentication, request, model, redirectAttributes,
                     "Đã thêm sản phẩm vào giỏ hàng.", false);
@@ -156,8 +180,14 @@ public class CartWebController {
 
     private void populateCart(Authentication authentication, Model model) {
         model.addAttribute("cart", cartService.get(currentUser.requireUserId(authentication)));
+        model.addAttribute("groupedCheckoutEnabled", groupedCheckoutEnabled());
         model.addAttribute("checkoutRequest", new WebViewModels.CheckoutForm());
         model.addAttribute("paymentMethods", List.of(WebViewModels.PaymentOption.values()));
+    }
+
+    private boolean groupedCheckoutEnabled() {
+        return featureFlags != null && featureFlags.isEnabled(
+                com.utewedding.app.config.MarketplaceFeatureFlags.Feature.GROUPED_CHECKOUT);
     }
 
     private boolean isAjax(HttpServletRequest request) {
