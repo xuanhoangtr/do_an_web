@@ -1,0 +1,47 @@
+.vendor-store-content{max-width:1440px}
+.vendor-store-code{display:inline-flex;align-items:center;min-height:32px;padding:4px 10px;border:1px solid #e4d9d5;border-radius:999px;background:#fff;color:#8b4037;font-size:var(--type-meta);font-weight:700}
+.vendor-store-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(340px,.9fr);gap:16px;align-items:start}
+.vendor-store-panel{min-width:0;padding:22px;margin-bottom:16px}
+.vendor-store-panel .dash-section-head{align-items:center;margin-bottom:18px}
+.vendor-store-panel .dash-section-head h2{font-size:var(--type-section-title)}
+.vendor-store-panel .dash-section-head p{max-width:700px;line-height:1.5}
+.vendor-store-panel .dash-section-head>.material-symbols-outlined{color:#9a473c;font-size:24px}
+.vendor-profile-form{display:flex;flex-direction:column;gap:8px}
+.vendor-profile-form label,.vendor-evidence-upload label{margin-top:7px;color:#46525d;font-size:var(--type-ui);font-weight:700}
+.vendor-profile-form input,.vendor-profile-form textarea,.vendor-evidence-upload input[type="file"]{width:100%;min-width:0;border:1px solid #d8dfe4;border-radius:7px;background:#fff;color:#26313a;font:var(--type-ui)/1.45 var(--font-interface)}
+.vendor-profile-form input{height:42px;padding:0 12px}
+.vendor-profile-form textarea{resize:vertical;padding:10px 12px}
+.vendor-contact-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:4px}
+.vendor-contact-grid>div{display:flex;min-width:0;flex-direction:column;gap:8px}
+.vendor-store-save{align-self:flex-start;margin-top:9px}
+.vendor-field-error{color:#a12c25;font-size:var(--type-meta)}
+.vendor-shop-banner{display:flex;align-items:center;justify-content:center;aspect-ratio:2.7/1;overflow:hidden;border:1px solid #e4e8eb;border-radius:8px;background:#f5f4f2;color:#87919a}
+.vendor-shop-banner img{width:100%;height:100%;object-fit:cover}
+.vendor-shop-banner-empty{gap:8px;flex-direction:column;font-size:var(--type-meta)}
+.vendor-shop-banner-empty .material-symbols-outlined{font-size:30px}
+.vendor-shop-logo-row{display:flex;align-items:center;gap:12px;margin:16px 0}
+.vendor-shop-logo{display:grid;width:64px;height:64px;flex:0 0 64px;place-items:center;object-fit:cover;border:1px solid #e1e4e6;border-radius:12px;background:#f8f7f5;color:#8b4037}
+.vendor-shop-logo-empty .material-symbols-outlined{font-size:27px}
+.vendor-shop-logo-row strong,.vendor-shop-logo-row small{display:block}
+.vendor-shop-logo-row strong{color:#2b343c;font-size:var(--type-ui)}
+.vendor-shop-logo-row small{margin-top:3px;color:#6d7882;font-size:var(--type-meta)}
+.vendor-image-actions,.vendor-image-actions form{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.vendor-file-input{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;clip-path:inset(50%)}
+.vendor-file-button{display:inline-flex;min-height:38px;align-items:center;padding:0 12px;border:1px solid #d6dce1;border-radius:6px;background:#fff;color:#34414c;font-size:var(--type-ui);font-weight:600;cursor:pointer}
+.vendor-file-button:hover{background:#f5f6f7}
+.vendor-image-actions .dash-button{min-height:38px}
+.vendor-remove-button{color:#96382d}
+.vendor-evidence-panel{margin-top:0}
+.vendor-evidence-list{display:flex;flex-direction:column}
+.vendor-evidence-row{display:flex;align-items:center;gap:12px;min-width:0;padding:12px 0;border-bottom:1px solid #edf0f2}
+.vendor-evidence-row>.material-symbols-outlined{color:#8e5a52}
+.vendor-evidence-meta{flex:1;min-width:0}
+.vendor-evidence-meta strong,.vendor-evidence-meta small{display:block;overflow-wrap:anywhere}
+.vendor-evidence-meta strong{color:#2e3942;font-size:var(--type-ui)}
+.vendor-evidence-meta small,.vendor-evidence-empty{color:#6f7a84;font-size:var(--type-meta)}
+.vendor-evidence-empty{margin:0;padding:14px 0}
+.vendor-evidence-upload{margin-top:16px;padding-top:16px;border-top:1px solid #e7ebee}
+.vendor-evidence-upload>div{display:flex;align-items:center;gap:10px;margin-top:8px}
+.vendor-evidence-upload input[type="file"]{max-width:600px;padding:8px}
+@media(max-width:1000px){.vendor-store-grid{grid-template-columns:1fr}}
+@media(max-width:767px){.vendor-store-panel{padding:17px}.vendor-contact-grid{grid-template-columns:1fr}.vendor-evidence-row{align-items:flex-start;flex-wrap:wrap}.vendor-evidence-meta{flex-basis:calc(100% - 42px)}.vendor-evidence-upload>div{align-items:stretch;flex-direction:column}.vendor-evidence-upload input[type="file"]{max-width:none}}

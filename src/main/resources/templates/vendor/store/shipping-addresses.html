@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="_csrf" th:if="${_csrf != null}" th:content="${_csrf.token}">
+    <meta name="_csrf_parameter" th:if="${_csrf != null}" th:content="${_csrf.parameterName}">
+    <meta name="websocket-destinations" th:content="${#strings.listJoin(webSocketDestinations, ',')}">
+    <title>Địa chỉ giao nhận · UTEWedding</title>
+    <link rel="icon" th:href="@{/favicon.ico}" type="image/x-icon">
+    <link rel="stylesheet" th:href="@{/css/be-vietnam-pro.css(v='font-20261027')}">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..700,0..1,0..1&amp;display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/custom.css(v='ui-fonts-20261027-v5')}">
+    <link rel="stylesheet" th:href="@{/css/admin-dashboard.css(v='ui-layout-20261029-v5')}">
+    <link rel="stylesheet" th:href="@{/css/vendor-workspace.css(v='vendor-layout-20261029-v2')}">
+</head>
+<body class="admin-dashboard-page vendor-workspace" id="top">
+<aside th:replace="~{fragments/vendor-shell :: sidebar('store')}"></aside>
+<button th:replace="~{fragments/vendor-shell :: backdrop}"></button>
+<header th:replace="~{fragments/vendor-shell :: topbar('store')}"></header>
+<main class="dash-content vendor-content">
+    <div class="dash-heading vendor-heading">
+        <div><span class="vendor-eyebrow">GIAO NHẬN CỬA HÀNG</span><h1>Địa chỉ lấy hàng và hoàn trả</h1>
+            <p>Mỗi lần lưu tạo phiên bản mới; địa chỉ cũ được giữ để bảo toàn dấu vết.</p></div>
+        <a class="dash-button dash-button-outline" th:href="@{/vendor/store}">← Hồ sơ cửa hàng</a>
+    </div>
+    <div class="alert alert-success" role="status" th:if="${successMessage}" th:text="${successMessage}"></div>
+    <div class="alert alert-danger" role="alert" th:if="${errorMessage}" th:text="${errorMessage}"></div>
+    <div class="alert alert-info" role="note">Địa chỉ đang dùng danh mục <strong th:text="${catalogSource}">LOCAL</strong>. Nếu đã có cấu hình GHN, đổi địa chỉ sẽ yêu cầu quản trị viên xác minh lại binding và tuyến.</div>
+
+    <div class="row g-4">
+        <div class="col-12 col-xl-6">
+            <section class="dash-card dash-panel h-100">
+                <h2 class="h4">Địa chỉ lấy hàng</h2>
+                <article class="border rounded-3 p-3 mb-4" th:if="${currentAddresses['PICKUP'] != null}">
+                    <div class="d-flex justify-content-between gap-2"><strong th:text="|Phiên bản ${currentAddresses['PICKUP'].revision}|">Phiên bản</strong><span class="badge text-bg-light" th:text="${currentAddresses['PICKUP'].catalogSource}">LOCAL</span></div>
+                    <p class="mb-1 mt-2" th:text="|${currentAddresses['PICKUP'].addressLine}, ${currentAddresses['PICKUP'].wardName}, ${currentAddresses['PICKUP'].provinceName}|">Địa chỉ</p>
+                    <small class="text-secondary" th:text="|${currentAddresses['PICKUP'].contactName} · ${currentAddresses['PICKUP'].contactPhone}|">Liên hệ</small>
+                </article>
+                <p class="text-secondary" th:if="${currentAddresses['PICKUP'] == null}">Chưa khai báo địa chỉ lấy hàng.</p>
+                <form method="post" th:action="@{/vendor/store/shipping-addresses}" th:object="${pickupForm}" class="row g-3" data-shop-address-form>
+                    <input type="hidden" th:field="*{addressKind}"><input type="hidden" th:field="*{catalogSource}"><input type="hidden" th:field="*{expectedRevision}">
+                    <div class="col-12"><label class="form-label" for="pickupLine">Số nhà, tên đường</label><input class="form-control" id="pickupLine" th:field="*{addressLine}" maxlength="500" required></div>
+                    <div class="col-12 col-md-6"><label class="form-label" for="pickupProvince">Tỉnh / thành</label>
+                        <select class="form-select" id="pickupProvince" th:field="*{provinceCode}" data-address-province th:attr="data-selected-province=${pickupForm.provinceCode},data-selected-ward=${pickupForm.wardCode}" required>
+                            <option value="">Chọn tỉnh / thành</option><option th:each="province : ${provinces}" th:value="${province.code}" th:text="${province.name}"></option>
+                        </select></div>
+                    <div class="col-12 col-md-6"><label class="form-label" for="pickupWard">Phường / xã</label>
+                        <select class="form-select" id="pickupWard" th:field="*{wardCode}" data-address-ward required><option value="">Chọn phường / xã</option></select></div>
+                    <div class="col-12 col-md-6"><label class="form-label" for="pickupContact">Người liên hệ</label><input class="form-control" id="pickupContact" th:field="*{contactName}" maxlength="160" required></div>
+                    <div class="col-12 col-md-6"><label class="form-label" for="pickupPhone">Số điện thoại</label><input class="form-control" id="pickupPhone" type="tel" th:field="*{contactPhone}" maxlength="30" required></div>
+                    <div class="col-12"><button class="btn btn-primary" type="submit">Lưu phiên bản địa chỉ lấy hàng</button></div>
+                </form>
+            </section>
+        </div>
+        <div class="col-12 col-xl-6">
+            <section class="dash-card dash-panel h-100">
+                <h2 class="h4">Địa chỉ hoàn trả</h2>
+                <article class="border rounded-3 p-3 mb-4" th:if="${currentAddresses['RETURN'] != null}">
+                    <div class="d-flex justify-content-between gap-2"><strong th:text="|Phiên bản ${currentAddresses['RETURN'].revision}|">Phiên bản</strong><span class="badge text-bg-light" th:text="${currentAddresses['RETURN'].catalogSource}">LOCAL</span></div>
+                    <p class="mb-1 mt-2" th:text="|${currentAddresses['RETURN'].addressLine}, ${currentAddresses['RETURN'].wardName}, ${currentAddresses['RETURN'].provinceName}|">Địa chỉ</p>
+                    <small class="text-secondary" th:text="|${currentAddresses['RETURN'].contactName} · ${currentAddresses['RETURN'].contactPhone}|">Liên hệ</small>
+                </article>
+                <p class="text-secondary" th:if="${currentAddresses['RETURN'] == null}">Chưa khai báo địa chỉ hoàn trả.</p>
+                <form method="post" th:action="@{/vendor/store/shipping-addresses}" th:object="${returnForm}" class="row g-3" data-shop-address-form>
+                    <input type="hidden" th:field="*{addressKind}"><input type="hidden" th:field="*{catalogSource}"><input type="hidden" th:field="*{expectedRevision}">
+                    <div class="col-12"><label class="form-label" for="returnLine">Số nhà, tên đường</label><input class="form-control" id="returnLine" th:field="*{addressLine}" maxlength="500" required></div>
+                    <div class="col-12 col-md-6"><label class="form-label" for="returnProvince">Tỉnh / thành</label>
+                        <select class="form-select" id="returnProvince" th:field="*{provinceCode}" data-address-province th:attr="data-selected-province=${returnForm.provinceCode},data-selected-ward=${returnForm.wardCode}" required>
+                            <option value="">Chọn tỉnh / thành</option><option th:each="province : ${provinces}" th:value="${province.code}" th:text="${province.name}"></option>
+                        </select></div>
+                    <div class="col-12 col-md-6"><label class="form-label" for="returnWard">Phường / xã</label>
+                        <select class="form-select" id="returnWard" th:field="*{wardCode}" data-address-ward required><option value="">Chọn phường / xã</option></select></div>
+                    <div class="col-12 col-md-6"><label class="form-label" for="returnContact">Người liên hệ</label><input class="form-control" id="returnContact" th:field="*{contactName}" maxlength="160" required></div>
+                    <div class="col-12 col-md-6"><label class="form-label" for="returnPhone">Số điện thoại</label><input class="form-control" id="returnPhone" type="tel" th:field="*{contactPhone}" maxlength="30" required></div>
+                    <div class="col-12"><button class="btn btn-primary" type="submit">Lưu phiên bản địa chỉ hoàn trả</button></div>
+                </form>
+            </section>
+        </div>
+    </div>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+<script th:src="@{/js/admin-dashboard-shell.js}" defer></script>
+<script th:src="@{/js/shop-address-form.js(v='shop-address-v95')}" defer></script>
+</body>
+</html>

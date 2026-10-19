@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="_csrf" th:if="${_csrf != null}" th:content="${_csrf.token}">
+    <meta name="_csrf_parameter" th:if="${_csrf != null}" th:content="${_csrf.parameterName}">
+    <title>Sản phẩm cửa hàng · UTEWedding</title>
+    <link rel="stylesheet" th:href="@{/css/be-vietnam-pro.css(v='font-20261027')}">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..700,0..1,0..1&amp;display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/custom.css(v='ui-fonts-20261027-v5')}">
+    <link rel="stylesheet" th:href="@{/css/admin-dashboard.css(v='ui-layout-20261029-v5')}">
+    <link rel="stylesheet" th:href="@{/css/vendor-workspace.css(v='vendor-layout-20261029-v2')}">
+</head>
+<body class="admin-dashboard-page vendor-workspace" id="top">
+<aside th:replace="~{fragments/vendor-shell :: sidebar(${vendorNavActiveItem})}"></aside>
+<button th:replace="~{fragments/vendor-shell :: backdrop}"></button>
+<header th:replace="~{fragments/vendor-shell :: topbar(${vendorNavActiveItem})}"></header>
+<main class="dash-content vendor-content">
+    <div class="dash-heading vendor-heading">
+        <div><span class="vendor-eyebrow">QUẢN LÝ CATALOG</span><h1>Sản phẩm</h1>
+            <p>Nội dung mới hoặc thay đổi cần được quản trị viên kiểm duyệt trước khi bán.</p></div>
+        <a class="btn btn-primary" th:href="@{/vendor/products/new}">Thêm sản phẩm</a>
+    </div>
+    <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}"></div>
+    <div th:if="${errorMessage}" class="alert alert-danger" th:text="${errorMessage}"></div>
+    <section class="dash-card vendor-product-note">
+        <strong>Lưu ý về tồn kho</strong>
+        <span>Tồn kho chỉ đọc tại đây. Dùng mục Tồn kho để điều chỉnh số lượng theo từng giao dịch.</span>
+    </section>
+    <div th:if="${products.empty}" class="dash-card vendor-product-empty">
+        <span class="material-symbols-outlined" aria-hidden="true">inventory_2</span>
+        <h2>Chưa có sản phẩm</h2><p>Bắt đầu bằng cách tạo sản phẩm đầu tiên cho cửa hàng.</p>
+        <a class="btn btn-primary" th:href="@{/vendor/products/new}">Tạo sản phẩm</a>
+    </div>
+    <section th:unless="${products.empty}" class="dash-card p-0 overflow-hidden">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0 vendor-product-table">
+                <thead><tr><th class="text-center">STT</th><th>Sản phẩm</th><th>Giá</th><th>Tồn kho</th><th>Kiểm duyệt</th><th>Hiển thị</th><th>Thao tác</th></tr></thead>
+                <tbody>
+                <tr th:each="product, row : ${products.content}">
+                    <td class="text-center text-secondary" th:text="${products.number * products.size + row.count}">1</td>
+                    <td><div class="vendor-product-name">
+                        <img th:src="${!#strings.isEmpty(product.imageUrl) ? product.imageUrl : '/images/placeholder-product.svg'}" th:alt="${product.name}">
+                        <div><strong th:text="${product.name}">Tên sản phẩm</strong><small th:text="${product.sku}">SKU</small></div>
+                    </div></td>
+                    <td class="text-nowrap" th:text="${#numbers.formatDecimal(product.unitPrice,0,'COMMA',0,'POINT')} + ' đ'">0 đ</td>
+                    <td th:text="${product.stockQuantity}">0</td>
+                    <td><span class="badge" th:classappend="${product.moderationStatus.name() == 'APPROVED' ? ' bg-success' : (product.moderationStatus.name() == 'BLOCKED' ? ' bg-danger' : ' bg-warning text-dark')}"
+                              th:text="${product.moderationStatus.name() == 'APPROVED' ? 'Đã duyệt' : (product.moderationStatus.name() == 'BLOCKED' ? 'Đang bị chặn' : (product.moderationStatus.name() == 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'))}">Chờ duyệt</span>
+                        <small class="d-block text-danger mt-1" th:if="${product.moderationReason != null}" th:text="${product.moderationReason}"></small></td>
+                    <td><span th:text="${product.sellerVisible ? 'Hiển thị' : 'Đang ẩn'}">Hiển thị</span>
+                        <small class="d-block text-secondary" th:if="${!product.active}">Chưa được mở bán</small></td>
+                    <td><div class="d-flex gap-2 flex-wrap">
+                        <a class="btn btn-sm btn-outline-dark" th:href="@{/vendor/products/{id}/edit(id=${product.id})}">Sửa</a>
+                        <form th:action="@{/vendor/products/{id}/visibility(id=${product.id})}" method="post">
+                            <button class="btn btn-sm btn-outline-secondary" type="submit" th:text="${product.sellerVisible ? 'Ẩn' : 'Hiện'}">Ẩn</button>
+                        </form>
+                    </div></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <nav th:if="${products.totalPages > 1}" class="p-3" aria-label="Phân trang sản phẩm">
+            <ul class="pagination justify-content-center mb-0">
+                <li class="page-item" th:classappend="${products.first ? ' disabled' : ''}"><a class="page-link" th:href="@{/vendor/products(page=${products.number - 1})}">‹ Trước</a></li>
+                <li class="page-item disabled"><span class="page-link" th:text="${products.number + 1 + ' / ' + products.totalPages}">1 / 1</span></li>
+                <li class="page-item" th:classappend="${products.last ? ' disabled' : ''}"><a class="page-link" th:href="@{/vendor/products(page=${products.number + 1})}">Sau ›</a></li>
+            </ul>
+        </nav>
+    </section>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+<script th:src="@{/js/admin-dashboard-shell.js}" defer></script>
+</body></html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="_csrf" th:if="${_csrf != null}" th:content="${_csrf.token}">
+    <meta name="_csrf_parameter" th:if="${_csrf != null}" th:content="${_csrf.parameterName}">
+    <meta name="websocket-destinations" th:content="${#strings.listJoin(webSocketDestinations, ',')}">
+    <title>Tài chính cửa hàng · UTEWedding</title>
+    <link rel="icon" th:href="@{/favicon.ico}" type="image/x-icon">
+    <link rel="stylesheet" th:href="@{/css/be-vietnam-pro.css(v='font-20261027')}">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..700,0..1,0..1&amp;display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/custom.css(v='ui-fonts-20261027-v5')}">
+    <link rel="stylesheet" th:href="@{/css/admin-dashboard.css(v='ui-layout-20261029-v5')}">
+    <link rel="stylesheet" th:href="@{/css/vendor-workspace.css(v='vendor-layout-20261029-v2')}">
+</head>
+<body class="admin-dashboard-page vendor-workspace" id="top">
+<aside th:replace="~{fragments/vendor-shell :: sidebar(${vendorNavActiveItem})}"></aside>
+<button th:replace="~{fragments/vendor-shell :: backdrop}"></button>
+<header th:replace="~{fragments/vendor-shell :: topbar(${vendorNavActiveItem})}"></header>
+
+<main class="dash-content vendor-content">
+    <div class="dash-heading vendor-heading">
+        <div>
+            <span class="vendor-eyebrow">UTEWEDDING · KHU VỰC CỬA HÀNG</span>
+            <h1>Tài chính cửa hàng</h1>
+            <p th:text="|Sổ tài chính, kỳ đối soát và khoản chi của ${finance.shopName()}.|">Tổng quan tài chính.</p>
+        </div>
+    </div>
+
+    <section class="dash-card vendor-card-padded mb-4" aria-labelledby="finance-range-title">
+        <div class="dash-section-head"><div><h2 id="finance-range-title">Khoảng thời gian</h2><p>Tất cả mốc ngày tính theo giờ Việt Nam.</p></div></div>
+        <div th:if="${rangeError != null}" class="alert alert-warning" role="alert" th:text="${rangeError}">Khoảng ngày không hợp lệ.</div>
+        <form method="get" th:action="@{/vendor/finance}" class="row g-3 align-items-end vendor-range-filter">
+            <label class="col-12 col-md-4 form-label">Xem theo
+                <select class="form-select" name="range">
+                    <option value="today" th:selected="${finance.range().preset() == 'today'}">Hôm nay</option>
+                    <option value="last7" th:selected="${finance.range().preset() == 'last7'}">7 ngày gần đây</option>
+                    <option value="last30" th:selected="${finance.range().preset() == 'last30'}">30 ngày gần đây</option>
+                    <option value="month" th:selected="${finance.range().preset() == 'month'}">Tháng này</option>
+                    <option value="year" th:selected="${finance.range().preset() == 'year'}">Năm nay</option>
+                    <option value="custom" th:selected="${finance.range().preset() == 'custom'}">Khoảng tùy chọn</option>
+                </select>
+            </label>
+            <label class="col-6 col-md-3 form-label">Từ ngày<input class="form-control" type="date" name="from" th:value="${finance.range().from()}"></label>
+            <label class="col-6 col-md-3 form-label">Đến ngày<input class="form-control" type="date" name="to" th:value="${finance.range().to()}"></label>
+            <div class="col-12 col-md-2"><button class="btn btn-shop-primary w-100" type="submit">Lọc</button></div>
+        </form>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+            <p class="small text-secondary mb-0" th:text="|${finance.range().from()} – ${finance.range().to()}|">Khoảng ngày</p>
+            <a class="btn btn-outline-dark" th:href="@{/vendor/finance/export.csv(range=${finance.range().preset()},from=${finance.range().from()},to=${finance.range().to()})}">Tải CSV</a>
+        </div>
+    </section>
+
+    <section class="dash-grid vendor-overview-grid" aria-label="Số dư tài chính">
+        <article class="dash-card vendor-info-card"><span class="material-symbols-outlined" aria-hidden="true">account_balance_wallet</span><div><p>Khả dụng</p><strong th:text="|${#numbers.formatInteger(finance.summary().available(),1,'COMMA')} đ|">0 đ</strong></div></article>
+        <article class="dash-card vendor-info-card"><span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span><div><p>Chờ đối soát / chi</p><strong th:text="|${#numbers.formatInteger(finance.summary().pending(),1,'COMMA')} đ|">0 đ</strong></div></article>
+        <article class="dash-card vendor-info-card"><span class="material-symbols-outlined" aria-hidden="true">lock</span><div><p>Đang bị giữ</p><strong th:text="|${#numbers.formatInteger(finance.summary().held(),1,'COMMA')} đ|">0 đ</strong></div></article>
+        <article class="dash-card vendor-info-card"><span class="material-symbols-outlined" aria-hidden="true">payments</span><div><p>Đã chuyển khoản</p><strong th:text="|${#numbers.formatInteger(finance.summary().paid(),1,'COMMA')} đ|">0 đ</strong></div></article>
+        <article class="dash-card vendor-info-card"><span class="material-symbols-outlined" aria-hidden="true">request_quote</span><div><p>Công nợ thu hồi còn lại</p><strong th:text="|${#numbers.formatInteger(finance.summary().recovery(),1,'COMMA')} đ|">0 đ</strong></div></article>
+    </section>
+    <p class="small text-secondary mt-3">“Khả dụng” chỉ gồm kỳ đã duyệt và chưa gắn với khoản chi. “Đã chuyển khoản” chỉ tính khoản chi có trạng thái PAID cùng mã tham chiếu và chứng từ đã được ghi nhận. “Đang bị giữ” chỉ gồm phần hold được tách khỏi số đang chờ; không cộng các thẻ để suy ra tổng số dư.</p>
+
+    <section class="dash-grid vendor-overview-grid mt-3" aria-label="Tổng hợp trong khoảng thời gian">
+        <article class="dash-card vendor-info-card"><div><p>Ghi có từ bán hàng</p><strong th:text="|${#numbers.formatInteger(finance.summary().sales(),1,'COMMA')} đ|">0 đ</strong></div></article>
+        <article class="dash-card vendor-info-card"><div><p>Ghi nợ hoàn tiền</p><strong th:text="|${#numbers.formatInteger(finance.summary().refunds(),1,'COMMA')} đ|">0 đ</strong></div></article>
+        <article class="dash-card vendor-info-card"><div><p>Hoa hồng theo snapshot đơn</p><strong th:text="|${#numbers.formatInteger(finance.summary().commission(),1,'COMMA')} đ|">0 đ</strong></div></article>
+        <article class="dash-card vendor-info-card"><div><p>Đã chuyển trong kỳ</p><strong th:text="|${#numbers.formatInteger(finance.summary().paidInRange(),1,'COMMA')} đ|">0 đ</strong></div></article>
+    </section>
+
+    <section class="dash-card vendor-card-padded mt-4" aria-labelledby="finance-history-title">
+        <div class="dash-section-head"><div><h2 id="finance-history-title">Lịch sử tài chính</h2><p>Bút toán, kỳ đối soát và khoản chi thuộc cửa hàng này.</p></div></div>
+        <div th:if="${finance.rows().empty}" class="text-secondary py-3">Chưa có hoạt động tài chính trong khoảng đã chọn.</div>
+        <div th:unless="${finance.rows().empty}" class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead><tr><th>Loại</th><th>Khoản mục</th><th>Trạng thái</th><th class="text-end">Số tiền</th><th>Thời điểm</th><th>Mã tham chiếu</th></tr></thead>
+                <tbody><tr th:each="row : ${finance.rows()}">
+                    <td th:text="${T(com.utewedding.app.service.web.VendorFinanceLabels).kind(row.kind())}">Sổ tài chính</td>
+                    <td th:text="${T(com.utewedding.app.service.web.VendorFinanceLabels).label(row.label())}">Khoản mục</td>
+                    <td th:text="${T(com.utewedding.app.service.web.VendorFinanceLabels).status(row.status())}">Trạng thái</td>
+                    <td class="text-end" th:text="|${#numbers.formatInteger(row.amount(),1,'COMMA')} đ|">0 đ</td>
+                    <td th:text="${#temporals.format(row.occurredAt().atZone(T(java.time.ZoneId).of('Asia/Ho_Chi_Minh')), 'dd/MM/yyyy HH:mm')}">Thời điểm</td>
+                    <td th:text="${row.reference()}">Mã tham chiếu</td>
+                </tr></tbody>
+            </table>
+        </div>
+        <div class="d-flex justify-content-between mt-3">
+            <a th:if="${finance.page() > 0}" class="btn btn-outline-dark" th:href="@{/vendor/finance(range=${finance.range().preset()},from=${finance.range().from()},to=${finance.range().to()},page=${finance.page()-1})}">Trước</a>
+            <span th:unless="${finance.page() > 0}"></span>
+            <a th:if="${finance.rows().size() == finance.pageSize()}" class="btn btn-outline-dark" th:href="@{/vendor/finance(range=${finance.range().preset()},from=${finance.range().from()},to=${finance.range().to()},page=${finance.page()+1})}">Tiếp</a>
+        </div>
+    </section>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+<script th:src="@{/js/admin-dashboard-shell.js}" defer></script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="_csrf" th:if="${_csrf != null}" th:content="${_csrf.token}">
+    <meta name="_csrf_parameter" th:if="${_csrf != null}" th:content="${_csrf.parameterName}">
+    <title>Tồn kho · UTEWedding</title>
+    <link rel="stylesheet" th:href="@{/css/be-vietnam-pro.css(v='font-20261027')}">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..700,0..1,0..1&amp;display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/custom.css(v='ui-fonts-20261027-v5')}">
+    <link rel="stylesheet" th:href="@{/css/admin-dashboard.css(v='ui-layout-20261029-v5')}">
+    <link rel="stylesheet" th:href="@{/css/vendor-workspace.css(v='vendor-layout-20261029-v2')}">
+</head>
+<body class="admin-dashboard-page vendor-workspace" id="top">
+<aside th:replace="~{fragments/vendor-shell :: sidebar(${vendorNavActiveItem})}"></aside>
+<button th:replace="~{fragments/vendor-shell :: backdrop}"></button>
+<header th:replace="~{fragments/vendor-shell :: topbar(${vendorNavActiveItem})}"></header>
+<main class="dash-content vendor-content">
+    <div class="dash-heading vendor-heading">
+        <div><span class="vendor-eyebrow">QUẢN LÝ KHO</span><h1>Tồn kho</h1>
+            <p>Điều chỉnh bằng số lượng tăng hoặc giảm. Mỗi thay đổi được lưu cùng lý do và phiên bản tồn kho.</p></div>
+    </div>
+    <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}"></div>
+    <div th:if="${errorMessage}" class="alert alert-danger" th:text="${errorMessage}"></div>
+    <section th:if="${products.empty}" class="dash-card vendor-product-empty">
+        <span class="material-symbols-outlined" aria-hidden="true">inventory_2</span>
+        <h2>Chưa có sản phẩm</h2><p>Sản phẩm sẽ xuất hiện ở đây sau khi được tạo trong cửa hàng.</p>
+        <a class="btn btn-primary" th:href="@{/vendor/products/new}">Tạo sản phẩm</a>
+    </section>
+    <section th:unless="${products.empty}" class="dash-card p-0 overflow-hidden">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0 vendor-inventory-table">
+                <thead><tr><th class="text-center">STT</th><th>Sản phẩm</th><th>Tồn hiện tại</th><th>Điều chỉnh</th><th>Lý do</th><th></th></tr></thead>
+                <tbody>
+                <tr th:each="product, row : ${products.content}">
+                    <td class="text-center text-secondary" th:text="${products.number * products.size + row.count}">1</td>
+                    <td><strong th:text="${product.name}">Tên sản phẩm</strong><small class="d-block text-secondary" th:text="${product.sku}">SKU</small></td>
+                    <td class="text-nowrap"><strong th:text="${product.stockQuantity}">0</strong> sản phẩm</td>
+                    <td colspan="3">
+                        <form class="vendor-inventory-adjustment" method="post"
+                              th:action="@{/vendor/inventory/{id}/adjust(id=${product.productId})}">
+                            <input type="hidden" name="version" th:value="${product.version}">
+                            <input type="hidden" name="page" th:value="${products.number}">
+                            <label class="visually-hidden" th:for="${'delta-' + product.productId}">Số lượng điều chỉnh</label>
+                            <input class="form-control" type="number" step="1" min="-1000000" max="1000000"
+                                   name="deltaQuantity" required placeholder="+/- số lượng"
+                                   th:id="${'delta-' + product.productId}">
+                            <label class="visually-hidden" th:for="${'reason-' + product.productId}">Lý do điều chỉnh</label>
+                            <input class="form-control" type="text" name="reason" maxlength="500" required
+                                   placeholder="Lý do điều chỉnh" th:id="${'reason-' + product.productId}">
+                            <button class="btn btn-outline-primary" type="submit">Cập nhật kho</button>
+                        </form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="px-3 pt-3 mb-0 text-secondary">Nhập số dương để cộng, số âm để trừ. Hệ thống không cho tồn kho âm.</p>
+        <nav th:if="${products.totalPages > 1}" class="p-3" aria-label="Phân trang tồn kho">
+            <ul class="pagination justify-content-center mb-0">
+                <li class="page-item" th:classappend="${products.first ? ' disabled' : ''}"><a class="page-link" th:href="@{/vendor/inventory(page=${products.number - 1})}">‹ Trước</a></li>
+                <li class="page-item disabled"><span class="page-link" th:text="${products.number + 1 + ' / ' + products.totalPages}">1 / 1</span></li>
+                <li class="page-item" th:classappend="${products.last ? ' disabled' : ''}"><a class="page-link" th:href="@{/vendor/inventory(page=${products.number + 1})}">Sau ›</a></li>
+            </ul>
+        </nav>
+    </section>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+<script th:src="@{/js/admin-dashboard-shell.js}" defer></script>
+</body></html>

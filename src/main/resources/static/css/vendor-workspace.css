@@ -1,0 +1,88 @@
+.vendor-workspace{--vendor-accent:#a43c31;--vendor-accent-soft:#f9eeec}
+.vendor-workspace .vendor-brand{padding-bottom:18px}
+.vendor-workspace .vendor-sidebar .dash-nav{padding-top:4px}
+.vendor-workspace .vendor-nav-section{margin:0}
+.vendor-workspace .vendor-nav-disabled{color:#a0a7ae;cursor:not-allowed;gap:10px}
+.vendor-workspace .vendor-nav-disabled .material-symbols-outlined{color:#aab1b7}
+.vendor-workspace .vendor-nav-disabled small{margin-left:auto;padding:2px 6px;border-radius:5px;background:#f0f1f2;color:#7b858d;font-size:var(--type-meta);white-space:nowrap}
+.vendor-workspace .vendor-topbar{z-index:1000}
+.vendor-workspace .vendor-account>.material-symbols-outlined{color:#a43c31}
+.vendor-workspace .vendor-content{padding:30px 34px 42px;max-width:1440px;margin:0 auto}
+.vendor-workspace .vendor-heading{margin-bottom:22px}
+.vendor-workspace .vendor-heading h1{margin:7px 0 4px;color:#20262d;font-size:var(--type-page-title);line-height:1.2}
+.vendor-workspace .vendor-heading p{margin:0;color:#68737f}
+.vendor-workspace .vendor-eyebrow{margin:0;color:#a43c31;font-size:var(--type-meta);font-weight:700;letter-spacing:.12em}
+.vendor-workspace .vendor-welcome{display:flex;align-items:center;gap:18px;padding:24px;margin-bottom:16px;border:1px solid #e6e1de;border-radius:12px;background:linear-gradient(110deg,#fff 0%,#fff 70%,#fbf4f1 100%)}
+.vendor-workspace .vendor-welcome-icon{display:grid;place-items:center;flex:0 0 52px;width:52px;height:52px;border-radius:12px;background:#f9eeec;color:#a43c31}
+.vendor-workspace .vendor-welcome-icon .material-symbols-outlined{font-size:27px}
+.vendor-workspace .vendor-welcome-copy{min-width:0;flex:1}
+.vendor-workspace .vendor-welcome-copy h2{margin:5px 0;font:600 var(--type-section-title)/1.25 var(--font-interface);color:#20262d}
+.vendor-workspace .vendor-welcome-copy>p:last-child{margin:0;color:#68737f}
+.vendor-workspace .vendor-status{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid #cce5d6;border-radius:999px;background:#f0f8f3;color:#236a43;font-size:var(--type-meta);font-weight:700;white-space:nowrap}
+.vendor-workspace .vendor-status span{width:7px;height:7px;border-radius:50%;background:#2f8b57}
+.vendor-workspace .vendor-overview-grid{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:16px}
+.vendor-workspace .vendor-info-card{display:flex;align-items:center;gap:13px;min-width:0;padding:18px}
+.vendor-workspace .vendor-info-card>.material-symbols-outlined{display:grid;place-items:center;flex:0 0 40px;width:40px;height:40px;border-radius:10px;background:#f6f3f1;color:#8d4a40;font-size:21px}
+.vendor-workspace .vendor-info-card div{min-width:0}
+.vendor-workspace .vendor-info-card p{margin:0 0 4px;color:#75808b;font-size:var(--type-meta)}
+.vendor-workspace .vendor-info-card strong{display:block;overflow-wrap:anywhere;color:#27313a;font-size:var(--type-ui)}
+.vendor-workspace .vendor-next-steps{padding:22px}
+.vendor-workspace .vendor-next-steps .dash-section-head{align-items:center}
+.vendor-workspace .vendor-next-steps h2{margin:0;color:#27313a;font-size:var(--type-section-title)}
+.vendor-workspace .vendor-next-steps .dash-section-head p{margin:4px 0 0;color:#75808b}
+.vendor-workspace .vendor-next-steps .dash-section-head>.material-symbols-outlined{color:#a43c31;font-size:25px}
+.vendor-workspace .vendor-next-steps-copy{max-width:760px;margin:14px 0 0;color:#596672;line-height:1.65}
+.vendor-workspace .vendor-product-note{display:flex;gap:8px;align-items:baseline;padding:15px 18px;margin-bottom:16px;border:1px solid #ead8d2;background:#fffaf7;color:#52606c}
+.vendor-workspace .vendor-product-note strong{color:#793c32;white-space:nowrap}
+.vendor-workspace .vendor-product-empty{display:grid;justify-items:center;padding:52px 20px;text-align:center}
+.vendor-workspace .vendor-product-empty>.material-symbols-outlined{margin-bottom:10px;color:#a43c31;font-size:34px}
+.vendor-workspace .vendor-product-empty h2{font-size:var(--type-section-title);color:#27313a}
+.vendor-workspace .vendor-product-empty p{color:#68737f}
+.vendor-workspace .vendor-product-table th{padding:14px 12px;color:#66727d;font-size:var(--type-meta);font-weight:700;white-space:nowrap}
+.vendor-workspace .vendor-product-table td{padding:13px 12px}
+.vendor-workspace .vendor-product-name{display:flex;align-items:center;gap:11px;min-width:220px}
+.vendor-workspace .vendor-product-name img{width:48px;height:48px;flex:0 0 48px;border-radius:8px;object-fit:cover;background:#f2efed}
+.vendor-workspace .vendor-product-name strong{display:block;color:#27313a;font-size:var(--type-ui)}
+.vendor-workspace .vendor-product-name small{display:block;margin-top:3px;color:#77818a}
+.vendor-workspace .vendor-product-form-page{max-width:1160px}
+.vendor-workspace .vendor-product-status-card{display:flex;align-items:center;gap:12px;padding:15px 18px}
+.vendor-workspace .vendor-product-status-card strong{color:#27313a}
+.vendor-workspace .vendor-product-status-card p{margin:0 0 0 auto;color:#a43c31}
+.vendor-workspace .vendor-product-editor{padding:24px}
+.vendor-workspace .vendor-product-editor .form-label{font-size:var(--type-meta);font-weight:600;color:#38434e}
+.vendor-workspace .vendor-product-form-image{width:120px;height:120px;object-fit:cover;border-radius:10px;border:1px solid #e6e1de}
+.vendor-workspace .vendor-product-form-actions{display:flex;gap:10px;margin-top:22px;padding-top:18px;border-top:1px solid #e7e2df}
+.vendor-workspace .vendor-inventory-table{min-width:880px}
+.vendor-workspace .vendor-inventory-adjustment{display:grid;grid-template-columns:minmax(8rem,.6fr) minmax(12rem,1.4fr) auto;gap:.5rem}
+.vendor-workspace .vendor-inventory-adjustment .form-control{min-width:0}
+.vendor-workspace .vendor-card-padded{padding:18px;min-width:0}
+.vendor-workspace .vendor-card-padded>.dash-section-head{margin-bottom:14px}
+.vendor-workspace .vendor-range-filter.row{display:grid;grid-template-columns:minmax(170px,1.2fr) repeat(2,minmax(165px,1fr)) minmax(110px,.55fr);gap:12px;margin:14px 0 0;--bs-gutter-x:0;--bs-gutter-y:0}
+.vendor-workspace .vendor-range-filter.row>*{width:auto;max-width:none;flex:none;padding:0;min-width:0}
+.vendor-workspace .vendor-range-filter .form-label{display:flex;flex-direction:column;gap:6px;margin:0;color:#38434e}
+.vendor-workspace .vendor-range-filter :is(.form-control,.form-select,.btn){width:100%;height:44px;min-height:44px}
+.vendor-workspace .vendor-range-filter .btn{display:inline-flex;align-items:center;justify-content:center}
+.vendor-workspace .vendor-card-padded .table-responsive{min-width:0}
+@media(max-width:1100px){.vendor-workspace .vendor-range-filter.row{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:575px){.vendor-workspace .vendor-range-filter.row{grid-template-columns:minmax(0,1fr)}}
+.vendor-workspace .site-footer{grid-column:2}
+@media(max-width:1100px){.vendor-workspace .vendor-overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:767px){
+    .vendor-workspace .site-footer{grid-column:1}
+    .vendor-workspace .vendor-content{padding:22px 15px 32px}
+    .vendor-workspace .vendor-heading h1{font-size:var(--type-page-title-mobile)}
+    .vendor-workspace .vendor-welcome{align-items:flex-start;flex-wrap:wrap;padding:18px}
+    .vendor-workspace .vendor-welcome-copy{flex-basis:calc(100% - 70px)}
+    .vendor-workspace .vendor-status{margin-left:70px}
+    .vendor-workspace .vendor-overview-grid{grid-template-columns:1fr}
+    .vendor-workspace .vendor-next-steps{padding:18px}
+    .vendor-workspace .vendor-product-note{align-items:flex-start;flex-direction:column;gap:3px}
+    .vendor-workspace .vendor-product-status-card{align-items:flex-start;flex-direction:column}
+    .vendor-workspace .vendor-product-status-card p{margin:0}
+    .vendor-workspace .vendor-product-editor{padding:17px}
+    .vendor-workspace .vendor-product-form-actions{flex-direction:column}
+    .vendor-workspace .vendor-product-form-actions .btn{width:100%}
+    .vendor-workspace .vendor-inventory-adjustment{grid-template-columns:minmax(0,1fr)}
+    .vendor-workspace .vendor-inventory-adjustment .btn{width:100%}
+    .vendor-workspace .vendor-account strong,.vendor-workspace .vendor-account small{display:none}
+}
