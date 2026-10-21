@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Hộp thư hỗ trợ · UTEWedding')}"></head>
+<body class="admin-dashboard-page support-inbox-page">
+<nav th:replace="~{fragments :: adminnav('support')}"></nav>
+<main class="dash-content support-inbox-main">
+    <div id="adminSupportChatRoot" class="support-inbox" data-support-chat-mode="staff"
+         th:attr="data-needs-reply=${needsReply},data-mine=${initialMine},data-unassigned=${initialUnassigned},data-query=${initialQuery},data-status=${initialStatus},data-selected-id=${supportChatConversationId}">
+        <header class="support-inbox-heading">
+            <div><span class="support-inbox-eyebrow">CHĂM SÓC KHÁCH HÀNG</span><h1>Hộp thư hỗ trợ</h1><p>Trao đổi với khách và phối hợp xử lý theo từng hội thoại.</p></div>
+            <span class="support-inbox-hours">Thứ Hai–Thứ Sáu · 08:00–17:00</span>
+        </header>
+        <div class="support-inbox-layout">
+            <aside class="support-inbox-list-panel" aria-label="Danh sách hội thoại">
+                <form class="support-inbox-search" data-staff-search role="search">
+                    <label class="visually-hidden" for="supportInboxSearch">Tìm hội thoại</label>
+                    <span class="material-symbols-outlined" aria-hidden="true">search</span>
+                    <input id="supportInboxSearch" type="search" placeholder="Tìm khách hoặc nội dung" data-staff-query>
+                </form>
+                <div class="support-inbox-filters" role="group" aria-label="Lọc hội thoại">
+                    <button type="button" data-staff-filter="needsReply" th:classappend="${needsReply and not initialMine and not initialUnassigned} ? ' is-active' : ''">Cần trả lời</button>
+                    <button type="button" data-staff-filter="all" th:classappend="${not needsReply and not initialMine and not initialUnassigned} ? ' is-active' : ''">Tất cả</button>
+                    <button type="button" data-staff-filter="mine" th:classappend="${initialMine} ? ' is-active' : ''">Của tôi</button>
+                    <button type="button" data-staff-filter="unassigned" th:classappend="${initialUnassigned} ? ' is-active' : ''">Chưa nhận</button>
+                </div>
+                <div class="support-inbox-ticket-list" data-chat-conversation-list aria-live="polite"><p class="support-chat-loading">Đang tải hội thoại…</p></div>
+                <button type="button" class="support-chat-more" data-chat-list-more hidden>Xem hội thoại cũ hơn</button>
+            </aside>
+            <section class="support-inbox-thread" aria-label="Nội dung hội thoại">
+                <div class="support-inbox-empty" data-staff-empty>
+                    <span class="material-symbols-outlined" aria-hidden="true">forum</span>
+                    <h2>Chọn một hội thoại</h2>
+                    <p>Nội dung và lịch sử trao đổi sẽ xuất hiện tại đây.</p>
+                </div>
+                <div class="support-inbox-thread-content" data-chat-thread-view hidden>
+                    <header class="support-inbox-thread-header">
+                        <div><span class="support-inbox-eyebrow" data-chat-ticket-number></span><h2 data-chat-title></h2><p data-chat-customer></p></div>
+                        <div class="support-inbox-thread-actions">
+                            <span data-chat-ticket-status class="support-inbox-status"></span>
+                            <button type="button" class="btn-shop-outline" data-staff-claim hidden>Nhận xử lý</button>
+                            <button type="button" class="btn-shop-outline" data-staff-resolve>Đánh dấu đã giải quyết</button>
+                        </div>
+                    </header>
+                    <div class="support-inbox-context" data-chat-context hidden></div>
+                    <div class="support-inbox-participants"><span><b>Phụ trách:</b> <span data-chat-assignee>Chưa nhận</span></span><span data-chat-participants></span></div>
+                    <div class="support-inbox-messages" data-chat-messages aria-live="polite" aria-relevant="additions text"></div>
+                    <button type="button" class="support-chat-more" data-chat-message-more hidden>Xem tin nhắn trước</button>
+                    <div class="support-chat-typing" data-chat-typing aria-live="polite"></div>
+                    <form class="support-chat-composer support-staff-composer" data-chat-composer>
+                        <div class="support-chat-attachment-preview" data-chat-attachment-preview></div>
+                        <label class="support-staff-internal"><input type="checkbox" data-chat-internal> Ghi chú nội bộ <small>Chỉ nhân viên nhìn thấy</small></label>
+                        <label class="visually-hidden" for="staffChatMessage">Tin nhắn</label>
+                        <textarea id="staffChatMessage" rows="2" maxlength="5000" placeholder="Nhập nội dung phản hồi…" data-chat-message></textarea>
+                        <div class="support-chat-compose-actions">
+                            <label class="support-chat-attach" title="Đính kèm ảnh JPEG hoặc PNG"><span class="material-symbols-outlined" aria-hidden="true">attach_file</span><span>Ảnh</span><input type="file" accept="image/jpeg,image/png" multiple data-chat-files hidden></label>
+                            <span class="support-chat-send-error" data-chat-error role="alert"></span>
+                            <button type="submit" class="btn-shop-primary" data-chat-send>Gửi phản hồi</button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+        </div>
+        <p class="support-inbox-footnote">Tin nhắn được lưu trong lịch sử hỗ trợ. Ghi chú nội bộ chỉ hiển thị cho nhân viên.</p>
+    </div>
+</main>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

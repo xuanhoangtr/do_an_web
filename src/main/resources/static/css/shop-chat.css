@@ -1,0 +1,10 @@
+.shop-chat-customer .dash-content { margin-left: 0; padding-top: 24px; }
+.shop-chat-customer > nav { padding: 20px 24px 0; }
+.shop-chat-back { display: none; }
+@media (max-width: 767px) {
+    .shop-chat-page .support-inbox-layout { display: block; }
+    .shop-chat-page .support-inbox-thread { display: none; }
+    .shop-chat-page .support-inbox.is-thread-open .support-inbox-list-panel { display: none; }
+    .shop-chat-page .support-inbox.is-thread-open .support-inbox-thread { display: flex; }
+    .shop-chat-back { display: inline-flex; }
+}

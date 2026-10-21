@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments :: head('Hỗ trợ · UTEWedding')}"></head>
+<body class="bg-cream support-workspace" th:classappend="${staff} ? ' admin-dashboard-page' : ''">
+<th:block th:if="${staff}"><nav th:replace="~{fragments :: adminnav('support')}"></nav></th:block>
+<th:block th:unless="${staff}"><nav th:replace="~{fragments :: navbar}"></nav></th:block>
+<main class="container py-5">
+    <div th:replace="~{operations/common :: messages}"></div>
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <h1 class="h3 mb-0">Hỗ trợ</h1>
+        <a th:unless="${staff}" class="btn btn-dark" th:href="@{/support/new}">Tạo yêu cầu hỗ trợ</a>
+    </div>
+    <form id="support-filters" method="get" class="row g-2 flex-wrap my-4">
+        <div class="col-sm-6 col-lg-3"><label class="visually-hidden" for="support-status">Trạng thái</label><select id="support-status" class="form-select" name="status"><option value="">Mọi trạng thái</option><option th:each="status : ${statuses}" th:value="${status}" th:text="${T(com.utewedding.app.service.web.StatusLabels).label(status)}" th:selected="${param.status != null and param.status[0] == status.name()}"></option></select></div>
+        <div class="col-sm-6 col-lg-3"><label class="visually-hidden" for="support-priority">Mức ưu tiên</label><select id="support-priority" class="form-select" name="priority"><option value="">Mọi mức ưu tiên</option><option th:each="priority : ${priorities}" th:value="${priority}" th:text="${T(com.utewedding.app.service.web.StatusLabels).label(priority)}" th:selected="${param.priority != null and param.priority[0] == priority.name()}"></option></select></div>
+        <th:block th:if="${staff}">
+            <div class="col-sm-6 col-lg-2"><label class="visually-hidden" for="support-category">Loại ticket</label><select id="support-category" class="form-select" name="category"><option value="">Mọi loại</option><option th:each="category : ${categories}" th:value="${category}" th:text="${category.name() == 'ORDER' ? 'Đơn hàng' : category.name() == 'PAYMENT' ? 'Thanh toán' : category.name() == 'RETURN' ? 'Trả hàng' : category.name() == 'SHIPPING' ? 'Vận chuyển' : 'Khác'}" th:selected="${param.category != null and param.category[0] == category.name()}"></option></select></div>
+            <div class="col-sm-6 col-lg-2"><label class="visually-hidden" for="support-query">Tìm mã hoặc tiêu đề</label><input id="support-query" class="form-control" name="q" placeholder="Tìm mã hoặc tiêu đề" th:value="${param.q}"></div>
+            <div class="col-12 d-flex flex-wrap gap-3 align-items-center">
+                <label class="form-check-label"><input class="form-check-input" name="mine" type="checkbox" value="true" th:checked="${param.mine != null}"> Của tôi</label>
+                <label class="form-check-label"><input class="form-check-input" name="unassigned" type="checkbox" value="true" th:checked="${param.unassigned != null}"> Chưa phân công</label>
+                <label class="form-check-label fw-semibold"><input class="form-check-input" name="needsReply" type="checkbox" value="true" th:checked="${needsReply}"> Cần phản hồi</label>
+            </div>
+        </th:block>
+        <div class="col-12"><button class="btn btn-outline-dark" type="submit">Lọc</button><a class="btn btn-link" th:href="${base}">Xóa bộ lọc</a></div>
+    </form>
+    <p th:if="${rows.empty}" class="card p-4">Chưa có ticket phù hợp.</p>
+    <div class="table-responsive" th:unless="${rows.empty}">
+        <table class="table table-hover align-middle bg-white">
+        <thead><tr><th class="text-center text-secondary" scope="col">STT</th><th>Mã</th><th>Tiêu đề</th><th th:if="${staff}">Phản hồi</th><th>Trạng thái</th><th>Ưu tiên</th><th>Hoạt động</th></tr></thead>
+            <tbody>
+            <tr th:each="row, rowStat : ${rows}">
+                <td class="text-center text-secondary" th:text="${rows.number * rows.size + rowStat.count}">1</td>
+                <td><a th:href="${base + '/' + row.id}" th:text="${row.number}"></a></td>
+                <td><span th:text="${row.subject}"></span><small th:if="${staff and row.weddingId != null}" class="d-block"><a th:href="@{/admin/weddings}">Thiệp cưới liên quan</a></small></td>
+                <td th:if="${staff}"><span class="badge rounded-pill" th:classappend="${row.replyState.name() == 'CUSTOMER_REPLIED' ? ' text-bg-danger' : (row.replyState.name() == 'WAITING_CUSTOMER' ? ' text-bg-light' : (row.replyState.name() == 'NEEDS_STAFF' ? ' text-bg-warning' : ' text-bg-secondary'))}" th:text="${row.replyState.name() == 'NEEDS_STAFF' ? 'Chưa phản hồi' : (row.replyState.name() == 'WAITING_CUSTOMER' ? 'Chờ khách phản hồi' : (row.replyState.name() == 'CUSTOMER_REPLIED' ? 'Khách đã phản hồi' : '—'))}"></span></td>
+                <td th:text="${T(com.utewedding.app.service.web.StatusLabels).label(row.status)}"></td>
+                <td th:text="${T(com.utewedding.app.service.web.StatusLabels).label(row.priority)}"></td>
+                <td class="text-nowrap" th:text="${#temporals.format(row.lastActivityAt, 'dd/MM/yyyy HH:mm')}"></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+    <nav th:replace="~{operations/common :: pager(${rows})}"></nav>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer><th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

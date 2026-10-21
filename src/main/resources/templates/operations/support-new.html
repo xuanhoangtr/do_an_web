@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments :: head('Yêu cầu hỗ trợ · UTEWedding')}"></head>
+<body class="bg-cream support-workspace" th:classappend="${profileRole == 'MANAGER' or profileRole == 'ADMIN' or profileRole == 'SUPER_ADMIN'} ? ' admin-dashboard-page' : ''"><nav th:replace="~{fragments :: navbar}"></nav><main class="container py-5">
+<div th:replace="~{operations/common :: messages}"></div>
+<h1 class="h3">Yêu cầu hỗ trợ mới</h1><div th:if="${orderLoadError}" class="alert alert-warning" role="status" th:text="${orderLoadError}"></div><div th:if="${referenceLoadError}" class="alert alert-warning" role="status" th:text="${referenceLoadError}"></div><form th:action="@{/support}" method="post" enctype="multipart/form-data" class="card p-4">
+<input type="hidden" name="token" th:value="${token}"><input th:if="${returnCaseId != null}" type="hidden" name="returnCaseId" th:value="${returnCaseId}">
+<label>Loại<select class="form-select" name="category" required><option th:each="category : ${categories}" th:value="${category}" th:text="${category.name() == 'ORDER' ? 'Đơn hàng' : category.name() == 'PAYMENT' ? 'Thanh toán' : category.name() == 'RETURN' ? 'Trả hàng' : category.name() == 'SHIPPING' ? 'Vận chuyển' : 'Khác'}"></option></select></label>
+<label>Đơn hàng liên quan<select class="form-select" name="orderId"><option value="">Không liên quan đơn hàng</option><option th:each="order : ${orders}" th:value="${order.id}" th:text="${order.orderNumber}" th:selected="${orderId != null and orderId == order.id}"></option></select></label>
+<p>Để chọn case hoặc kiện hàng, mở Hỗ trợ từ chi tiết đơn hàng hoặc yêu cầu trả hàng.</p>
+<label th:if="${returnCaseId == null and !returnCases.empty}">Yêu cầu trả hàng liên quan<select name="returnCaseId" class="form-select"><option value="">Không chọn</option><option th:each="case : ${returnCases}" th:value="${case.id}" th:text="${case.caseNumber}"></option></select></label>
+<label th:if="${!fulfillments.empty}">Kiện hàng liên quan<select name="fulfillmentId" class="form-select"><option value="">Không chọn</option><option th:each="fulfillment : ${fulfillments}" th:value="${fulfillment.fulfillmentId}" th:text="${fulfillment.fulfillmentId}"></option></select></label>
+<label>Tiêu đề<input name="subject" class="form-control" maxlength="200" required th:value="${savedSubject}"></label><label>Nội dung<textarea name="body" class="form-control" required maxlength="5000" th:text="${savedBody}"></textarea></label><label>Đính kèm (tối đa 5 tệp)<input type="file" name="files" multiple class="form-control"></label><button type="submit" class="btn btn-dark mt-3">Gửi yêu cầu</button></form>
+</main><footer th:replace="~{fragments :: footer}"></footer><th:block th:replace="~{fragments :: scripts}"></th:block></body></html>

@@ -18,7 +18,14 @@ body {
     color: var(--primary-color) !important;
 }
 
-/* Chat bubble placeholder */
-.chat-placeholder {
-    display: none;
+/* Floating Chat Widget & Drawer Styling */
+#liveChatWidget button {
+    width: 60px;
+    height: 60px;
+    font-size: 24px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#liveChatWidget button:hover {
+    transform: scale(1.08);
 }
