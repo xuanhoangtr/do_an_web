@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Trả hàng · UTEWedding')}"></head>
+<body class="bg-cream" th:classappend="${scope == 'admin'} ? ' admin-dashboard-page' : ''"><nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5"><h1 class="h3">Trả hàng và hoàn tiền</h1>
+    <div th:replace="~{operations/common :: messages}"></div>
+    <p th:if="${scope == 'customer'}">Mở yêu cầu mới từ chi tiết đơn hàng đã giao.</p>
+    <form method="get" class="row g-2 my-3">
+        <div class="col-sm-6 col-lg-3"><select name="status" class="form-select"><option value="">Mọi trạng thái</option><option th:each="status : ${statuses}" th:value="${status}" th:text="${T(com.utewedding.app.service.web.StatusLabels).label(status)}" th:selected="${param.status != null and param.status[0] == status.name()}"></option></select></div>
+        <th:block th:if="${scope == 'admin'}"><div class="col-sm-6 col-lg-2"><input class="form-control" name="q" placeholder="Mã case" th:value="${param.q}"></div><div class="col-sm-6 col-lg-2"><input class="form-control" name="from" placeholder="Từ ISO UTC" th:value="${param.from}"></div><div class="col-sm-6 col-lg-2"><input class="form-control" name="to" placeholder="Đến ISO UTC" th:value="${param.to}"></div><div class="col-sm-6 col-lg-1"><label class="form-check-label"><input class="form-check-input" type="checkbox" name="disputed" value="true" th:checked="${param.disputed != null}"> Tranh chấp</label></div></th:block>
+        <button class="btn btn-dark" type="submit">Lọc</button>
+    </form>
+    <p th:if="${rows.empty}" class="card p-4">Chưa có yêu cầu phù hợp.</p>
+    <div class="table-responsive" th:unless="${rows.empty}"><table class="table table-hover align-middle bg-white"><thead><tr><th class="text-center text-secondary" scope="col">STT</th><th>Mã</th><th>Trạng thái</th><th>Lý do</th><th>Hạn yêu cầu</th></tr></thead><tbody><tr th:each="row, rowStat : ${rows}"><td class="text-center text-secondary" th:text="${rows.number * rows.size + rowStat.count}">1</td><td><a th:href="${base + '/' + row.id}" th:text="${row.caseNumber}"></a></td><td th:text="${T(com.utewedding.app.service.web.StatusLabels).label(row.status)}"></td><td class="text-break" th:text="${row.reason}"></td><td class="text-nowrap" th:text="${row.requestDeadline != null ? #temporals.format(row.requestDeadline, 'dd/MM/yyyy HH:mm') : '—'}"></td></tr></tbody></table></div>
+    <nav th:replace="~{operations/common :: pager(${rows})}"></nav>
+</main><footer th:replace="~{fragments :: footer}"></footer><th:block th:replace="~{fragments :: scripts}"></th:block></body></html>

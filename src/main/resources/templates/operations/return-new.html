@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Yêu cầu trả hàng · UTEWedding')}"></head>
+<body class="bg-cream" th:classappend="${scope == 'admin'} ? ' admin-dashboard-page' : ''"><nav th:replace="~{fragments :: navbar}"></nav><main class="container py-5">
+<h1 class="h3">Yêu cầu trả hàng</h1><div th:replace="~{operations/common :: messages}"></div>
+<section th:each="option : ${eligibility}" th:if="${selectedFulfillment == null or selectedFulfillment == option.fulfillmentId}" class="card p-4 mb-3">
+    <h2 class="h5" th:text="${option.fulfillmentId}"></h2><p th:unless="${option.eligible}" th:text="${option.reason}"></p>
+    <form th:if="${option.eligible}" th:action="@{/returns}" method="post">
+        <input type="hidden" name="token" th:value="${token}"><input type="hidden" name="orderId" th:value="${orderId}"><input type="hidden" name="fulfillmentId" th:value="${option.fulfillmentId}">
+        <label class="form-label">Lý do<textarea name="reason" class="form-control" required maxlength="80" th:text="${savedReason}"></textarea></label>
+        <div th:each="item : ${option.items}" class="d-flex align-items-center gap-3 my-2"><span th:text="${item.name}"></span><input type="hidden" name="itemId" th:value="${item.id}"><input class="form-control w-auto" aria-label="Số lượng trả" type="number" name="quantity" min="0" th:max="${item.remaining}" value="0"></div>
+        <button class="btn btn-dark" type="submit">Gửi yêu cầu</button>
+    </form>
+</section>
+</main><footer th:replace="~{fragments :: footer}"></footer><th:block th:replace="~{fragments :: scripts}"></th:block></body></html>
