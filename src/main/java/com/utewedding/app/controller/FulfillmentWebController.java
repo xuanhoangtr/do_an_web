@@ -96,6 +96,10 @@ public class FulfillmentWebController {
         model.addAttribute("shippers", this.fulfillmentService.listShippers());
         model.addAttribute("orderFulfillments", this.fulfillmentService.listForOrder(fulfillment.orderId()));
         model.addAttribute("roleView", (Object)"admin");
+        model.addAttribute("shippingProviderCode", shippingSnapshots == null ? "UNKNOWN"
+                : shippingSnapshots.findByOrderId(fulfillment.orderId())
+                .map(com.utewedding.app.domain.entity.OrderShippingSnapshotEntity::getProviderCode)
+                .orElse("UNKNOWN"));
         model.addAttribute("shippingCarrierName", shippingCarrierSnapshotReader == null
                 ? "Chưa xác định nhà vận chuyển" : shippingCarrierSnapshotReader.forOrder(fulfillment.orderId()).name());
         return "fulfillment/detail";
