@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Quản lý danh mục và mã giảm giá · UTEWedding')}"></head>
+<body class="bg-cream marketplace-admin-page admin-dashboard-page">
+<link rel="stylesheet" th:href="@{/css/marketplace-admin.css(v='ui-fonts-20261027-v2')}">
+<nav th:replace="~{fragments :: adminnav(${section})}"></nav>
+<main class="container py-5">
+    <div th:if="${successMessage}" class="alert alert-success" role="status" th:text="${successMessage}" data-flash-success></div>
+    <div th:if="${errorMessage}" class="alert alert-danger" role="alert" th:text="${errorMessage}"></div>
+    <header class="marketplace-page-heading mb-4">
+        <p class="eyebrow mb-2">CỬA HÀNG</p>
+        <h1 class="display-subtitle mb-2" th:text="${section == 'categories' ? 'Quản lý danh mục' : 'Quản lý mã giảm giá'}">Quản trị cửa hàng</h1>
+        <p class="text-secondary mb-0">Quản lý danh mục sản phẩm và ưu đãi dành cho khách hàng.</p>
+    </header>
+    <th:block th:if="${section == 'categories'}"><div th:replace="~{admin/marketplace-categories :: categoryContent}"></div></th:block>
+    <th:block th:if="${section == 'vouchers'}"><div th:replace="~{admin/marketplace-vouchers :: voucherContent}"></div></th:block>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+<script th:src="@{/js/marketplace-admin.js}" defer></script>
+</body>
+</html>

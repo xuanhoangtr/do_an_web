@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Địa chỉ và GHN Staging · UTEWedding')}"></head>
+<body class="admin-dashboard-page admin-dashboard-wrapped-layout" id="top">
+<div class="dash-layout">
+    <aside th:replace="~{fragments :: adminSidebar('shops')}"></aside>
+    <button type="button" class="dash-sidebar-backdrop" id="dashboardSidebarBackdrop" aria-label="Đóng menu"></button>
+    <div class="dash-main">
+        <header th:replace="~{fragments :: adminTopbar('shops')}"></header>
+        <main class="dash-content">
+            <div class="dash-heading">
+                <div><a class="dash-text-link" th:href="@{/admin/shops/{id}(id=${shipping.shopId})}">← Hồ sơ cửa hàng</a>
+                    <h1 th:text="|Địa chỉ và GHN · ${shipping.shopName}|">Địa chỉ và GHN</h1>
+                    <p>Binding GHN chỉ dùng để báo giá giao hàng ngoài TP.HCM sau khi được xác minh; trang này không gửi yêu cầu tạo vận đơn.</p></div>
+            </div>
+            <div class="alert alert-success" role="status" th:if="${successMessage}" th:text="${successMessage}"></div>
+            <div class="alert alert-danger" role="alert" th:if="${errorMessage}" th:text="${errorMessage}"></div>
+            <div class="alert alert-warning" role="note">
+                Binding cần được xác minh thủ công trước khi module giao hàng sử dụng. COD có xác minh riêng; không nhập token, secret, mật khẩu, mã OTP hoặc URL có chữ ký vào ghi chú.
+            </div>
+
+            <section class="dash-card dash-panel mb-4">
+                <div class="dash-section-head"><div><h2>Địa chỉ hiện hành</h2><p>Địa chỉ được lưu theo revision; thay đổi không viết lại các phiên bản cũ.</p></div></div>
+                <div class="row g-3">
+                    <div class="col-12 col-lg-6" th:each="kind : ${ {'PICKUP','RETURN'} }">
+                        <article class="border rounded-3 p-3 h-100">
+                            <strong th:text="${kind == 'PICKUP' ? 'Lấy hàng' : 'Hoàn trả'}">Lấy hàng</strong>
+                            <div th:with="address=${shipping.currentAddresses[kind]}">
+                                <p class="mb-1 mt-2" th:if="${address != null}" th:text="|Phiên bản ${address.revision}: ${address.addressLine}, ${address.wardName}, ${address.provinceName}|">Địa chỉ</p>
+                                <p class="text-secondary mb-1" th:if="${address != null}" th:text="|${address.contactName} · ${address.contactPhone}|">Liên hệ</p>
+                                <small class="text-secondary" th:if="${address != null}" th:text="|Danh mục ${address.catalogSource} · ID tỉnh ${address.provinceCode} · ID phường ${address.wardCode}|">Danh mục</small>
+                                <p class="text-danger mb-0" th:if="${address == null}">Chưa khai báo</p>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+                <div id="shipping-address-editors" class="row g-3 mt-1">
+                    <div class="col-12 col-xl-6">
+                        <form method="post" th:action="@{/admin/shops/{id}/shipping/addresses(id=${shipping.shopId})}"
+                              th:object="${pickupAddressForm}" class="border rounded-3 p-3 h-100" data-shop-address-form>
+                            <input type="hidden" th:field="*{addressKind}"><input type="hidden" th:field="*{catalogSource}"><input type="hidden" th:field="*{expectedRevision}">
+                            <h3 class="h5">Cập nhật địa chỉ lấy hàng</h3>
+                            <p class="small text-secondary mb-3 shop-address-intro">Địa chỉ được lưu theo phiên bản; thay đổi không làm ảnh hưởng đơn đã tạo. Dùng làm điểm lấy hàng cho vận chuyển.</p>
+                            <div class="mb-3"><label class="form-label" for="pickupLine">Số nhà, tên đường</label><input class="form-control" id="pickupLine" th:field="*{addressLine}" maxlength="500" required></div>
+                            <div class="row g-3">
+                                <div class="col-12 col-md-6"><label class="form-label" for="pickupProvince">Tỉnh / thành</label>
+                                    <select class="form-select" id="pickupProvince" th:field="*{provinceCode}" data-address-province th:attr="data-selected-province=${pickupAddressForm.provinceCode},data-selected-ward=${pickupAddressForm.wardCode}" required>
+                                        <option value="">Chọn tỉnh / thành</option><option th:each="province : ${provinces}" th:value="${province.code}" th:text="${province.name}"></option>
+                                    </select></div>
+                                <div class="col-12 col-md-6"><label class="form-label" for="pickupWard">Phường / xã</label>
+                                    <select class="form-select" id="pickupWard" th:field="*{wardCode}" data-address-ward required><option value="">Chọn phường / xã</option></select></div>
+                                <div class="col-12 col-md-6"><label class="form-label" for="pickupContact">Người liên hệ</label><input class="form-control" id="pickupContact" th:field="*{contactName}" maxlength="160" required></div>
+                                <div class="col-12 col-md-6"><label class="form-label" for="pickupPhone">Số điện thoại</label><input class="form-control" id="pickupPhone" type="tel" th:field="*{contactPhone}" maxlength="30" required></div>
+                            </div>
+                            <button class="btn btn-primary mt-3" type="submit">Lưu địa chỉ lấy hàng</button>
+                        </form>
+                    </div>
+                    <div class="col-12 col-xl-6">
+                        <form method="post" th:action="@{/admin/shops/{id}/shipping/addresses(id=${shipping.shopId})}"
+                              th:object="${returnAddressForm}" class="border rounded-3 p-3 h-100" data-shop-address-form>
+                            <input type="hidden" th:field="*{addressKind}"><input type="hidden" th:field="*{catalogSource}"><input type="hidden" th:field="*{expectedRevision}">
+                            <h3 class="h5">Cập nhật địa chỉ hoàn trả</h3>
+                            <p class="small text-secondary mb-3 shop-address-intro">Địa chỉ được lưu theo phiên bản; thay đổi không làm ảnh hưởng đơn đã tạo. Nếu hoàn về shop, dùng địa chỉ lấy hàng.</p>
+                            <div class="mb-3"><label class="form-label" for="returnLine">Số nhà, tên đường</label><input class="form-control" id="returnLine" th:field="*{addressLine}" maxlength="500" required></div>
+                            <div class="row g-3">
+                                <div class="col-12 col-md-6"><label class="form-label" for="returnProvince">Tỉnh / thành</label>
+                                    <select class="form-select" id="returnProvince" th:field="*{provinceCode}" data-address-province th:attr="data-selected-province=${returnAddressForm.provinceCode},data-selected-ward=${returnAddressForm.wardCode}" required>
+                                        <option value="">Chọn tỉnh / thành</option><option th:each="province : ${provinces}" th:value="${province.code}" th:text="${province.name}"></option>
+                                    </select></div>
+                                <div class="col-12 col-md-6"><label class="form-label" for="returnWard">Phường / xã</label>
+                                    <select class="form-select" id="returnWard" th:field="*{wardCode}" data-address-ward required><option value="">Chọn phường / xã</option></select></div>
+                                <div class="col-12 col-md-6"><label class="form-label" for="returnContact">Người liên hệ</label><input class="form-control" id="returnContact" th:field="*{contactName}" maxlength="160" required></div>
+                                <div class="col-12 col-md-6"><label class="form-label" for="returnPhone">Số điện thoại</label><input class="form-control" id="returnPhone" type="tel" th:field="*{contactPhone}" maxlength="30" required></div>
+                            </div>
+                            <button class="btn btn-primary mt-3" type="submit">Lưu địa chỉ hoàn trả</button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <section class="dash-card dash-panel mb-4">
+                <div class="dash-section-head"><div><h2>Tài khoản GHN Staging</h2><p>Lưu nhãn và mã tham chiếu tới kho secrets bên ngoài; không lưu hoặc hiển thị giá trị token.</p></div></div>
+                <div class="row g-3 mb-4" th:if="${!#lists.isEmpty(shipping.accounts)}">
+                    <div class="col-12 col-xl-6" th:each="account : ${shipping.accounts}">
+                        <article class="border rounded-3 p-3 h-100">
+                            <div class="d-flex flex-wrap justify-content-between gap-2"><strong th:text="${account.accountName}">GHN Staging</strong><span class="badge text-bg-light" th:text="${account.status}">PENDING</span></div>
+                            <p class="mb-1 mt-2">GHN · <span th:text="${account.environment}">STAGING</span></p>
+                            <small class="text-secondary" th:text="${account.credentialReferenceDisplay}">Đã lưu tham chiếu</small>
+                            <p class="small text-secondary mt-2 mb-2" th:if="${account.evidence != null}" th:text="${account.evidence}">Ghi chú đã che</p>
+                            <form th:if="${account.status == 'PENDING'}" method="post" class="mt-3" th:action="@{/admin/shops/{shopId}/shipping/accounts/{id}/verify(shopId=${shipping.shopId},id=${account.id})}">
+                                <label class="form-label">Ghi chú xác minh đã che thông tin</label>
+                                <textarea class="form-control mb-2" name="evidence" minlength="8" maxlength="2000" required placeholder="Ví dụ: Đã đăng nhập merchant GHN Staging và đối chiếu quyền tài khoản."></textarea>
+                                <label class="form-check mb-2"><input class="form-check-input" type="checkbox" name="confirm" value="true" required><span class="form-check-label">Tôi đã kiểm tra tài khoản trên GHN Staging</span></label>
+                                <button class="btn btn-outline-primary" type="submit">Ghi nhận xác minh tài khoản</button>
+                            </form>
+                            <p class="text-success small mt-2 mb-0" th:if="${account.status == 'VERIFIED'}">Đã xác minh Staging
+                                <time th:if="${account.verifiedAt != null}" th:text="${#temporals.format(account.verifiedAt, 'dd/MM/yyyy HH:mm')}">—</time>
+                            </p>
+                        </article>
+                    </div>
+                </div>
+                <p class="text-secondary" th:if="${#lists.isEmpty(shipping.accounts)}">Chưa có tài khoản Staging được khai báo.</p>
+                <form method="post" th:action="@{/admin/shops/{id}/shipping/accounts(id=${shipping.shopId})}" th:object="${accountForm}" class="row g-3 border-top pt-4">
+                    <div class="col-12"><h3 class="h5">Khai báo tài khoản mới</h3><p class="small text-secondary">Nhập tham chiếu như <code>credref:shipping/ghn/staging/account-01</code>, không nhập token GHN.</p></div>
+                    <div class="col-12 col-md-4"><label class="form-label" for="accountName">Tên gợi nhớ</label><input class="form-control" id="accountName" th:field="*{accountName}" maxlength="120" required></div>
+                    <div class="col-12 col-md-6"><label class="form-label" for="credentialReference">Tham chiếu secrets bên ngoài</label><input class="form-control" id="credentialReference" th:field="*{credentialReference}" maxlength="190" pattern="credref:[A-Za-z0-9][A-Za-z0-9._/-]{2,180}" autocomplete="off" required></div>
+                    <div class="col-12 col-md-2 d-flex align-items-end"><button class="btn btn-primary w-100" type="submit">Thêm Staging</button></div>
+                </form>
+            </section>
+
+            <section class="dash-card dash-panel mb-4">
+                <div class="dash-section-head"><div><h2>Bindings và tuyến giao hàng</h2><p>ShopId chỉ hiển thị dạng che; các tuyến lưu ID và tên chuẩn từ danh mục hiện hành.</p></div></div>
+                <div class="alert alert-info" th:if="${#lists.isEmpty(shipping.accounts)}">Cần khai báo và xác minh tài khoản Staging trước khi tạo binding.</div>
+                <div class="alert alert-warning" th:if="${shipping.currentAddresses['PICKUP'] == null or shipping.currentAddresses['RETURN'] == null}">Shop cần có cả địa chỉ lấy hàng và hoàn trả trước khi tạo binding.</div>
+                <form th:if="${!#lists.isEmpty(shipping.accounts) and shipping.currentAddresses['PICKUP'] != null and shipping.currentAddresses['RETURN'] != null}"
+                      method="post" th:action="@{/admin/shops/{id}/shipping/bindings(id=${shipping.shopId})}" th:object="${bindingForm}" class="row g-3 border rounded-3 p-3 mb-4">
+                    <div class="col-12"><h3 class="h5">Tạo binding GHN mới</h3><p class="small text-secondary mb-0">Binding mới bắt đầu ở trạng thái chờ xác minh, chưa được module checkout sử dụng.</p></div>
+                    <div class="col-12 col-md-4"><label class="form-label" for="providerAccountId">Tài khoản GHN Staging đã xác minh</label>
+                        <select class="form-select" id="providerAccountId" th:field="*{providerAccountId}" required>
+                            <option value="">Chọn tài khoản</option><option th:each="account : ${shipping.accounts}" th:if="${account.status == 'VERIFIED'}" th:value="${account.id}" th:text="${account.accountName}"></option>
+                        </select></div>
+                    <div class="col-12 col-md-3"><label class="form-label" for="externalShopId">ShopId do GHN cấp</label><input class="form-control" id="externalShopId" th:field="*{externalShopId}" inputmode="numeric" maxlength="24" pattern="[0-9]{1,24}" required></div>
+                    <div class="col-12 col-md-3"><label class="form-label" for="routeMode">Chế độ tra cứu tuyến</label>
+                        <select class="form-select" id="routeMode" th:field="*{routeMode}" required>
+                            <option value="LEGACY_ROUTES">LEGACY_ROUTES · khai báo từng phường</option>
+                            <option value="API_QUOTE">API_QUOTE · báo giá theo địa chỉ qua API</option>
+                        </select>
+                        <small class="form-text">API_QUOTE không cần tạo danh sách tuyến phường/xã; binding vẫn phải được xác minh.</small>
+                    </div>
+                    <div class="col-12 col-md-2 d-flex align-items-end"><button class="btn btn-outline-primary w-100" type="submit">Tạo binding</button></div>
+                </form>
+
+                <div class="border rounded-3 p-3 mb-3" th:each="binding : ${shipping.bindings}">
+                    <div class="d-flex flex-wrap justify-content-between gap-2">
+                        <div><h3 class="h5 mb-1" th:text="|Binding revision ${binding.revision} · ${binding.accountName}|">Binding</h3>
+                            <div class="text-secondary small">GHN ShopId <strong th:text="${binding.externalShopIdMasked}">•••</strong> · Lấy hàng r<span th:text="${binding.pickupRevision}">1</span> · Hoàn trả r<span th:text="${binding.returnRevision}">1</span></div>
+                            <div class="small mt-1"><span class="badge text-bg-light" th:text="${binding.routeMode}">API_QUOTE</span>
+                                <span class="text-secondary" th:if="${binding.routeMode == 'API_QUOTE'}">Báo giá qua API, không cần khai báo tuyến phường.</span>
+                                <span class="text-secondary" th:if="${binding.routeMode == 'LEGACY_ROUTES'}">Cần xác minh từng tuyến phường/xã.</span>
+                            </div></div>
+                        <span class="badge" th:classappend="${binding.active ? ' text-bg-success' : ' text-bg-secondary'}" th:text="${binding.active ? 'Đã xác minh Staging' : binding.status == 'VERIFIED_OLD_ADDRESS' ? 'Đã xác minh, địa chỉ cũ (đã vô hiệu)' : binding.status}">Trạng thái</span>
+                    </div>
+                    <p class="small text-secondary mt-2 mb-1" th:if="${binding.evidence != null}" th:text="${binding.evidence}">Ghi chú</p>
+                    <div class="small mb-3">
+                        <span th:if="${binding.routeMode == 'LEGACY_ROUTES'}" th:text="|Phạm vi tuyến: ${binding.routeCoverageVerified ? 'đã xác minh' : 'chưa xác minh'}|">Tuyến</span>
+                        <span th:if="${binding.routeMode == 'API_QUOTE'}">Phạm vi báo giá API được kiểm tra trong xác minh binding.</span>
+                        · <span th:text="|COD: ${binding.codBeneficiaryVerified ? 'đã xác minh riêng' : 'chưa xác minh, chưa dùng COD'}|">COD</span>
+                    </div>
+
+                    <div class="row g-3 mb-3" th:if="${binding.routeMode == 'LEGACY_ROUTES'}">
+                        <div class="col-12 col-xl-6" th:each="route : ${binding.routes}">
+                            <article class="border rounded-3 p-3 h-100">
+                                <div class="d-flex justify-content-between gap-2"><strong th:text="|${route.wardName}, ${route.provinceName}|">Tuyến</strong><span class="badge text-bg-light" th:text="${route.status}">PENDING</span></div>
+                                <small class="text-secondary" th:text="|${route.catalogSource} · ID tỉnh ${route.provinceCode} · ID phường ${route.wardCode}|">ID danh mục</small>
+                                <p class="small text-secondary mt-2 mb-2" th:if="${route.evidence != null}" th:text="${route.evidence}">Ghi chú</p>
+                                <form th:if="${route.status == 'PENDING_VERIFICATION'}" method="post" class="mt-2"
+                                      th:action="@{/admin/shops/{shopId}/shipping/bindings/{bindingId}/routes/{routeId}/verify(shopId=${shipping.shopId},bindingId=${binding.id},routeId=${route.id})}">
+                                    <textarea class="form-control mb-2" name="evidence" minlength="8" maxlength="2000" required placeholder="Ghi chú đối chiếu phạm vi tuyến (không chứa token hoặc URL có chữ ký)"></textarea>
+                                    <label class="form-check mb-2"><input class="form-check-input" type="checkbox" name="confirmCoverage" value="true" required><span class="form-check-label">Đã đối chiếu tuyến này trong tài khoản GHN Staging</span></label>
+                                    <button class="btn btn-sm btn-outline-primary" type="submit">Xác minh tuyến</button>
+                                </form>
+                            </article>
+                        </div>
+                    </div>
+                    <p class="alert alert-info py-2 small" role="note" th:if="${binding.routeMode == 'API_QUOTE'}">API_QUOTE không lưu danh sách tuyến phường/xã. GHN trả báo giá theo địa chỉ khách nhập khi checkout.</p>
+                    <form th:if="${binding.routeMode == 'LEGACY_ROUTES'}" method="post" class="row g-2 align-items-end mb-3" data-route-form th:action="@{/admin/shops/{shopId}/shipping/bindings/{id}/routes(shopId=${shipping.shopId},id=${binding.id})}" th:object="${routeForm}">
+                        <input type="hidden" name="catalogSource" th:value="${catalogSource}">
+                        <div class="col-12"><strong>Thêm tuyến đích</strong><small class="text-secondary d-block">Danh mục <span th:text="${catalogSource}">LOCAL</span></small></div>
+                        <div class="col-12 col-md-5"><label class="form-label" th:for="|province-${binding.id}|">Tỉnh / thành</label>
+                            <select class="form-select" th:id="|province-${binding.id}|" th:field="*{provinceCode}" data-address-province data-route-province required>
+                                <option value="">Chọn tỉnh / thành</option><option th:each="province : ${provinces}" th:value="${province.code}" th:text="${province.name}"></option>
+                            </select></div>
+                        <div class="col-12 col-md-5"><label class="form-label" th:for="|ward-${binding.id}|">Phường / xã</label>
+                            <select class="form-select" th:id="|ward-${binding.id}|" th:field="*{wardCode}" data-address-ward required><option value="">Chọn phường / xã</option></select></div>
+                        <div class="col-12 col-md-2"><button class="btn btn-outline-secondary w-100" type="submit">Thêm tuyến</button></div>
+                    </form>
+                    <div th:if="${binding.active}" class="border-top pt-3">
+                        <form th:if="${!binding.codBeneficiaryVerified}" method="post" class="row g-2" th:action="@{/admin/shops/{shopId}/shipping/bindings/{id}/verify-cod(shopId=${shipping.shopId},id=${binding.id})}">
+                            <div class="col-12"><strong>Xác minh bên nhận tiền COD (riêng)</strong><small class="text-secondary d-block">Chỉ xác nhận khi đã kiểm tra tài khoản nhận tiền theo hồ sơ GHN Staging.</small></div>
+                            <div class="col-12 col-lg-8"><textarea class="form-control" name="evidence" minlength="8" maxlength="2000" required placeholder="Ghi chú đã che thông tin nhạy cảm"></textarea></div>
+                            <div class="col-12 col-lg-4"><label class="form-check mb-2"><input class="form-check-input" type="checkbox" name="confirm" value="true" required><span class="form-check-label">Đã xác minh bên nhận COD</span></label><button class="btn btn-sm btn-outline-primary" type="submit">Ghi nhận xác minh COD</button></div>
+                        </form>
+                        <p class="text-success small mb-0" th:if="${binding.codBeneficiaryVerified}">Bên nhận COD đã được xác minh riêng.
+                            <span th:if="${binding.codEvidence != null}" th:text="${binding.codEvidence}">Ghi chú</span></p>
+                    </div>
+                    <form th:if="${binding.status == 'PENDING_VERIFICATION'}" method="post" class="row g-2 align-items-end border-top pt-3 mt-3"
+                          th:action="@{/admin/shops/{shopId}/shipping/bindings/{id}/verify(shopId=${shipping.shopId},id=${binding.id})}">
+                        <div class="col-12"><strong>Xác minh binding</strong>
+                            <small class="text-secondary d-block" th:if="${binding.routeMode == 'LEGACY_ROUTES'}">Cần ít nhất một tuyến đã xác minh; việc xác minh binding không xác minh COD.</small>
+                            <small class="text-secondary d-block" th:if="${binding.routeMode == 'API_QUOTE'}">API_QUOTE không cần tuyến phường; hãy đối chiếu địa chỉ lấy/trả, ShopId và quyền báo giá trên GHN Staging. COD cần xác minh riêng.</small>
+                        </div>
+                        <div class="col-12 col-lg-8"><textarea class="form-control" name="evidence" minlength="8" maxlength="2000" required placeholder="Ghi chú đã che, ví dụ đã đối chiếu địa chỉ lấy/trả và quyền báo giá GHN"></textarea></div>
+                        <div class="col-12 col-lg-4"><label class="form-check mb-2"><input class="form-check-input" type="checkbox" name="confirmAddressAndCoverage" value="true" required><span class="form-check-label" th:text="${binding.routeMode == 'API_QUOTE' ? 'Đã xác minh địa chỉ, ShopId và quyền báo giá qua API' : 'Đã đối chiếu địa chỉ và ít nhất một tuyến phường/xã'}">Đã đối chiếu địa chỉ</span></label><button class="btn btn-outline-primary" type="submit">Xác minh binding Staging</button></div>
+                    </form>
+                </div>
+                <p class="dash-empty" th:if="${#lists.isEmpty(shipping.bindings)}">Chưa có binding GHN.</p>
+            </section>
+        </main>
+    </div>
+</div>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+<script th:src="@{/js/admin-dashboard-shell.js}" defer></script>
+<script th:src="@{/js/shop-address-form.js(v='admin-shop-address-v1')}" defer></script>
+</body>
+</html>

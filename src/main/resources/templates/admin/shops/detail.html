@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Hồ sơ cửa hàng · UTEWedding')}"></head>
+<body class="admin-dashboard-page admin-dashboard-wrapped-layout" id="top">
+<div class="dash-layout">
+    <aside th:replace="~{fragments :: adminSidebar('shops')}"></aside>
+    <button type="button" class="dash-sidebar-backdrop" id="dashboardSidebarBackdrop" aria-label="Đóng menu"></button>
+    <div class="dash-main">
+        <header th:replace="~{fragments :: adminTopbar('shops')}"></header>
+        <main class="dash-content">
+            <div class="dash-heading">
+                <div><a class="dash-text-link" th:href="@{/admin/shops}">← Danh sách cửa hàng</a><h1 th:text="${detail.shop.displayName}">Tên cửa hàng</h1><p><span th:text="${detail.shop.code}">Mã</span> · <span th:text="${detail.shop.slug}">slug</span></p></div>
+                <span class="badge rounded-pill fs-6" th:classappend="${detail.shop.status.name() == 'ACTIVE' ? ' text-bg-success' : detail.shop.status.name() == 'PENDING' ? ' text-bg-warning' : detail.shop.status.name() == 'REJECTED' ? ' text-bg-danger' : ' text-bg-secondary'}" th:text="${statusLabels[detail.shop.status.name()]}">Trạng thái</span>
+            </div>
+            <div class="alert alert-success" role="status" th:if="${successMessage}" th:text="${successMessage}"></div>
+            <div class="alert alert-danger" role="alert" th:if="${errorMessage}" th:text="${errorMessage}"></div>
+
+            <section class="dash-card dash-panel mb-4" aria-labelledby="shop-shipping-title">
+                <div class="dash-section-head">
+                    <div><h2 id="shop-shipping-title">Địa chỉ giao nhận và GHN</h2>
+                        <p>Quản lý phiên bản địa chỉ, tài khoản Staging và xác minh binding theo cửa hàng.</p></div>
+                    <a class="btn btn-outline-primary" th:href="@{/admin/shops/{id}/shipping(id=${detail.shop.id})}">Mở cấu hình giao hàng</a>
+                </div>
+            </section>
+
+            <section class="dash-card dash-panel mb-4" aria-labelledby="shop-owner-title">
+                <div class="dash-section-head"><div><h2 id="shop-owner-title">Chủ sở hữu</h2><p>Quyền cửa hàng được lưu trong membership, không đổi vai trò tài khoản.</p></div></div>
+                <div class="row g-3"><div class="col-12 col-md-6"><small class="text-secondary d-block">Tên</small><strong th:text="${detail.ownerName ?: 'Không có dữ liệu'}">—</strong></div><div class="col-12 col-md-6"><small class="text-secondary d-block">Email tài khoản</small><strong th:text="${detail.ownerEmail ?: 'Không có dữ liệu'}">—</strong></div></div>
+                <div class="alert alert-secondary mt-4 mb-0" th:if="${detail.ownerName == null and detail.ownerEmail == null}">Cửa hàng hiện không có chủ sở hữu đang hoạt động.</div>
+                <form method="post" th:if="${detail.ownerName != null or detail.ownerEmail != null}" th:action="@{/admin/shops/{id}/owner/revoke(id=${detail.shop.id})}" th:object="${reasonForm}" class="row g-3 align-items-end mt-2">
+                    <div class="col-12"><p class="text-secondary mb-0">Thu hồi sẽ chấm dứt quyền chủ cửa hàng, thu hồi các phiên đăng nhập hiện có và tạm ngưng cửa hàng nếu đang hoạt động. Thao tác này không thể tự hoàn tác.</p></div>
+                    <div class="col-12 col-lg-9"><label class="form-label" for="revokeOwnerReason">Lý do thu hồi quyền</label><textarea class="form-control" id="revokeOwnerReason" th:field="*{reason}" minlength="10" maxlength="1000" rows="2" required></textarea></div>
+                    <div class="col-12 col-lg-3"><button class="btn btn-outline-danger w-100" type="submit" data-confirm-title="Thu hồi quyền chủ sở hữu" data-confirm-message="Xác nhận thu hồi quyền chủ cửa hàng? Chủ shop sẽ bị đăng xuất; cửa hàng đang hoạt động sẽ bị tạm ngưng.">Thu hồi quyền OWNER</button></div>
+                </form>
+            </section>
+
+            <section class="dash-card dash-panel mb-4" th:if="${detail.shop.status.name() == 'ACTIVE'}" aria-labelledby="suspend-title">
+                <div class="dash-section-head"><div><h2 id="suspend-title">Tạm ngưng cửa hàng</h2><p>Lý do được lưu trong nhật ký trạng thái và cần ít nhất 10 ký tự.</p></div></div>
+                <form method="post" th:action="@{/admin/shops/{id}/suspend(id=${detail.shop.id})}" th:object="${reasonForm}" class="row g-3 align-items-end">
+                    <div class="col-12 col-lg-9"><label class="form-label" for="suspendReason">Lý do tạm ngưng</label><textarea class="form-control" id="suspendReason" th:field="*{reason}" minlength="10" maxlength="1000" rows="2" required></textarea></div>
+                    <div class="col-12 col-lg-3"><button class="btn btn-outline-danger w-100" type="submit" data-confirm-title="Tạm ngưng cửa hàng" data-confirm-message="Cửa hàng sẽ chuyển sang trạng thái tạm ngưng.">Tạm ngưng</button></div>
+                </form>
+            </section>
+
+            <section class="dash-card dash-panel mb-4" th:if="${detail.shop.status.name() == 'SUSPENDED'}" aria-labelledby="reactivate-title">
+                <div class="dash-section-head"><div><h2 id="reactivate-title">Khôi phục cửa hàng</h2><p>Khôi phục trạng thái cửa hàng; sản phẩm không tự động thay đổi trạng thái.</p></div></div>
+                <form method="post" th:action="@{/admin/shops/{id}/reactivate(id=${detail.shop.id})}" th:object="${reactivationForm}" class="row g-3 align-items-end">
+                    <div class="col-12 col-lg-9"><label class="form-label" for="reactivateReason">Lý do (không bắt buộc)</label><textarea class="form-control" id="reactivateReason" th:field="*{reason}" maxlength="1000" rows="2"></textarea></div>
+                    <div class="col-12 col-lg-3"><button class="btn btn-outline-success w-100" type="submit">Khôi phục cửa hàng</button></div>
+                </form>
+            </section>
+
+            <section class="dash-card dash-panel mb-4" aria-labelledby="application-attempts-title">
+                <div class="dash-section-head"><div><h2 id="application-attempts-title">Lịch sử hồ sơ</h2><p>Mỗi lần gửi được giữ thành một snapshot riêng để kiểm tra lại.</p></div></div>
+                <div th:if="${detail.applications == null or detail.applications.empty}" class="dash-empty">Chưa có hồ sơ đăng ký.</div>
+                <article class="border rounded-3 p-3 p-lg-4 mb-3" th:each="applicationAttempt : ${detail.applications}">
+                    <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
+                        <div><h3 class="h5 mb-1" th:text="|Lần nộp ${applicationAttempt.attemptNumber} · ${applicationAttempt.profile.shopName}|">Lần nộp</h3><span class="badge rounded-pill text-bg-light" th:text="${applicationStatusLabels[applicationAttempt.status.name()]}">Trạng thái hồ sơ</span></div>
+                        <div class="text-secondary small text-end"><div>Gửi lúc <time th:text="${#temporals.format(applicationAttempt.submittedAt, 'dd/MM/yyyy HH:mm')}">—</time></div><div th:if="${applicationAttempt.reviewedAt != null}">Xét duyệt lúc <time th:text="${#temporals.format(applicationAttempt.reviewedAt, 'dd/MM/yyyy HH:mm')}">—</time></div></div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6"><small class="text-secondary d-block">Loại hình</small><span th:text="${applicationAttempt.profile.businessType == 'INDIVIDUAL' ? 'Cá nhân' : applicationAttempt.profile.businessType == 'HOUSEHOLD' ? 'Hộ kinh doanh' : 'Công ty'}">Loại hình</span></div>
+                        <div class="col-12 col-md-6"><small class="text-secondary d-block">Tên pháp lý / chủ hộ</small><span th:text="${applicationAttempt.profile.legalName}">Tên pháp lý</span></div>
+                        <div class="col-12 col-md-6"><small class="text-secondary d-block">Mã số thuế</small><span th:text="${applicationAttempt.profile.taxCode ?: 'Không cung cấp'}">—</span></div>
+                        <div class="col-12 col-md-6"><small class="text-secondary d-block">Số đăng ký kinh doanh</small><span th:text="${applicationAttempt.profile.registrationNumber ?: 'Không cung cấp'}">—</span></div>
+                        <div class="col-12 col-md-6"><small class="text-secondary d-block">Email liên hệ</small><span th:text="${applicationAttempt.profile.contactEmail}">email</span></div>
+                        <div class="col-12 col-md-6"><small class="text-secondary d-block">Điện thoại</small><span th:text="${applicationAttempt.profile.contactPhone}">số điện thoại</span></div>
+                        <div class="col-12"><small class="text-secondary d-block">Địa chỉ kinh doanh</small><span th:text="${applicationAttempt.profile.businessAddress}">Địa chỉ</span></div>
+                        <div class="col-12" th:if="${applicationAttempt.profile.description != null}"><small class="text-secondary d-block">Giới thiệu</small><span th:text="${applicationAttempt.profile.description}">Giới thiệu</span></div>
+                        <div class="col-12" th:if="${applicationAttempt.reviewerName != null}"><small class="text-secondary d-block">Người xét duyệt</small><span th:text="${applicationAttempt.reviewerName}">Quản trị viên</span></div>
+                        <div class="col-12" th:if="${applicationAttempt.reviewReason != null}"><small class="text-secondary d-block">Ý kiến xét duyệt</small><span th:text="${applicationAttempt.reviewReason}">Lý do</span></div>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 mt-4" th:if="${applicationAttempt.status.name() == 'SUBMITTED' and detail.shop.status.name() == 'PENDING'}">
+                        <form method="post" th:action="@{/admin/shops/{shopId}/applications/{applicationId}/approve(shopId=${detail.shop.id},applicationId=${applicationAttempt.id})}" data-confirm-title="Duyệt hồ sơ" data-confirm-message="Duyệt hồ sơ và kích hoạt cửa hàng này?">
+                            <button class="btn btn-success" type="submit">Duyệt và kích hoạt</button>
+                        </form>
+                        <form method="post" th:action="@{/admin/shops/{shopId}/applications/{applicationId}/reject(shopId=${detail.shop.id},applicationId=${applicationAttempt.id})}" th:object="${reasonForm}" class="d-flex flex-column flex-md-row gap-2 align-items-md-end">
+                            <label class="small" th:for="|rejectReason-${applicationAttempt.id}|">Lý do từ chối<textarea class="form-control mt-1" th:id="|rejectReason-${applicationAttempt.id}|" th:field="*{reason}" minlength="10" maxlength="1000" rows="2" required></textarea></label>
+                            <button class="btn btn-outline-danger" type="submit" data-confirm-title="Từ chối hồ sơ" data-confirm-message="Hồ sơ sẽ được lưu lại cùng lý do từ chối.">Từ chối</button>
+                        </form>
+                    </div>
+                </article>
+            </section>
+
+            <section class="dash-card dash-panel" aria-labelledby="shop-history-title">
+                <div class="dash-section-head"><div><h2 id="shop-history-title">Nhật ký trạng thái cửa hàng</h2><p>Các thay đổi được ghi thêm, không sửa lịch sử cũ.</p></div></div>
+                <div th:if="${detail.history == null or detail.history.empty}" class="dash-empty">Chưa có lịch sử trạng thái.</div>
+                <ol class="list-group list-group-flush">
+                    <li class="list-group-item px-0" th:each="event : ${detail.history}">
+                        <div class="d-flex flex-wrap justify-content-between gap-2"><strong th:text="${event.previousStatus == null ? 'Tạo hồ sơ · ' + statusLabels[event.newStatus.name()] : statusLabels[event.previousStatus.name()] + ' → ' + statusLabels[event.newStatus.name()]}">Thay đổi trạng thái</strong><time class="text-secondary" th:text="${#temporals.format(event.occurredAt, 'dd/MM/yyyy HH:mm')}">—</time></div>
+                        <p class="text-secondary mb-0 mt-1" th:if="${event.reason != null}" th:text="${event.reason}">Lý do</p>
+                    </li>
+                </ol>
+            </section>
+        </main>
+    </div>
+</div>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+<script th:src="@{/js/admin-dashboard-shell.js}" defer></script>
+</body>
+</html>

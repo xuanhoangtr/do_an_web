@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Bảng giao hàng · UTEWedding')}"></head>
+<body class="bg-cream">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-4 py-lg-5 shipper-board">
+    <div th:if="${successMessage}" class="alert alert-success" role="status" th:text="${successMessage}" data-flash-success></div>
+    <div class="mb-4">
+        <p class="eyebrow mb-2">Fulfillment</p>
+        <h1 class="display-subtitle mt-2 mb-2">Bảng giao hàng</h1>
+        <p class="text-secondary mb-0">Theo dõi công việc được phân công và cập nhật tình trạng giao hàng.</p>
+    </div>
+
+    <section class="row g-3 mb-4" aria-label="Thống kê giao hàng">
+        <div class="col-12 col-sm-4">
+            <article class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body px-3 px-md-4 py-3">
+                    <p class="small text-secondary mb-1">Được phân công</p>
+                    <p class="h3 mb-0" th:text="${summary.assignedCount}">0</p>
+                    <p class="small text-secondary mb-0 mt-1">Đang xử lý, đang giao, thất bại hoặc hoàn</p>
+                    <p class="small mb-0 mt-2" th:if="${performance != null}" th:text="'Thành công ' + ${#numbers.formatDecimal(performance.successRate,1,'COMMA',1,'POINT')} + '% · hẹn lại ' + ${performance.rescheduled} + ' · hoàn ' + ${performance.returned}">Thống kê cá nhân</p>
+                </div>
+            </article>
+        </div>
+        <div class="col-12 col-sm-4">
+            <article class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body px-3 px-md-4 py-3">
+                    <p class="small text-secondary mb-1">Đang giao</p>
+                    <p class="h3 mb-0" th:text="${summary.shippingCount}">0</p>
+                    <p class="small text-secondary mb-0 mt-1">Fulfillment ở trạng thái IN_TRANSIT</p>
+                </div>
+            </article>
+        </div>
+        <div class="col-12 col-sm-4">
+            <article class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body px-3 px-md-4 py-3">
+                    <p class="small text-secondary mb-1">Đã giao hôm nay</p>
+                    <p class="h3 mb-0" th:text="${summary.deliveredTodayCount}">0</p>
+                    <p class="small text-secondary mb-0 mt-1">Theo giờ Việt Nam</p>
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <ul class="nav nav-tabs mb-3" role="tablist" aria-label="Nhóm đơn giao hàng">
+        <li class="nav-item" role="presentation">
+            <a class="nav-link" th:classappend="${activeTab == 'work' ? ' active' : ''}"
+               th:attr="aria-current=${activeTab == 'work' ? 'page' : null}"
+               th:href="@{/shipper/board(tab='work',q=${searchQuery},status=${selectedStatus},size=${fulfillments.size})}">Cần xử lý</a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link" th:classappend="${activeTab == 'history' ? ' active' : ''}"
+               th:attr="aria-current=${activeTab == 'history' ? 'page' : null}"
+               th:href="@{/shipper/board(tab='history',q=${searchQuery},status=${selectedStatus},size=${fulfillments.size})}">Lịch sử</a>
+        </li>
+    </ul>
+
+    <form class="card border-0 shadow-sm rounded-4 mb-4" method="get" th:action="@{/shipper/board}">
+        <div class="card-body p-3">
+            <input type="hidden" name="tab" th:value="${activeTab}">
+            <input type="hidden" name="size" th:value="${fulfillments.size}">
+            <div class="row g-2 align-items-end">
+                <div class="col-12 col-lg">
+                    <label class="form-label small mb-1" for="shipper-search">Tìm đơn giao</label>
+                    <input id="shipper-search" class="form-control" type="search" name="q" maxlength="100"
+                           placeholder="Mã đơn, tracking, người nhận hoặc số điện thoại"
+                           th:value="${searchQuery}">
+                </div>
+                <div class="col-12 col-sm-7 col-lg-3">
+                    <label class="form-label small mb-1" for="shipper-status">Trạng thái</label>
+                    <select id="shipper-status" class="form-select" name="status">
+                        <option value="" th:selected="${selectedStatus == ''}">Tất cả trạng thái</option>
+                        <option value="PROCESSING" th:selected="${selectedStatus == 'PROCESSING'}">Đang xử lý</option>
+                        <option value="PICKUP_PENDING" th:selected="${selectedStatus == 'PICKUP_PENDING'}">Chờ xác nhận nhận hàng</option>
+                        <option value="PICKED_UP" th:selected="${selectedStatus == 'PICKED_UP'}">Đã nhận hàng</option>
+                        <option value="IN_TRANSIT" th:selected="${selectedStatus == 'IN_TRANSIT'}">Đang giao</option>
+                        <option value="DELIVERED" th:selected="${selectedStatus == 'DELIVERED'}">Đã giao</option>
+                    </select>
+                </div>
+                <div class="col-12 col-sm-5 col-lg-auto d-grid">
+                    <button class="btn btn-dark" type="submit">Tìm / lọc</button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <div th:if="${fulfillments.empty}" class="card border-0 shadow-sm rounded-4 p-4 p-md-5 text-center">
+        <p class="h5 mb-2" th:if="${!#strings.isEmpty(searchQuery)}">Không tìm thấy đơn phù hợp.</p>
+        <p class="h5 mb-2" th:if="${#strings.isEmpty(searchQuery) and activeTab == 'work'}">Hiện không có đơn nào cần giao.</p>
+        <p class="h5 mb-2" th:if="${#strings.isEmpty(searchQuery) and activeTab == 'history'}">Chưa có đơn giao hoàn tất.</p>
+        <p class="text-secondary mb-0" th:if="${#strings.isEmpty(searchQuery)}">Thử chuyển tab hoặc cập nhật bộ lọc để xem các đơn khác.</p>
+    </div>
+
+    <section class="row g-3" th:unless="${fulfillments.empty}" aria-label="Danh sách fulfillment">
+        <div class="col-12 col-lg-6" th:each="fulfillment : ${fulfillments.content}">
+            <article class="card border-0 shadow-sm rounded-4 h-100 shipper-fulfillment-card">
+                <div class="card-body p-3 p-md-4 d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+                        <div class="min-w-0">
+                            <h2 class="h5 mb-1 text-break" th:text="${fulfillment.orderNumber ?: fulfillment.orderId}">Mã đơn</h2>
+                            <p class="small text-secondary mb-0 text-break">
+                                Tracking: <span class="fw-medium" th:text="${fulfillment.trackingNumber ?: 'Chưa có mã vận đơn'}">GHN-xxxx</span>
+                            </p>
+                        </div>
+                        <span class="badge flex-shrink-0"
+                              th:classappend="${fulfillment.status.name() == 'PROCESSING' ? ' text-bg-warning' :
+                                  (fulfillment.status.name() == 'IN_TRANSIT' ? ' text-bg-primary' :
+                                  (fulfillment.status.name() == 'DELIVERED' ? ' text-bg-success' : ' text-bg-secondary'))}"
+                              th:text="${fulfillment.status.name() == 'CONFIRMED' ? 'Đã xác nhận' :
+                                  (fulfillment.status.name() == 'PROCESSING' ? 'Đang xử lý' :
+                                  (fulfillment.status.name() == 'IN_TRANSIT' ? 'Đang giao' :
+                                  (fulfillment.status.name() == 'DELIVERED' ? 'Đã giao' :
+                                  (fulfillment.status.name() == 'CANCELLED' ? 'Đã hủy' :
+                                  (fulfillment.status.name() == 'RETURNED' ? 'Đã hoàn trả' : fulfillment.status)))))}">Trạng thái</span>
+                    </div>
+
+                    <div class="small text-secondary mb-3" th:if="${fulfillment.shipperContext != null}">
+                        <strong class="d-block text-dark" th:text="${fulfillment.shipperContext.shopName}">Cửa hàng</strong>
+                        <span class="badge text-bg-light mb-2"
+                              th:if="${shippingProviderCodes[fulfillment.orderId] != null}"
+                              th:text="${shippingProviderCodes[fulfillment.orderId] == 'INTERNAL' ? 'Giao nội bộ · miễn phí tại TP.HCM' : (shippingProviderCodes[fulfillment.orderId] == 'GHN' ? 'GHN Staging · báo giá trực tiếp' : 'Nhà vận chuyển ' + shippingProviderCodes[fulfillment.orderId])}">Giao nội bộ · miễn phí tại TP.HCM</span>
+                        <div th:if="${fulfillment.shipperContext.pickupContactName != null or fulfillment.shipperContext.pickupPhone != null}">
+                            Điểm lấy hàng · <span th:text="${fulfillment.shipperContext.pickupContactName ?: 'Chưa có tên liên hệ'}">Liên hệ</span>
+                            <span th:if="${fulfillment.shipperContext.pickupPhone != null}" th:text="${' · ' + fulfillment.shipperContext.pickupPhone}"> · 090...</span>
+                        </div>
+                        <div class="text-break" th:if="${fulfillment.shipperContext.pickupAddress != null}"
+                             th:text="${fulfillment.shipperContext.pickupAddress + (fulfillment.shipperContext.pickupWardCode != null ? ' · Mã phường ' + fulfillment.shipperContext.pickupWardCode : '') + (fulfillment.shipperContext.pickupProvinceCode != null ? ' · Mã tỉnh ' + fulfillment.shipperContext.pickupProvinceCode : '')}">Địa chỉ lấy hàng</div>
+                    </div>
+
+                    <div th:if="${fulfillment.orderDeliveryBlocked()}" class="alert alert-warning py-2 px-3 small mb-3">
+                        Đơn hàng đã hủy, hết hạn hoặc hoàn tiền. Không tiếp tục thao tác giao hàng.
+                        <span th:if="${fulfillment.orderStatus != null}" th:text="${'Trạng thái đơn: ' + fulfillment.orderStatus}"></span>
+                        <span th:if="${fulfillment.orderPaymentStatus != null and fulfillment.orderPaymentStatus.name() == 'REFUNDED'}"> · Đã hoàn tiền</span>
+                    </div>
+
+                    <div class="mb-3">
+                        <strong class="d-block" th:text="${fulfillment.shippingRecipientName ?: 'Chưa có tên người nhận'}">Người nhận</strong>
+                        <div class="d-flex flex-wrap align-items-center gap-2 small mt-1">
+                            <span class="text-secondary" th:text="${fulfillment.shippingPhone ?: 'Chưa có số điện thoại'}">090...</span>
+                            <a class="btn btn-sm btn-outline-secondary py-0" th:if="${fulfillment.phoneLink() != null}"
+                               th:href="${fulfillment.phoneLink()}" aria-label="Gọi người nhận">Gọi</a>
+                        </div>
+                        <p class="small text-secondary mb-1 mt-2 text-break" th:text="${fulfillment.fullShippingAddress() ?: 'Chưa có địa chỉ'}">Địa chỉ</p>
+                        <a class="small" th:if="${fulfillment.mapSearchUrl() != null}"
+                           th:href="${fulfillment.mapSearchUrl()}" target="_blank" rel="noopener noreferrer">Mở bản đồ</a>
+                    </div>
+
+                    <p class="small text-secondary mb-3" th:text="${fulfillment.itemTypeCount() + ' sản phẩm · ' + fulfillment.totalQuantity() + ' món'}">3 sản phẩm · 5 món</p>
+
+                    <div class="d-flex flex-wrap gap-2 mt-auto">
+                        <a class="btn btn-outline-dark" th:href="@{/shipper/fulfillments/{id}(id=${fulfillment.id})}">Mở trang xử lý</a>
+                        <form th:if="${activeTab == 'work' and fulfillment.status.name() == 'PICKUP_PENDING' and !fulfillment.orderDeliveryBlocked() and shippingProviderCodes[fulfillment.orderId] != 'GHN'}"
+                              th:action="@{/shipper/fulfillments/{id}/pickup(id=${fulfillment.id})}" method="post">
+                            <button class="btn btn-shop-primary" type="submit">Xác nhận đã nhận hàng</button>
+                        </form>
+                        <form th:if="${activeTab == 'work' and (fulfillment.status.name() == 'PICKED_UP' or fulfillment.status.name() == 'RETRY_DELIVERY') and !fulfillment.orderDeliveryBlocked() and shippingProviderCodes[fulfillment.orderId] != 'GHN' and (shippingProviderCodes[fulfillment.orderId] == 'INTERNAL' or (fulfillment.trackingNumber != null and !#strings.isEmpty(fulfillment.trackingNumber.trim())))}"
+                              th:action="@{/shipper/fulfillments/{id}/shipping(id=${fulfillment.id})}" method="post">
+                            <button class="btn btn-shop-primary" type="submit" th:text="${fulfillment.status.name() == 'RETRY_DELIVERY' ? 'Bắt đầu giao lại' : 'Bắt đầu giao'}">Bắt đầu giao</button>
+                        </form>
+                        <span class="small text-secondary align-self-center"
+                              th:if="${activeTab == 'work' and (fulfillment.status.name() == 'PICKED_UP' or fulfillment.status.name() == 'RETRY_DELIVERY') and !fulfillment.orderDeliveryBlocked() and shippingProviderCodes[fulfillment.orderId] != 'GHN' and shippingProviderCodes[fulfillment.orderId] != 'INTERNAL' and (fulfillment.trackingNumber == null or #strings.isEmpty(fulfillment.trackingNumber.trim()))}">Chưa có mã vận đơn · liên hệ quản lý</span>
+                        <span class="small text-secondary align-self-center"
+                              th:if="${activeTab == 'work' and shippingProviderCodes[fulfillment.orderId] == 'GHN' and (fulfillment.status.name() == 'PICKUP_PENDING' or fulfillment.status.name() == 'PICKED_UP' or fulfillment.status.name() == 'IN_TRANSIT' or fulfillment.status.name() == 'RETRY_DELIVERY')}">Đơn GHN được cập nhật qua luồng vận chuyển GHN.</span>
+                        <button class="btn btn-shop-primary" type="button"
+                                th:if="${activeTab == 'work' and fulfillment.status.name() == 'IN_TRANSIT' and !fulfillment.orderDeliveryBlocked() and shippingProviderCodes[fulfillment.orderId] != 'GHN'}"
+                                data-bs-toggle="modal" th:attr="data-bs-target=${'#delivery-proof-' + fulfillment.id}">Xác nhận đã giao</button>
+                    </div>
+                </div>
+            </article>
+
+            <div class="modal fade" th:id="${'fulfillment-detail-' + fulfillment.id}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                    <div class="modal-content rounded-4 border-0">
+                        <div class="modal-header">
+                            <div>
+                                <p class="small text-secondary mb-1">Chi tiết giao hàng</p>
+                                <h2 class="modal-title h5 mb-0" th:text="${fulfillment.orderNumber ?: fulfillment.orderId}">Mã đơn</h2>
+                            </div>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div th:if="${fulfillment.orderDeliveryBlocked()}" class="alert alert-warning py-2 small">
+                                Đơn đã hủy, hết hạn hoặc hoàn tiền — không tiếp tục giao.
+                            </div>
+                            <dl class="row small mb-4">
+                                <dt class="col-4">Trạng thái</dt><dd class="col-8" th:text="${fulfillment.status}">SHIPPING</dd>
+                                <dt class="col-4">Tracking</dt><dd class="col-8 text-break" th:text="${fulfillment.trackingNumber ?: 'Chưa có mã vận đơn'}">GHN-xxxx</dd>
+                                <dt class="col-4">Người nhận</dt><dd class="col-8" th:text="${fulfillment.shippingRecipientName ?: 'Chưa có'}">Nguyễn Văn A</dd>
+                                <dt class="col-4">Điện thoại</dt>
+                                <dd class="col-8">
+                                    <a th:if="${fulfillment.phoneLink() != null}" th:href="${fulfillment.phoneLink()}" th:text="${fulfillment.shippingPhone}">090...</a>
+                                    <span th:unless="${fulfillment.phoneLink() != null}" th:text="${fulfillment.shippingPhone ?: 'Chưa có'}">Chưa có</span>
+                                </dd>
+                                <dt class="col-4">Địa chỉ</dt><dd class="col-8 text-break" th:text="${fulfillment.fullShippingAddress() ?: 'Chưa có'}">123...</dd>
+                                <dt class="col-4" th:if="${fulfillment.orderStatus != null}">Đơn hàng</dt>
+                                <dd class="col-8" th:if="${fulfillment.orderStatus != null}" th:text="${fulfillment.orderStatus}">PAID</dd>
+                            </dl>
+
+                            <h3 class="h6">Sản phẩm</h3>
+                            <ul class="list-group list-group-flush mb-4" th:if="${!fulfillment.items.empty}">
+                                <li class="list-group-item px-0 d-flex justify-content-between gap-3" th:each="item : ${fulfillment.items}">
+                                    <span class="text-break" th:text="${item.productName}">Hoa cưới Tulip</span>
+                                    <span class="text-nowrap" th:text="${'x' + item.quantity}">x2</span>
+                                </li>
+                            </ul>
+                            <p class="small text-secondary" th:if="${fulfillment.items.empty}">Chưa có thông tin sản phẩm cho fulfillment này.</p>
+
+                            <div th:if="${fulfillment.status.name() == 'DELIVERED' and fulfillment.deliveryProofUrl != null}">
+                                <h3 class="h6">Ảnh xác nhận giao hàng</h3>
+                                <a th:href="${fulfillment.deliveryProofUrl}" target="_blank" rel="noopener noreferrer"
+                                   aria-label="Mở ảnh proof giao hàng kích thước đầy đủ">
+                                    <img class="img-fluid rounded-3 shipper-proof-thumbnail" th:src="${fulfillment.deliveryProofUrl}"
+                                         alt="Ảnh bằng chứng giao hàng">
+                                </a>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+                            <a class="btn btn-outline-dark" th:if="${fulfillment.mapSearchUrl() != null}"
+                               th:href="${fulfillment.mapSearchUrl()}" target="_blank" rel="noopener noreferrer">Mở bản đồ</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal fade" th:if="${activeTab == 'work' and fulfillment.status.name() == 'IN_TRANSIT' and !fulfillment.orderDeliveryBlocked() and shippingProviderCodes[fulfillment.orderId] != 'GHN'}"
+                 th:id="${'delivery-proof-' + fulfillment.id}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content rounded-4 border-0">
+                        <form th:action="@{/shipper/fulfillments/{id}/delivered(id=${fulfillment.id})}"
+                              method="post" enctype="multipart/form-data">
+                            <div class="modal-header">
+                                <div>
+                                    <p class="small text-secondary mb-1">Xác nhận giao hàng</p>
+                                    <h2 class="modal-title h5 mb-0" th:text="${fulfillment.orderNumber ?: fulfillment.orderId}">Mã đơn</h2>
+                                </div>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="small text-secondary">Ảnh bằng chứng là bắt buộc để hoàn tất giao hàng.</p>
+                                <label class="form-label" th:for="${'proof-' + fulfillment.id}">Ảnh xác nhận</label>
+                                <div class="mb-3" th:if="${fulfillment.paymentMethod != null and fulfillment.paymentMethod.name() == 'COD'}">
+                                    <label class="form-label">Số tiền COD thực thu</label>
+                                    <input class="form-control" type="number" name="collectedAmount" min="0" required>
+                                    <label class="form-label mt-2">Mã biên nhận/đối soát</label>
+                                    <input class="form-control" name="collectionReference" maxlength="190" required>
+                                </div>
+                                <input class="form-control" type="file" name="proof" required
+                                       accept="image/jpeg,image/png,image/webp"
+                                       th:id="${'proof-' + fulfillment.id}"
+                                       th:attr="data-proof-preview=${'proof-preview-' + fulfillment.id}">
+                                <p class="form-text">Chấp nhận JPEG, PNG hoặc WebP. Giới hạn dung lượng được kiểm tra khi gửi.</p>
+                                <img class="img-fluid rounded-3 mt-2 d-none shipper-proof-preview"
+                                     th:id="${'proof-preview-' + fulfillment.id}" alt="Xem trước ảnh bằng chứng">
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                                <button type="submit" class="btn btn-shop-primary">Xác nhận đã giao</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <nav th:if="${fulfillments.totalPages > 1}" class="mt-4" aria-label="Phân trang fulfillment">
+        <ul class="pagination justify-content-center flex-wrap">
+            <li class="page-item" th:classappend="${fulfillments.first ? ' disabled' : ''}">
+                <a class="page-link" th:href="@{/shipper/board(page=${fulfillments.number - 1},size=${fulfillments.size},tab=${activeTab},q=${searchQuery},status=${selectedStatus})}" aria-label="Trang trước">‹</a>
+            </li>
+            <li class="page-item disabled"><span class="page-link" th:text="${fulfillments.number + 1 + ' / ' + fulfillments.totalPages}">1 / 1</span></li>
+            <li class="page-item" th:classappend="${fulfillments.last ? ' disabled' : ''}">
+                <a class="page-link" th:href="@{/shipper/board(page=${fulfillments.number + 1},size=${fulfillments.size},tab=${activeTab},q=${searchQuery},status=${selectedStatus})}" aria-label="Trang sau">›</a>
+            </li>
+        </ul>
+    </nav>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+<script th:src="@{/js/shipper-board.js}"></script>
+</body>
+</html>

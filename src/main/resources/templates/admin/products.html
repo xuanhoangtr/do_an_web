@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments :: head('Quản lý sản phẩm · UTEWedding')}"></head>
+<body class="bg-cream admin-dashboard-page">
+<nav th:replace="~{fragments :: adminnav('products')}"></nav>
+<main class="container py-5">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4">
+        <div><p class="eyebrow">SẢN PHẨM</p><h1 class="display-subtitle mt-2 mb-0">Quản lý sản phẩm</h1></div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a th:if="${adminShopManagementEnabled}" sec:authorize="hasAnyRole('ADMIN','SUPER_ADMIN')"
+               class="btn btn-outline-dark rounded-pill" th:href="@{/admin/products/moderation}">Kiểm duyệt sản phẩm nhà bán</a>
+            <a sec:authorize="hasAnyRole('ADMIN','SUPER_ADMIN')" class="btn btn-primary rounded-pill" th:href="@{/admin/products/new}">+ Thêm sản phẩm</a>
+        </div>
+    </div>
+    <div th:if="${successMessage}" class="alert alert-success border-0 shadow-sm" th:text="${successMessage}" data-flash-success></div>
+    <section sec:authorize="hasAnyRole('ADMIN','SUPER_ADMIN')" class="card border-0 shadow-sm p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div><p class="eyebrow mb-1" th:text="${productId == null ? 'THÊM MỚI' : 'CHỈNH SỬA'}">THÊM MỚI</p>
+                <h2 class="h5 mb-0" th:text="${productId == null ? 'Thêm sản phẩm' : 'Sửa sản phẩm'}">Thêm sản phẩm</h2></div>
+            <a th:if="${productId != null}" class="small text-secondary" th:href="@{/admin/products}">Hủy chỉnh sửa</a>
+        </div>
+        <form th:if="${productId == null}" th:action="@{/admin/products}" th:object="${productForm}" method="post" enctype="multipart/form-data">
+            <div th:replace="~{admin/products :: productFields}"></div>
+        </form>
+        <form th:if="${productId != null}" th:action="@{/admin/products/{id}(id=${productId})}" th:object="${productForm}" method="post" enctype="multipart/form-data">
+            <div th:replace="~{admin/products :: productFields}"></div>
+        </form>
+    </section>
+    <form class="card border-0 shadow-sm p-3 mb-4" method="get" th:action="@{/admin/products}">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-7"><label class="form-label small text-secondary" for="keyword">Tìm nhanh</label><input id="keyword" class="form-control" name="keyword" th:value="${keyword}" placeholder="Tìm theo tên kỷ vật..."></div>
+            <div class="col-md-3"><label class="form-label small text-secondary" for="status">Trạng thái</label><select id="status" class="form-select" name="status"><option value="all" th:selected="${status == 'all'}">Tất cả</option><option value="active" th:selected="${status == 'active'}">Đang bán</option><option value="out" th:selected="${status == 'out'}">Hết hàng</option><option value="hidden" th:selected="${status == 'hidden'}">Đang ẩn</option></select></div>
+            <div class="col-md-2"><button class="btn btn-dark w-100" type="submit">Lọc danh sách</button></div>
+        </div>
+    </form>
+    <div th:if="${products == null or products.empty}" class="empty-state card border-0 shadow-sm p-5 text-center">Không tìm thấy sản phẩm phù hợp.</div>
+    <div th:unless="${products == null or products.empty}" class="card border-0 shadow-sm overflow-hidden">
+        <div class="table-responsive"><table class="table align-middle mb-0">
+            <thead class="table-light"><tr><th class="text-center text-secondary" scope="col">STT</th><th class="ps-4">Sản phẩm / SKU</th><th>Cửa hàng</th><th>Danh mục</th><th>Giá</th><th>Tồn kho</th><th>Trạng thái</th><th class="text-end pe-4">Thao tác</th></tr></thead>
+            <tbody><tr th:each="product, rowStat : ${products}">
+                <td class="text-center text-secondary" th:text="${products.number * products.size + rowStat.count}">1</td>
+                <td class="ps-4"><div class="d-flex align-items-center gap-3"><img class="mini-product-image" th:src="${!#strings.isEmpty(product.imageUrl) ? product.imageUrl : '/images/placeholder-product.svg'}" th:alt="${product.name}"><div><strong th:text="${product.name}">Sản phẩm</strong><span class="d-block small text-secondary"><span th:text="${product.sku}">den-ngu</span><span th:if="${product.material != null and !#strings.isEmpty(product.material)}" th:text="${' · ' + product.material}"></span></span></div></div></td>
+                <td><span class="badge rounded-pill text-bg-light border" th:text="${product.shopName}">UTEWedding</span></td><td th:text="${product.category}">Quà cưới</td><td class="text-nowrap" th:text="${#numbers.formatDecimal(product.unitPrice,0,'COMMA',0,'POINT')} + ' đ'">0 đ</td>
+                <td th:text="${product.inventory}">0</td><td><span class="badge" th:classappend="${product.inventory == 0 ? ' bg-warning text-dark' : (product.active ? ' bg-success' : ' bg-secondary')}" th:text="${product.inventory == 0 ? 'Hết hàng' : (product.active ? 'Đang bán' : 'Đang ẩn')}">Đang bán</span></td>
+                <td class="text-end pe-4">
+                    <div sec:authorize="hasAnyRole('ADMIN','SUPER_ADMIN')" th:if="${product.shopName == 'UTEWedding'}"
+                         class="d-flex justify-content-end gap-1 flex-wrap">
+                        <a class="btn btn-sm btn-outline-dark"
+                           th:href="@{/admin/products/{id}/edit(id=${product.id})}">Sửa</a>
+                        <form class="d-inline" th:action="@{/admin/products/{id}/toggle(id=${product.id})}"
+                              method="post"
+                              th:attr="data-confirm-title=${product.active ? 'Ẩn sản phẩm' : 'Hiện sản phẩm'},data-confirm-message=${product.active ? 'Sản phẩm sẽ ngừng hiển thị trên catalog nhưng bản ghi và lịch sử đơn hàng được giữ lại. Có thể hiện lại sau.' : 'Sản phẩm sẽ được hiển thị lại trên catalog.'},data-confirm-label=${product.active ? 'Ẩn sản phẩm' : 'Hiện sản phẩm'},data-confirm-tone=${product.active ? 'danger' : 'primary'}">
+                            <button class="btn btn-sm btn-outline-secondary" type="submit"
+                                    th:text="${product.active ? 'Ẩn' : 'Hiện'}">Ẩn</button>
+                        </form>
+                    </div>
+                    <a th:if="${product.shopName != 'UTEWedding'}" class="btn btn-sm btn-outline-dark"
+                       th:href="@{/admin/shops}" aria-label="Mở danh sách cửa hàng">Quản lý shop</a>
+                </td>
+            </tr></tbody>
+        </table></div>
+    </div>
+    <nav th:if="${products != null and products.totalPages > 1}" class="mt-4" aria-label="Phân trang sản phẩm">
+        <ul class="pagination justify-content-center">
+            <li class="page-item" th:classappend="${products.first ? ' disabled' : ''}"><a class="page-link" th:href="@{/admin/products(page=${products.number - 1},keyword=${keyword},status=${status})}" aria-label="Trang trước">‹</a></li>
+            <li class="page-item disabled"><span class="page-link" th:text="${products.number + 1 + ' / ' + products.totalPages}">1 / 1</span></li>
+            <li class="page-item" th:classappend="${products.last ? ' disabled' : ''}"><a class="page-link" th:href="@{/admin/products(page=${products.number + 1},keyword=${keyword},status=${status})}" aria-label="Trang tiếp">›</a></li>
+        </ul>
+    </nav>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer><th:block th:replace="~{fragments :: scripts}"></th:block>
+<script th:src="@{/js/marketplace-admin.js}" defer></script>
+</body>
+</html>
+
+<!-- Reusable validated command fields for both create and update forms. -->
+<div th:remove="all">
+<th:block th:fragment="productFields">
+    <div th:if="${#fields.hasGlobalErrors()}" class="alert alert-danger py-2" th:each="error : ${#fields.globalErrors()}" th:text="${error.defaultMessage}"></div>
+    <div class="row g-3">
+        <div class="col-md-8"><label class="form-label" for="productName">Tên sản phẩm</label><input id="productName" data-product-name class="form-control" th:field="*{name}" required maxlength="120"><div class="invalid-feedback d-block" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></div></div>
+        <div class="col-md-4"><label class="form-label" for="productCategorySearch">Danh mục</label><input id="productCategorySearch" class="form-control form-control-sm mb-1" type="search" placeholder="Tìm tên danh mục" aria-label="Tìm danh mục" data-category-search><select id="categoryId" class="form-select" th:field="*{categoryId}" required data-category-select><option value="">Chọn danh mục</option><option th:each="category : ${productCategoryOptions}" th:value="${category.id}" th:text="${category.label}"></option></select><a class="small d-inline-block mt-1" th:href="@{/admin/categories}">Quản lý danh mục</a><div class="invalid-feedback d-block" th:if="${#fields.hasErrors('categoryId')}" th:errors="*{categoryId}"></div></div>
+        <div class="col-md-6"><label class="form-label" for="sku">SKU</label><input id="sku" data-product-sku class="form-control" th:field="*{sku}" maxlength="80" autocomplete="off"><input type="hidden" th:field="*{skuAutoGenerated}" data-product-sku-auto><div class="form-text">Tự gợi ý theo tên sản phẩm; bạn có thể sửa lại.</div><div class="invalid-feedback d-block" th:if="${#fields.hasErrors('sku')}" th:errors="*{sku}"></div></div>
+        <div class="col-md-6"><label class="form-label" for="shortDescription">Mô tả ngắn</label><input id="shortDescription" class="form-control" th:field="*{shortDescription}" maxlength="500"><div class="invalid-feedback d-block" th:if="${#fields.hasErrors('shortDescription')}" th:errors="*{shortDescription}"></div></div>
+        <div class="col-md-3"><label class="form-label" for="unitPrice">Giá bán (đ)</label><input id="unitPrice" class="form-control" type="number" min="0" th:field="*{unitPrice}" required><div class="invalid-feedback d-block" th:if="${#fields.hasErrors('unitPrice')}" th:errors="*{unitPrice}"></div></div>
+        <div class="col-md-3"><label class="form-label" for="compareAtPrice">Giá gốc trước giảm (đ)</label><input id="compareAtPrice" class="form-control" type="number" step="0.01" min="0" th:field="*{compareAtPrice}"><div class="form-text">Không giảm giá thì để trống.</div><div class="invalid-feedback d-block" th:if="${#fields.hasErrors('compareAtPrice')}" th:errors="*{compareAtPrice}"></div></div>
+        <div class="col-md-3"><label class="form-label" for="stockQuantity">Tồn kho</label><input id="stockQuantity" class="form-control" type="number" min="0" th:field="*{stockQuantity}" required><div class="invalid-feedback d-block" th:if="${#fields.hasErrors('stockQuantity')}" th:errors="*{stockQuantity}"></div></div>
+        <div class="col-md-3"><label class="form-label" for="minOrderQuantity">Số lượng tối thiểu</label><input id="minOrderQuantity" class="form-control" type="number" min="1" th:field="*{minOrderQuantity}"><div class="invalid-feedback d-block" th:if="${#fields.hasErrors('minOrderQuantity')}" th:errors="*{minOrderQuantity}"></div></div>
+        <div class="col-md-3"><label class="form-label" for="discountPercent">Giảm giá (%)</label><input id="discountPercent" class="form-control" type="number" min="0" max="100" th:field="*{discountPercent}"><div class="invalid-feedback d-block" th:if="${#fields.hasErrors('discountPercent')}" th:errors="*{discountPercent}"></div></div>
+        <div class="col-md-3 d-flex align-items-end"><div class="form-check mb-2"><input id="featured" class="form-check-input" type="checkbox" th:field="*{featured}"><label class="form-check-label" for="featured">Sản phẩm nổi bật</label></div></div>
+        <div class="col-md-3"><label class="form-label" for="weightGrams">Khối lượng (g)</label><input id="weightGrams" class="form-control" type="number" min="0" th:field="*{weightGrams}"><div class="invalid-feedback d-block" th:if="${#fields.hasErrors('weightGrams')}" th:errors="*{weightGrams}"></div></div>
+        <div class="col-md-3"><label class="form-label" for="dimensions">Kích thước</label><input id="dimensions" class="form-control" th:field="*{dimensions}" maxlength="160"><div class="invalid-feedback d-block" th:if="${#fields.hasErrors('dimensions')}" th:errors="*{dimensions}"></div></div>
+        <div class="col-md-6"><label class="form-label" for="material">Chất liệu</label><input id="material" class="form-control" th:field="*{material}" maxlength="160"><div class="invalid-feedback d-block" th:if="${#fields.hasErrors('material')}" th:errors="*{material}"></div></div>
+        <div class="col-12"><label class="form-label" for="productImage">Ảnh sản phẩm</label><input id="productImage" class="form-control" type="file" name="image" accept="image/jpeg,image/png,image/webp" data-product-image><div class="form-text">JPG, PNG hoặc WebP tĩnh · tối đa 10 MB, 6.000 px mỗi chiều và 25 triệu điểm ảnh.</div><input type="hidden" th:field="*{managedMediaId}" data-managed-media-id><div class="d-flex align-items-start gap-3 mt-2"><img th:if="${productForm.imageUrl != null and !#strings.isEmpty(productForm.imageUrl)}" data-product-image-preview class="rounded border object-fit-contain bg-light" style="width:112px;height:88px" th:src="${productForm.imageUrl}" alt="Ảnh xem trước sản phẩm"><img th:unless="${productForm.imageUrl != null and !#strings.isEmpty(productForm.imageUrl)}" data-product-image-preview class="rounded border object-fit-contain bg-light d-none" style="width:112px;height:88px" alt="Ảnh xem trước sản phẩm"><button type="button" class="btn btn-sm btn-outline-danger" data-remove-product-image>Gỡ ảnh</button></div><div class="invalid-feedback d-block" th:if="${#fields.hasErrors('imageUrl')}" th:errors="*{imageUrl}"></div></div>
+        <div class="col-12"><details><summary class="small">Tùy chọn nâng cao: đường dẫn ảnh có sẵn</summary><div class="mt-2"><label class="form-label" for="imageUrl">Đường dẫn trực tiếp tới ảnh</label><input id="imageUrl" data-product-image-url class="form-control" type="url" th:field="*{imageUrl}" maxlength="2048" placeholder="https://..."><div class="form-text">Dùng URL trực tiếp tới tệp ảnh. Nếu chọn tệp mới ở phía trên, tệp mới sẽ thay URL này.</div><div class="invalid-feedback d-block" th:if="${#fields.hasErrors('imageUrl')}" th:errors="*{imageUrl}"></div></div></details></div>
+        <div class="col-12"><label class="form-label" for="description">Mô tả</label><textarea id="description" class="form-control" rows="3" th:field="*{description}" maxlength="4000"></textarea><div class="invalid-feedback d-block" th:if="${#fields.hasErrors('description')}" th:errors="*{description}"></div></div>
+        <div class="col-12"><label class="form-label" for="customizationGuide">Hướng dẫn tùy chỉnh</label><textarea id="customizationGuide" class="form-control" rows="2" th:field="*{customizationGuide}" maxlength="2000"></textarea><div class="invalid-feedback d-block" th:if="${#fields.hasErrors('customizationGuide')}" th:errors="*{customizationGuide}"></div></div>
+        <div class="col-md-6"><div class="form-check"><input id="customizable" class="form-check-input" type="checkbox" th:field="*{customizable}"><label class="form-check-label" for="customizable">Có thể cá nhân hóa</label></div></div>
+    </div>
+    <button class="btn btn-primary rounded-pill mt-3" type="submit" th:text="${productId == null ? 'Tạo sản phẩm' : 'Lưu thay đổi'}">Lưu</button>
+</th:block>
+</div>

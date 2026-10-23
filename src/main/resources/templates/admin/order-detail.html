@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments :: head('Chi tiết đơn · UTEWedding')}"></head>
+<body class="bg-cream admin-dashboard-page">
+<nav th:replace="~{fragments :: adminnav('orders')}"></nav>
+<main class="container py-5">
+    <span id="admin-payment-status-poll" class="d-none"
+          th:if="${order.paymentMethod != null and order.paymentMethod.name() == 'VNPAY' and order.status != null and order.status.name() == 'PENDING' and (order.paymentStatus == null or order.paymentStatus.name() == 'PENDING' or order.paymentStatus.name() == 'PROCESSING')}"
+          th:attr="data-url=@{/admin/orders/{id}/payment-status(id=${order.id})},data-order-status=${order.status.name()},data-payment-status=${order.paymentStatus == null ? 'UNKNOWN' : order.paymentStatus.name()},data-fulfillment-status=${order.overallFulfillmentStatus == null ? 'UNKNOWN' : order.overallFulfillmentStatus.name()}"></span>
+    <a th:if="${returnUserId != null}" th:href="@{/admin/users/{id}(id=${returnUserId},q=${returnQuery},role=${returnRole},status=${returnStatus},accounts=${returnAccounts},page=${returnPage},ordersPage=${returnOrdersPage},weddingsPage=${returnWeddingsPage})}">← Hồ sơ người dùng</a>
+    <a th:unless="${returnUserId != null}" th:href="@{/admin/orders}">← Danh sách đơn</a>
+    <div th:if="${successMessage}" class="alert alert-success mt-3" th:text="${successMessage}" data-flash-success></div>
+    <div th:if="${errorMessage}" class="alert alert-danger mt-3" th:text="${errorMessage}"></div>
+    <h1 class="display-subtitle mt-3" th:text="${order.orderNumber}">Đơn</h1>
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-3" aria-label="Trạng thái đơn hàng">
+        <span class="badge rounded-pill" th:classappend="${T(com.utewedding.app.service.web.StatusLabels).orderStatusBadgeClass(order.status)}"
+              th:text="${T(com.utewedding.app.service.web.StatusLabels).orderStatusLabel(order.status, order.paymentMethod)}"></span>
+        <span class="badge rounded-pill" th:classappend="${T(com.utewedding.app.service.web.StatusLabels).paymentStatusBadgeClass(order.paymentStatus)}"
+              th:text="${T(com.utewedding.app.service.web.StatusLabels).paymentStatusLabel(order.paymentStatus, order.paymentMethod)}"></span>
+        <span class="badge rounded-pill" th:classappend="${order.paymentMethod != null and order.paymentMethod.name() == 'COD' and order.status.name() == 'PENDING' and order.confirmedAt == null ? 'text-bg-warning' : T(com.utewedding.app.service.web.StatusLabels).fulfillmentStatusBadgeClass(order.overallFulfillmentStatus)}"
+              th:text="${order.paymentMethod != null and order.paymentMethod.name() == 'COD' and order.status.name() == 'PENDING' and order.confirmedAt == null ? 'Chờ shop xác nhận' : T(com.utewedding.app.service.web.StatusLabels).label(order.overallFulfillmentStatus)}"></span>
+    </div>
+    <section class="card border-0 shadow-sm p-4 mt-3" th:if="${checkoutGroup != null}">
+        <h2 class="h5">Nhóm thanh toán</h2>
+        <p class="mb-2">Mã nhóm <strong th:text="${checkoutGroup.groupNumber}"></strong> · <span th:text="${checkoutGroup.orderCount + ' đơn con'}"></span></p>
+        <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
+            <span>Thanh toán nhóm <strong th:text="${checkoutGroup.paymentMethod + ' · ' + checkoutGroup.paymentStatus}"></strong></span>
+            <span>Tổng toàn nhóm <strong th:text="${#numbers.formatDecimal(checkoutGroup.groupTotalAmount,0,'COMMA',0,'POINT') + ' đ'}"></strong></span>
+        </div>
+        <p class="small text-secondary mb-2" th:if="${checkoutGroup.paymentMethod == 'VNPAY'}">
+            VNPAY chỉ thu một lần ở cấp nhóm theo tổng trên. Đơn đang xem vẫn giữ tổng riêng bên dưới; khoản phân bổ của đơn con không phải một capture mới và không được cộng lại như lần thu thứ hai.
+        </p>
+        <p class="small text-secondary mb-2" th:unless="${checkoutGroup.paymentMethod == 'VNPAY'}">
+            Tổng trên là tổng của nhóm; tổng riêng của đơn con đang xem được giữ nguyên bên dưới.
+        </p>
+        <p class="mb-0" th:if="${!checkoutGroup.siblingOrders.isEmpty()}">Các đơn con khác trong nhóm:
+            <span th:each="sibling, siblingStat : ${checkoutGroup.siblingOrders}"><a th:href="@{/admin/orders/{id}(id=${sibling.id})}" th:text="${sibling.orderNumber}"></a><span th:if="${!siblingStat.last}">, </span></span>
+        </p>
+    </section>
+    <p class="small text-secondary" th:if="${shippingProviderCode == 'INTERNAL'}">Đơn vị giao hàng: <strong>Giao nội bộ · miễn phí tại TP.HCM</strong></p>
+    <p class="small text-secondary" th:if="${shippingProviderCode == 'GHN'}">Đơn vị giao hàng: <strong th:text="${shippingCarrierName ?: 'GHN Staging'}">GHN Staging</strong> · báo giá trực tiếp</p>
+    <p class="small text-secondary" th:if="${shippingProviderCode != 'INTERNAL' and shippingProviderCode != 'GHN'}">Đơn vị giao hàng: <strong th:text="${shippingCarrierName ?: 'Chưa xác định nhà vận chuyển'}">Chưa xác định nhà vận chuyển</strong></p>
+    <section class="card border-0 shadow-sm p-4 mt-3" th:if="${order.paymentMethod != null and order.paymentMethod.name() == 'COD' and order.status.name() == 'PENDING' and order.confirmedAt == null}">
+        <h2 class="h5">Đơn COD chờ xác nhận</h2>
+        <p class="small text-secondary">Admin hoặc quản lý cần xác nhận đơn trước khi bộ phận xử lý bắt đầu chuẩn bị hàng.</p>
+        <form sec:authorize="hasAnyRole('MANAGER','ADMIN','SUPER_ADMIN')" th:action="@{/admin/orders/{id}/confirm(id=${order.id})}" method="post"
+              data-confirm-title="Xác nhận đơn COD" data-confirm-label="Xác nhận đơn" data-confirm-message="Xác nhận đơn này để mở bước chuẩn bị hàng?">
+            <button class="btn btn-primary" type="submit">Xác nhận đơn COD</button>
+        </form>
+    </section>
+    <section class="card border-0 shadow-sm p-4">
+        <h2 class="h5">Sản phẩm</h2>
+        <div th:each="item : ${order.items}" class="d-flex justify-content-between border-bottom py-2">
+            <span th:text="${item.productName + ' × ' + item.quantity}"></span>
+            <span th:text="${#numbers.formatDecimal(item.lineTotal,0,'COMMA',0,'POINT')} + ' đ'"></span>
+        </div>
+        <p class="mt-3 mb-1">Tạm tính <span th:text="${order.subtotal}"></span> · Giảm sản phẩm <span th:text="${productDiscountTotal}"></span> · Voucher tiền hàng <span th:text="${order.voucherDiscountAmount}"></span></p>
+        <p class="mb-0">Phí ship ban đầu <span th:text="${order.shippingFeeBeforeDiscount}"></span> · Giảm ship <span th:text="${order.shippingDiscountAmount}"></span> · Khách trả ship <span th:text="${order.shippingFee}"></span> · <span th:text="${checkoutGroup != null ? 'Tổng đơn con' : 'Tổng đơn'}">Tổng đơn</span> <strong th:text="${order.total}"></strong></p>
+    </section>
+    <section class="card border-0 shadow-sm p-4 mt-3" th:if="${shippingCost != null}">
+        <h2 class="h5">Chi phí giao hàng của shop</h2>
+        <p class="small text-secondary" th:if="${shippingProviderCode == 'INTERNAL'}">Snapshot: giao nội bộ miễn phí tại TP.HCM.</p>
+        <p class="small text-secondary" th:if="${shippingProviderCode == 'GHN'}">Snapshot GHN Staging: giá khách trả được chốt theo báo giá trực tiếp lúc đặt hàng.</p>
+        <p class="small text-danger" th:if="${shippingCostError != null}" th:text="${shippingCostError}"></p>
+        <div class="d-flex justify-content-between gap-3 mb-2"><span>Phí theo báo giá lúc đặt</span><strong th:text="${#numbers.formatDecimal(order.shippingFeeBeforeDiscount,0,'COMMA',0,'POINT') + ' đ'}"></strong></div>
+        <div class="d-flex justify-content-between gap-3 mb-2" th:if="${order.shippingDiscountAmount > 0}"><span>Ưu đãi phí giao hàng</span><strong th:text="${'-' + #numbers.formatDecimal(order.shippingDiscountAmount,0,'COMMA',0,'POINT') + ' đ'}"></strong></div>
+        <div class="d-flex justify-content-between gap-3 mb-2"><span>Phí giao hàng khách trả</span><strong th:text="${#numbers.formatDecimal(order.shippingFee,0,'COMMA',0,'POINT') + ' đ'}"></strong></div>
+        <div class="d-flex justify-content-between gap-3 mb-2" th:if="${shippingProviderCode == 'GHN'}"><span th:text="${shippingCost.confirmed ? 'Cước GHN khi tạo vận đơn' : 'Cước GHN tra cứu hiện tại'}"></span><strong th:text="${shippingCost.carrierFee != null ? #numbers.formatDecimal(shippingCost.carrierFee,0,'COMMA',0,'POINT') + ' đ' : 'Chưa tra được cước'}"></strong></div>
+        <div th:if="${shippingProviderCode == 'GHN' and shippingCost.difference != null}" class="d-flex justify-content-between gap-3 mb-3" th:classappend="${shippingCost.difference >= 0 ? 'text-success' : 'text-danger'}"><span th:text="${shippingCost.difference >= 0 ? 'Shop dư phí giao hàng' : 'Shop bù phí giao hàng'}"></span><strong th:text="${#numbers.formatDecimal(shippingCost.difference >= 0 ? shippingCost.difference : -shippingCost.difference,0,'COMMA',0,'POINT') + ' đ'}"></strong></div>
+        <form sec:authorize="hasAnyRole('MANAGER','ADMIN','SUPER_ADMIN')" th:if="${shippingCost.provider == 'GHN' and !shippingCost.confirmed}" th:action="@{/admin/orders/{id}/shipping-cost(id=${order.id})}" method="post">
+            <input th:if="${returnUserId != null}" type="hidden" name="returnUserId" th:value="${returnUserId}">
+            <input th:if="${returnUserId != null}" type="hidden" name="returnQuery" th:value="${returnQuery}">
+            <input th:if="${returnUserId != null and returnRole != null}" type="hidden" name="returnRole" th:value="${returnRole}">
+            <input th:if="${returnUserId != null and returnStatus != null}" type="hidden" name="returnStatus" th:value="${returnStatus}">
+            <input th:if="${returnUserId != null}" type="hidden" name="returnAccounts" th:value="${returnAccounts}">
+            <input th:if="${returnUserId != null}" type="hidden" name="returnPage" th:value="${returnPage}">
+            <input th:if="${returnUserId != null}" type="hidden" name="returnOrdersPage" th:value="${returnOrdersPage}">
+            <input th:if="${returnUserId != null}" type="hidden" name="returnWeddingsPage" th:value="${returnWeddingsPage}">
+            <button class="btn btn-outline-primary" type="submit">Tra cước GHN</button>
+            <small class="d-block text-secondary mt-2">Cước GHN này dùng để đối chiếu chi phí của shop; không đổi snapshot phí khách trả hay tổng đơn.</small>
+        </form>
+    </section>
+    <section class="card border-0 shadow-sm p-4 mt-3">
+        <h2 class="h5">Lịch sử giao dịch thanh toán</h2>
+        <p class="small text-secondary" th:if="${checkoutGroup != null and checkoutGroup.paymentMethod == 'VNPAY'}">
+            Capture duy nhất của nhóm được ghi nhận ở cấp nhóm ở trên. Số tiền trong bảng này là phần phân bổ cho đơn con đang xem.
+        </p>
+        <div class="table-responsive" th:if="${payments != null and !payments.empty}"><table class="table align-middle mb-0">
+            <thead><tr><th class="text-center text-secondary" scope="col">STT</th><th>Phương thức / cổng</th><th>Mã giao dịch / phân bổ</th><th th:text="${checkoutGroup != null and checkoutGroup.paymentMethod == 'VNPAY' ? 'Phân bổ đơn con' : 'Số tiền'}">Số tiền</th><th>Trạng thái</th><th>Thời gian</th></tr></thead>
+            <tbody><tr th:each="payment, rowStat : ${payments}"><td class="text-center text-secondary" th:text="${rowStat.count}">1</td><td><strong th:text="${order.paymentMethod ?: '—'}"></strong><small class="d-block text-secondary" th:text="${payment.provider}"></small></td>
+                <td class="text-break" th:text="${checkoutGroup != null and payment.checkoutPaymentAllocationId != null ? 'Phân bổ từ capture nhóm ' + checkoutGroup.groupNumber : payment.providerTransactionId ?: 'Chưa có mã giao dịch'}"></td><td th:text="${#numbers.formatDecimal(payment.amount,0,'COMMA',0,'POINT') + ' đ'}"></td>
+                <td><span class="badge text-bg-light" th:text="${payment.status}"></span><small class="d-block text-secondary" th:if="${payment.refundedAmount > 0}" th:text="${'Đã hoàn ' + #numbers.formatDecimal(payment.refundedAmount,0,'COMMA',0,'POINT') + ' đ'}"></small></td>
+                <td class="small text-secondary" th:text="${#temporals.format(payment.createdAt, 'dd/MM/yyyy HH:mm')}"></td></tr></tbody>
+        </table></div>
+        <p class="small text-secondary mb-0" th:if="${payments == null or payments.empty}">Chưa có bản ghi thanh toán.</p>
+    </section>
+    <section class="card border-0 shadow-sm p-4 mt-3"
+             th:if="${codReconciliation != null and (codReconciliation.status.name() == 'AWAITING_AMOUNT' or codReconciliation.status.name() == 'REVIEW_REQUIRED')}">
+        <h2 class="h5">Đối chiếu tiền COD</h2>
+        <p class="small text-secondary">Xác minh khoản tiền GHN đã thu và chuyển cho shop. Nhập số tiền đối chiếu cùng mã tham chiếu/chứng từ; số tiền phải khớp số phải thu.</p>
+        <p class="mb-3">Cần thu <strong th:text="${#numbers.formatDecimal(codReconciliation.finalDueAmount,0,'COMMA',0,'POINT') + ' đ'}"></strong>
+            · Đã ghi nhận <strong th:text="${#numbers.formatDecimal(codReconciliation.collectedAmount,0,'COMMA',0,'POINT') + ' đ'}"></strong></p>
+        <form th:action="@{/admin/finance/cod/{orderId}/resolve(orderId=${order.id})}" method="post" class="row g-3">
+            <input type="hidden" name="token" th:value="${codResolveToken}">
+            <input type="hidden" name="returnToOrder" value="true">
+            <div class="col-md-4"><label class="form-label" for="codCollectedAmount">Số tiền xác minh</label>
+                <input class="form-control" id="codCollectedAmount" name="collectedAmount" type="number" min="0" step="1" required th:value="${codReconciliation.finalDueAmount}"></div>
+            <div class="col-md-8"><label class="form-label" for="codReference">Mã tham chiếu / chứng từ</label>
+                <input class="form-control" id="codReference" name="reference" maxlength="190" required placeholder="Mã GHN chuyển COD, biên nhận hoặc mã đối soát"></div>
+            <div class="col-12"><label class="form-label" for="codNote">Ghi chú đối chiếu</label>
+                <textarea class="form-control" id="codNote" name="note" rows="2" maxlength="1000" required placeholder="Ghi rõ đã kiểm tra với sao kê hoặc chứng từ nào"></textarea></div>
+            <div class="col-12"><button class="btn btn-primary" type="submit">Đối chiếu COD</button></div>
+        </form>
+    </section>
+    <section class="card border-0 shadow-sm p-4 mt-3" th:if="${order.shipping != null}">
+        <h2 class="h5">Người nhận</h2>
+        <p class="mb-0" th:text="${order.shipping.recipientName + ' · ' + order.shipping.phone}"></p>
+        <p th:text="${order.shipping.addressLine}"></p>
+    </section>
+    <section class="card border-0 shadow-sm p-4 mt-3">
+        <h2 class="h5">Xử lý giao hàng</h2>
+        <p class="small text-secondary">Với COD, admin/quản lý xác nhận đơn trước, sau đó chuyển sang chuẩn bị hàng. Khi chuẩn bị xong, tạo vận đơn GHN để GHN tiếp nhận và trả mã vận đơn; các bước giao tiếp theo được cập nhật từ webhook GHN.</p>
+        <div th:each="row : ${order.fulfillments}" th:with="shipment=${shipmentsByFulfillment[row.id]}, operation=${shippingOperationsByFulfillment[row.id]}" class="border-bottom py-2">
+            <strong th:text="${order.paymentMethod != null and order.paymentMethod.name() == 'COD' and order.status.name() == 'PENDING' and order.confirmedAt == null ? 'Chờ shop xác nhận' : row.status.name() == 'CONFIRMED' ? 'Đã xác nhận · Chờ chuẩn bị hàng' : T(com.utewedding.app.service.web.StatusLabels).label(row.status)}"></strong>
+            <span th:if="${row.collectsCod}"> · Thu COD <span th:text="${row.codAmount}"></span></span>
+            <span th:unless="${row.collectsCod}"> · Không thu COD</span>
+            <p class="small mt-2 mb-2 fw-semibold" th:text="${row.trackingNumber != null ? 'Mã vận đơn GHN: ' + row.trackingNumber : shipment != null and shipment.trackingNumber != null ? 'Mã vận đơn GHN: ' + shipment.trackingNumber : 'Chưa có mã vận đơn.'}"></p>
+            <div class="alert alert-warning py-2 small" th:if="${operation != null and operation.status == 'AMBIGUOUS'}">
+                Chưa rõ GHN đã tạo vận đơn hay chưa. Hệ thống đang đối soát theo mã yêu cầu để tránh tạo trùng.
+                <a class="alert-link" th:href="@{/admin/shipping-operations/ambiguous}">Mở đối soát GHN</a>
+            </div>
+            <div class="alert alert-danger py-2 small" th:if="${operation != null and operation.status == 'REJECTED'}">
+                <strong>GHN chưa tạo vận đơn:</strong> <span th:text="${operation.lastError}"></span>
+                <span class="d-block">Sửa thông tin được báo lỗi rồi thử lại; yêu cầu vẫn dùng cùng mã đối chiếu để tránh trùng.</span>
+            </div>
+            <p class="text-secondary small" th:if="${operation != null and (operation.status == 'PENDING' or operation.status == 'PROCESSING')}">Đang gửi/đợi GHN Staging phản hồi mã vận đơn. Tải lại trang để cập nhật.</p>
+            <div class="d-flex flex-wrap gap-2">
+                <form sec:authorize="hasAnyRole('MANAGER','ADMIN','SUPER_ADMIN')" th:if="${order.confirmedAt != null and row.status.name() == 'CONFIRMED'}" th:action="@{/admin/fulfillments/{id}/processing(id=${row.id})}" method="post">
+                    <input type="hidden" name="returnToOrder" value="true">
+                    <input th:if="${returnUserId != null}" type="hidden" name="returnUserId" th:value="${returnUserId}">
+                    <input th:if="${returnUserId != null}" type="hidden" name="returnQuery" th:value="${returnQuery}">
+                    <input th:if="${returnUserId != null and returnRole != null}" type="hidden" name="returnRole" th:value="${returnRole}">
+                    <input th:if="${returnUserId != null and returnStatus != null}" type="hidden" name="returnStatus" th:value="${returnStatus}">
+                    <input th:if="${returnUserId != null}" type="hidden" name="returnAccounts" th:value="${returnAccounts}">
+                    <input th:if="${returnUserId != null}" type="hidden" name="returnPage" th:value="${returnPage}">
+                    <input th:if="${returnUserId != null}" type="hidden" name="returnOrdersPage" th:value="${returnOrdersPage}">
+                    <input th:if="${returnUserId != null}" type="hidden" name="returnWeddingsPage" th:value="${returnWeddingsPage}">
+                    <button class="btn btn-primary" type="submit">Chuẩn bị hàng</button>
+                </form>
+                <form sec:authorize="hasAnyRole('MANAGER','ADMIN','SUPER_ADMIN')" th:if="${row.status.name() == 'PROCESSING' and shippingProviderCode == 'GHN' and row.trackingNumber == null and (shipment == null or (operation != null and operation.status == 'REJECTED'))}" th:action="@{/admin/fulfillments/{id}/create-shipment(id=${row.id})}" method="post">
+                    <button class="btn btn-primary" type="submit" th:text="${operation != null and operation.status == 'REJECTED' ? 'Thử lại tạo vận đơn GHN' : 'Tạo vận đơn GHN'}">Tạo vận đơn GHN</button>
+                </form>
+                <span class="small text-secondary align-self-center" th:if="${row.status.name() == 'PROCESSING' and shippingProviderCode == 'GHN' and row.trackingNumber == null and (shipment == null or (operation != null and operation.status == 'REJECTED'))}">GHN trả `order_code` sau khi tạo thành công; mã sẽ được lưu tại đây.</span>
+                <form class="admin-shipping-action-form" sec:authorize="hasAnyRole('ADMIN','SUPER_ADMIN')" th:if="${shipment != null and shippingProviderCode == 'GHN' and shipment.providerShipmentId != null and shipment.status.name() != 'DELIVERED' and shipment.status.name() != 'RETURNED' and shipment.status.name() != 'CANCELLED'}" th:action="@{/admin/shipping-operations/shipments/{id}/track(id=${shipment.id})}" method="post">
+                    <button class="btn btn-outline-primary admin-shipping-action" type="submit">Tra cứu trạng thái GHN</button>
+                </form>
+                <form class="admin-shipping-action-form" sec:authorize="hasAnyRole('ADMIN','SUPER_ADMIN')" th:if="${shipment != null and shippingProviderCode == 'GHN' and shipment.providerShipmentId != null and shipment.status.name() == 'PICKUP_PENDING' and row.status.name() == 'PICKUP_PENDING' and (operation == null or operation.operation != 'CANCEL' or (operation.status != 'PENDING' and operation.status != 'PROCESSING' and operation.status != 'AMBIGUOUS'))}" th:action="@{/admin/shipping-operations/shipments/{id}/cancel(id=${shipment.id})}" method="post" data-confirm-title="Hủy vận đơn GHN" data-confirm-label="Gửi yêu cầu hủy" data-confirm-tone="danger" data-confirm-message="Chỉ gửi yêu cầu hủy khi kiện hàng chưa được GHN lấy. GHN sẽ xác nhận kết quả; đơn đã bàn giao không thể hủy tại đây.">
+                    <button class="btn btn-outline-danger admin-shipping-action" type="submit">Yêu cầu hủy vận đơn</button>
+                </form>
+                <span class="small text-secondary align-self-center" th:if="${shipment != null and shippingProviderCode == 'GHN' and (shipment.status.hasLeftTheWarehouse() or row.status.hasLeftTheWarehouse())}">GHN đã nhận kiện hàng; không thể hủy vận đơn tại đây.</span>
+                <a class="btn btn-outline-dark" th:href="@{/admin/fulfillments/{id}(id=${row.id})}">Chi tiết giao hàng</a>
+            </div>
+        </div>
+    </section>
+    <section class="card border-0 shadow-sm p-4 mt-3" th:if="${order.status.name() == 'PAID'}">
+        <h2 class="h5">Hoàn tiền</h2>
+        <p class="small text-secondary">Với VNPay hoặc MoMo, hệ thống gọi hoàn tiền thật trên cổng. Để trống số tiền để hoàn toàn bộ phần còn lại. Mã giao dịch là khóa idempotency: gửi lại cùng mã không tạo lệnh hoàn thứ hai. Hoàn thủ công chỉ áp dụng khi đơn không có giao dịch cổng.</p>
+        <form sec:authorize="hasAnyRole('ADMIN','SUPER_ADMIN')" th:action="@{/admin/orders/{id}/refund(id=${order.id})}" method="post" class="row g-2"
+              data-confirm-title="Xác nhận hoàn tiền" data-confirm-label="Xác nhận hoàn tiền" data-confirm-tone="danger"
+              data-confirm-message="Hành động này sẽ thực hiện hoàn tiền thật trên cổng thanh toán hoặc ghi nhận hoàn tiền vào sổ đối soát. Vui lòng kiểm tra kỹ số tiền và mã idempotency trước khi xác nhận!">
+            <input th:if="${returnUserId != null}" type="hidden" name="returnUserId" th:value="${returnUserId}">
+            <input th:if="${returnUserId != null}" type="hidden" name="returnQuery" th:value="${returnQuery}">
+            <input th:if="${returnUserId != null and returnRole != null}" type="hidden" name="returnRole" th:value="${returnRole}">
+            <input th:if="${returnUserId != null and returnStatus != null}" type="hidden" name="returnStatus" th:value="${returnStatus}">
+            <input th:if="${returnUserId != null}" type="hidden" name="returnAccounts" th:value="${returnAccounts}">
+            <input th:if="${returnUserId != null}" type="hidden" name="returnPage" th:value="${returnPage}">
+            <input th:if="${returnUserId != null}" type="hidden" name="returnOrdersPage" th:value="${returnOrdersPage}">
+            <input th:if="${returnUserId != null}" type="hidden" name="returnWeddingsPage" th:value="${returnWeddingsPage}">
+            <div class="col-md-3"><input class="form-control" name="provider" value="MANUAL_REFUND" aria-label="Nhà cung cấp"></div>
+            <div class="col-md-4"><input class="form-control" name="providerTransactionId" placeholder="Mã idempotency" required></div>
+            <div class="col-md-3"><input class="form-control" name="amount" inputmode="numeric" placeholder="Số tiền, trống = toàn bộ"></div>
+            <div class="col-md-2"><button class="btn btn-danger w-100" type="submit">Hoàn tiền</button></div>
+        </form>
+    </section>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+<script th:src="@{/js/marketplace-admin.js}" defer></script>
+<script th:src="@{/js/admin-payment-status.js}" defer></script>
+</body>
+</html>

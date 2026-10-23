@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Dữ liệu liên quan · UTEWedding')}"></head>
+<body class="bg-cream admin-dashboard-page"><nav th:replace="~{fragments :: adminnav('users')}"></nav>
+<main class="container py-5">
+    <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}" data-flash-success></div>
+    <h1 class="display-subtitle" th:text="${account.displayName}">Người dùng</h1>
+    <p th:text="${account.email + ' · ' + account.role}"></p>
+    <h2 class="h5 mt-4">Phiên đang hoạt động</h2>
+    <div th:each="activeSession : ${sessions}" class="d-flex justify-content-between border-bottom py-2">
+        <span th:text="${activeSession.userAgent}"></span>
+        <form th:action="@{/admin/users/{id}/sessions/{sessionId}/revoke(id=${account.id},sessionId=${activeSession.id})}" method="post"><button class="btn btn-sm btn-outline-danger" type="submit">Thu hồi</button></form>
+    </div>
+    <h2 class="h5 mt-4">Đơn hàng</h2>
+    <div th:each="order : ${orders}"><a th:href="@{/admin/orders/{id}(id=${order.id})}" th:text="${order.orderNumber}"></a></div>
+    <h2 class="h5 mt-4">Thiệp</h2>
+    <div th:each="wedding : ${weddings}" th:text="${wedding.slug + ' · ' + wedding.status}"></div>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer><th:block th:replace="~{fragments :: scripts}"></th:block>
+</body></html>

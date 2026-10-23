@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments :: head('Quản lý đơn hàng · UTEWedding')}"></head>
+<body class="bg-cream admin-dashboard-page">
+<nav th:replace="~{fragments :: adminnav('orders')}"></nav>
+<main class="container py-5">
+    <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}" data-flash-success></div>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <h1 class="display-subtitle mb-0">Quản lý đơn hàng</h1>
+        <a class="btn btn-primary" th:href="@{/admin/orders(attention=true)}">Cần xử lý
+            <span class="badge text-bg-light ms-1" th:text="${adminAttention != null ? adminAttention.orders : 0}">0</span>
+        </a>
+    </div>
+    <form method="get" class="row g-3 mt-3 align-items-end" th:action="@{/admin/orders}">
+        <div class="col-12 col-md-6 col-xl-3">
+            <label class="form-label small mb-1" for="admin-order-query">Mã đơn</label>
+            <input class="form-control" id="admin-order-query" name="q" th:value="${q}">
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <label class="form-label small mb-1" for="admin-order-buyer">Khách hàng hoặc email</label>
+            <input class="form-control" id="admin-order-buyer" name="buyer" th:value="${buyer}">
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <label class="form-label small mb-1" for="admin-order-status">Trạng thái đơn hàng</label>
+            <select class="form-select" id="admin-order-status" name="status">
+                <option value="">Tất cả đơn hàng</option>
+                <option th:each="item : ${orderStatuses}" th:value="${item}" th:text="${T(com.utewedding.app.service.web.StatusLabels).label(item)}" th:selected="${item.name() == status}"></option>
+            </select>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <label class="form-label small mb-1" for="admin-order-payment-status">Trạng thái thanh toán</label>
+            <select class="form-select" id="admin-order-payment-status" name="paymentStatus">
+                <option value="">Tất cả thanh toán</option>
+                <option th:each="item : ${paymentStatuses}" th:value="${item}" th:text="${T(com.utewedding.app.service.web.StatusLabels).label(item)}" th:selected="${item.name() == paymentStatus}"></option>
+            </select>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <label class="form-label small mb-1" for="admin-order-fulfillment-status">Trạng thái giao hàng</label>
+            <select class="form-select" id="admin-order-fulfillment-status" name="fulfillmentStatus">
+                <option value="">Tất cả giao hàng</option>
+                <option th:each="item : ${fulfillmentStatuses}" th:value="${item}" th:text="${T(com.utewedding.app.service.web.StatusLabels).label(item)}" th:selected="${item.name() == fulfillmentStatus}"></option>
+            </select>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <label class="form-label small mb-1" for="admin-order-shipper">Shipper</label>
+            <select class="form-select" id="admin-order-shipper" name="shipperId">
+                <option value="">Tất cả shipper</option>
+                <option th:each="person : ${shippers}" th:value="${person.id()}" th:text="${person.displayName() + ' · ' + person.email()}" th:selected="${person.id().toString() == shipperId}"></option>
+            </select>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <label class="form-label small mb-1" for="admin-order-from">Từ ngày</label>
+            <input class="form-control" id="admin-order-from" name="from" type="date" th:value="${from}">
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <label class="form-label small mb-1" for="admin-order-to">Đến ngày</label>
+            <input class="form-control" id="admin-order-to" name="to" type="date" th:value="${to}">
+        </div>
+        <div class="col-12 col-md-6 col-xl-3 mb-2">
+            <div class="form-check">
+                <input class="form-check-input" id="admin-order-attention" name="attention" type="checkbox" value="true" th:checked="${attention}">
+                <label class="form-check-label" for="admin-order-attention">Chỉ hiện đơn cần xử lý</label>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3"><button class="btn btn-dark w-100" type="submit">Lọc</button></div>
+    </form>
+    <p class="small text-secondary mt-3 mb-0" th:if="${hasGroupedVnpayOrder}">
+        Mỗi dòng giữ tổng riêng của đơn con. VNPAY chỉ thu một lần theo tổng nhóm; không cộng khoản thu nhóm theo từng đơn.
+    </p>
+    <div class="card border-0 shadow-sm mt-4 overflow-hidden">
+        <div th:if="${orders == null or orders.isEmpty()}" class="p-5 text-center text-secondary">Chưa có đơn hàng.</div>
+        <div th:if="${orders != null and !orders.isEmpty() and filtered}" class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead><tr><th class="text-center text-secondary" scope="col">STT</th><th>Mã đơn</th><th>Đơn vị giao hàng</th><th>Trạng thái đơn</th><th>Thanh toán</th><th>Giao hàng</th><th th:if="${attention}">Cần làm</th><th>Tổng đơn</th><th></th></tr></thead>
+                <tbody>
+                <tr th:each="order, rowStat : ${orders}">
+                    <td class="text-center text-secondary" th:text="${orders.number * orders.size + rowStat.count}">1</td>
+                    <td th:with="checkoutGroup=${checkoutGroupsByOrder[order.id]}">
+                        <a th:href="@{/admin/orders/{id}(id=${order.id})}" th:text="${order.orderNumber}"></a>
+                        <small class="d-block text-secondary" th:if="${checkoutGroup != null}">
+                            Nhóm thanh toán <strong th:text="${checkoutGroup.groupNumber}"></strong>
+                            · <span th:text="${checkoutGroup.orderCount + ' đơn con'}"></span>
+                            · <span th:text="${checkoutGroup.paymentMethod + ' · ' + checkoutGroup.paymentStatus}"></span>
+                            <span th:if="${!checkoutGroup.siblingOrders.isEmpty()}"> · Đơn cùng nhóm:
+                                <span th:each="sibling, siblingStat : ${checkoutGroup.siblingOrders}"><a th:href="@{/admin/orders/{id}(id=${sibling.id})}" th:text="${sibling.orderNumber}"></a><span th:if="${!siblingStat.last}">, </span></span>
+                            </span>
+                        </small>
+                    </td>
+                    <td><span th:text="${shippingCarriers != null and shippingCarriers[order.id] != null ? shippingCarriers[order.id].name : 'Chưa xác định nhà vận chuyển'}">GHN</span>
+                        <small class="d-block text-secondary" th:if="${shippingCarriers != null and shippingCarriers[order.id] != null and shippingCarriers[order.id].providerCode == 'INTERNAL'}">Giao nội bộ · miễn phí tại TP.HCM</small>
+                        <small class="d-block text-secondary" th:if="${shippingCarriers != null and shippingCarriers[order.id] != null and shippingCarriers[order.id].providerCode == 'GHN'}" th:text="${'GHN Staging · cước theo báo giá: ' + #numbers.formatDecimal(shippingCarriers[order.id].quotedFee,0,'COMMA',0,'POINT') + ' đ'}">GHN Staging · cước theo báo giá</small>
+                        <small class="d-block text-secondary" th:if="${shippingCarriers != null and shippingCarriers[order.id] != null and shippingCarriers[order.id].providerCode != 'INTERNAL' and shippingCarriers[order.id].providerCode != 'GHN'}" th:text="${'Provider ' + shippingCarriers[order.id].providerCode}">Provider</small></td>
+                    <td><span class="badge rounded-pill" th:classappend="${T(com.utewedding.app.service.web.StatusLabels).orderStatusBadgeClass(order.status)}" th:text="${T(com.utewedding.app.service.web.StatusLabels).orderStatusLabel(order.status, order.paymentMethod)}"></span></td>
+                    <td><span class="badge rounded-pill" th:classappend="${T(com.utewedding.app.service.web.StatusLabels).paymentStatusBadgeClass(order.paymentStatus)}" th:text="${T(com.utewedding.app.service.web.StatusLabels).paymentStatusLabel(order.paymentStatus, order.paymentMethod)}"></span></td>
+                    <td><span class="badge rounded-pill" th:classappend="${order.paymentMethod != null and order.paymentMethod.name() == 'COD' and order.status.name() == 'PENDING' and order.confirmedAt == null ? 'text-bg-warning' : T(com.utewedding.app.service.web.StatusLabels).fulfillmentStatusBadgeClass(order.overallFulfillmentStatus)}" th:text="${order.paymentMethod != null and order.paymentMethod.name() == 'COD' and order.status.name() == 'PENDING' and order.confirmedAt == null ? 'Chờ shop xác nhận' : T(com.utewedding.app.service.web.StatusLabels).label(order.overallFulfillmentStatus)}"></span></td>
+                    <td th:if="${attention}"><strong th:text="${attentionDetails[order.id]?.reason ?: 'Cần kiểm tra'}">Cần xử lý</strong><small class="d-block text-secondary" th:text="${attentionDetails[order.id]?.nextAction ?: ''}">Hành động</small></td>
+                    <td th:text="${#numbers.formatDecimal(order.total,0,'COMMA',0,'POINT')} + ' đ'"></td>
+                    <td><a class="btn btn-sm btn-outline-dark" th:href="@{/admin/orders/{id}(id=${order.id})}">Xem chi tiết</a></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div th:if="${orders != null and !orders.isEmpty() and !filtered}" class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead><tr><th class="text-center text-secondary" scope="col">STT</th><th>Mã đơn</th><th>Khách</th><th>Đơn vị giao hàng</th><th>Tổng đơn</th><th>Trạng thái</th><th></th></tr></thead>
+                <tbody>
+                <tr th:each="order, rowStat : ${orders}">
+                    <td class="text-center text-secondary" th:text="${orders.number * orders.size + rowStat.count}">1</td>
+                    <td th:with="checkoutGroup=${checkoutGroupsByOrder[order.id]}">
+                        <a th:href="@{/admin/orders/{id}(id=${order.id})}" th:text="${order.orderNumber}"></a>
+                        <small class="d-block text-secondary" th:if="${checkoutGroup != null}">
+                            Nhóm thanh toán <strong th:text="${checkoutGroup.groupNumber}"></strong>
+                            · <span th:text="${checkoutGroup.orderCount + ' đơn con'}"></span>
+                            · <span th:text="${checkoutGroup.paymentMethod + ' · ' + checkoutGroup.paymentStatus}"></span>
+                            <span th:if="${!checkoutGroup.siblingOrders.isEmpty()}"> · Đơn cùng nhóm:
+                                <span th:each="sibling, siblingStat : ${checkoutGroup.siblingOrders}"><a th:href="@{/admin/orders/{id}(id=${sibling.id})}" th:text="${sibling.orderNumber}"></a><span th:if="${!siblingStat.last}">, </span></span>
+                            </span>
+                        </small>
+                    </td>
+                    <td th:text="${order.buyerName}"></td>
+                    <td><span th:text="${shippingCarriers != null and shippingCarriers[order.id] != null ? shippingCarriers[order.id].name : 'Chưa xác định nhà vận chuyển'}">GHN</span>
+                        <small class="d-block text-secondary" th:if="${shippingCarriers != null and shippingCarriers[order.id] != null and shippingCarriers[order.id].providerCode == 'INTERNAL'}">Giao nội bộ · miễn phí tại TP.HCM</small>
+                        <small class="d-block text-secondary" th:if="${shippingCarriers != null and shippingCarriers[order.id] != null and shippingCarriers[order.id].providerCode == 'GHN'}" th:text="${'GHN Staging · cước theo báo giá: ' + #numbers.formatDecimal(shippingCarriers[order.id].quotedFee,0,'COMMA',0,'POINT') + ' đ'}">GHN Staging · cước theo báo giá</small>
+                        <small class="d-block text-secondary" th:if="${shippingCarriers != null and shippingCarriers[order.id] != null and shippingCarriers[order.id].providerCode != 'INTERNAL' and shippingCarriers[order.id].providerCode != 'GHN'}" th:text="${'Provider ' + shippingCarriers[order.id].providerCode}">Provider</small></td>
+                    <td th:text="${#numbers.formatDecimal(order.total,0,'COMMA',0,'POINT')} + ' đ'"></td>
+                    <td><span class="badge rounded-pill" th:classappend="${order.statusBadgeClass}" th:text="${order.statusDescription}"></span></td>
+                    <td><a class="btn btn-sm btn-outline-dark" th:href="@{/admin/orders/{id}(id=${order.id})}">Xem chi tiết</a></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <nav th:if="${orders != null and orders.totalPages > 1}" class="mt-4" aria-label="Phân trang đơn hàng">
+        <ul class="pagination justify-content-center flex-wrap">
+            <li class="page-item" th:classappend="${orders.first ? ' disabled' : ''}">
+                <a class="page-link" th:href="@{/admin/orders(page=${orders.number - 1},q=${q},buyer=${buyer},status=${status},paymentStatus=${paymentStatus},fulfillmentStatus=${fulfillmentStatus},shipperId=${param.shipperId},from=${param.from},to=${param.to},attention=${attention})}" aria-label="Trang trước">‹</a>
+            </li>
+            <li class="page-item disabled"><span class="page-link" th:text="${orders.number + 1 + ' / ' + orders.totalPages}">1 / 1</span></li>
+            <li class="page-item" th:classappend="${orders.last ? ' disabled' : ''}">
+                <a class="page-link" th:href="@{/admin/orders(page=${orders.number + 1},q=${q},buyer=${buyer},status=${status},paymentStatus=${paymentStatus},fulfillmentStatus=${fulfillmentStatus},shipperId=${param.shipperId},from=${param.from},to=${param.to},attention=${attention})}" aria-label="Trang tiếp">›</a>
+            </li>
+        </ul>
+    </nav>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

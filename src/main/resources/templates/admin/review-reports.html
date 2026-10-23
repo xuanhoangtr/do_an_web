@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Báo cáo đánh giá · UTEWedding')}"></head>
+<body class="bg-cream admin-dashboard-page"><nav th:replace="~{fragments :: adminnav('reviewReports')}"></nav>
+<main class="container py-5">
+    <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}" data-flash-success></div><div th:if="${errorMessage}" class="alert alert-danger" th:text="${errorMessage}"></div>
+    <p class="eyebrow">Nội dung · Báo cáo cộng đồng</p><h1 class="display-subtitle">Báo cáo đánh giá</h1>
+    <nav class="nav nav-pills gap-2 mt-4 mb-3" aria-label="Lọc trạng thái báo cáo"><a class="nav-link" th:classappend="${status == '' ? ' active' : ''}" th:href="@{/admin/review-reports}">Tất cả</a><a class="nav-link" th:classappend="${status == 'OPEN' ? ' active' : ''}" th:href="@{/admin/review-reports(status='OPEN')}">Chờ xử lý</a><a class="nav-link" th:classappend="${status == 'RESOLVED' ? ' active' : ''}" th:href="@{/admin/review-reports(status='RESOLVED')}">Đã xử lý</a><a class="nav-link" th:classappend="${status == 'DISMISSED' ? ' active' : ''}" th:href="@{/admin/review-reports(status='DISMISSED')}">Đã bác bỏ</a></nav>
+    <section class="row g-3">
+        <article class="col-12" th:each="report : ${reports}">
+            <div class="card border-0 shadow-sm rounded-4 p-4">
+                <div class="d-flex flex-column flex-lg-row justify-content-between gap-3"><div><span class="badge rounded-pill" th:classappend="${report.status.name() == 'OPEN' ? ' text-bg-warning' : (report.status.name() == 'RESOLVED' ? ' text-bg-success' : ' text-bg-secondary')}" th:text="${report.status.name() == 'OPEN' ? 'Chờ xử lý' : (report.status.name() == 'RESOLVED' ? 'Đã xử lý' : 'Đã bác bỏ')}"></span><small class="ms-2 text-secondary" th:text="${#temporals.format(report.createdAt(), 'dd/MM/yyyy HH:mm')}"></small></div>
+                    <div class="small text-secondary">Báo cáo bởi <strong th:text="${report.reporterName()}">Người báo cáo</strong><span th:if="${report.reporterEmail() != null and !report.reporterEmail().isBlank()}" th:text="${' · ' + report.reporterEmail()}"></span></div></div>
+                <div class="row g-3 mt-1"><div class="col-lg-8"><h2 class="h6">Đánh giá bị báo cáo</h2><p class="mb-2" style="white-space:pre-line" th:text="${report.reviewContent()}">Nội dung đánh giá</p><div class="small text-secondary"><span class="text-warning" th:text="${'★'.repeat(report.rating())}"></span><span th:text="${' · ' + report.reviewerName() + ' · ' + report.productName()}"></span></div></div>
+                    <div class="col-lg-4"><h2 class="h6">Lý do báo cáo</h2><p class="mb-0" th:text="${report.reason()}">Lý do vi phạm</p></div></div>
+                <div class="d-flex flex-wrap gap-2 mt-3" th:if="${report.status.name() == 'OPEN'}">
+                    <form th:action="@{/admin/review-reports/{id}(id=${report.id()})}" method="post" data-confirm-title="Xử lý vi phạm đánh giá" data-confirm-label="Ẩn đánh giá" data-confirm-message="Đánh giá sẽ bị chuyển sang trạng thái từ chối và không còn hiển thị cho người mua."><input type="hidden" name="status" value="RESOLVED"><button class="btn btn-sm btn-danger" type="submit">Xử lý vi phạm · Ẩn đánh giá</button></form>
+                    <form th:action="@{/admin/review-reports/{id}(id=${report.id()})}" method="post" data-confirm-title="Bác bỏ báo cáo" data-confirm-label="Bác bỏ báo cáo" data-confirm-tone="secondary" data-confirm-message="Báo cáo được đánh dấu đã xem xét; trạng thái đánh giá sẽ không thay đổi."><input type="hidden" name="status" value="DISMISSED"><button class="btn btn-sm btn-outline-secondary" type="submit">Bác bỏ báo cáo</button></form>
+                </div>
+                <small class="d-block text-secondary mt-3" th:text="${'Mã đánh giá: ' + report.reviewId()}"></small>
+            </div>
+        </article>
+        <div class="col-12" th:if="${reports == null or reports.empty}"><div class="card border-0 shadow-sm rounded-4 p-5 text-center text-secondary">Không có báo cáo trong trạng thái này.</div></div>
+    </section>
+    <nav th:if="${reports != null and reports.totalPages > 1}" class="mt-4" aria-label="Phân trang báo cáo"><ul class="pagination justify-content-center"><li class="page-item" th:classappend="${reports.first ? ' disabled' : ''}"><a class="page-link" th:href="@{/admin/review-reports(page=${reports.number - 1},status=${status})}">‹</a></li><li class="page-item disabled"><span class="page-link" th:text="${reports.number + 1 + ' / ' + reports.totalPages}">1 / 1</span></li><li class="page-item" th:classappend="${reports.last ? ' disabled' : ''}"><a class="page-link" th:href="@{/admin/review-reports(page=${reports.number + 1},status=${status})}">›</a></li></ul></nav>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer><th:block th:replace="~{fragments :: scripts}"></th:block><script th:src="@{/js/marketplace-admin.js}" defer></script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments :: head('Dashboard · UTEWedding')}"></head>
+<body class="admin-dashboard" id="top">
+<div class="dash-layout">
+    <aside th:replace="~{fragments :: adminSidebar('dashboard')}"></aside>
+    <button type="button" class="dash-sidebar-backdrop" id="dashboardSidebarBackdrop" aria-label="Đóng menu"></button>
+    <div class="dash-main">
+        <header th:replace="~{fragments :: adminTopbar('dashboard')}"></header>
+        <main class="dash-content">
+            <div class="dash-heading"><div><h1>Tổng quan vận hành</h1><p>Đơn hàng, doanh thu và những việc cần xử lý.</p></div><a class="dash-button dash-button-outline" th:if="${analyticsAvailable}" th:href="@{/admin/dashboard/export(range=${selectedRange},from=${rangeFrom},to=${rangeTo})}"><span class="material-symbols-outlined" aria-hidden="true">download</span>Xuất báo cáo CSV</a></div>
+
+            <section class="dash-filter dash-card" aria-labelledby="range-heading">
+                <div class="dash-section-head"><div><h2 id="range-heading">Khoảng thời gian</h2><p th:if="${analyticsAvailable}">Kết quả <strong th:text="${rangeLabel}">trong kỳ</strong> · So sánh với <span th:text="${previousRangeLabel}">kỳ trước</span> · Giờ Việt Nam</p></div><small th:if="${analyticsAvailable}">Cập nhật lúc <time th:text="${lastUpdated}">—</time></small></div>
+                <form id="dashboardRangeForm" method="get" th:action="@{/admin/dashboard}" class="dash-filter-form">
+                    <label for="rangePreset">Khoảng thời gian<select id="rangePreset" name="range"><option value="today" th:selected="${selectedRange == 'today'}">Hôm nay</option><option value="last7" th:selected="${selectedRange == 'last7'}">7 ngày gần nhất</option><option value="last30" th:selected="${selectedRange == 'last30'}">30 ngày gần nhất</option><option value="thisMonth" th:selected="${selectedRange == 'thisMonth'}">Tháng này</option><option value="custom" th:selected="${selectedRange == 'custom'}">Tùy chỉnh</option></select></label>
+                    <label for="rangeFrom">Từ ngày<input id="rangeFrom" name="from" type="date" required th:value="${rangeFrom}"></label>
+                    <label for="rangeTo">Đến ngày<input id="rangeTo" name="to" type="date" required th:value="${rangeTo}"></label>
+                    <button class="dash-button dash-button-primary" type="submit">Áp dụng</button>
+                </form>
+                <p class="dash-filter-note" th:if="${analyticsAvailable}">Doanh thu theo ngày thanh toán; đơn hàng và người dùng mới theo ngày tạo.</p>
+                <div class="alert alert-danger mt-3 mb-0" role="alert" th:if="${rangeError}" th:text="${rangeError}">Khoảng ngày không hợp lệ.</div>
+            </section>
+            <div class="dash-empty dash-range-empty" role="status" th:if="${analyticsAvailable and !hasRangeData}">Không có dữ liệu trong khoảng thời gian này. Hãy chọn khoảng ngày khác.</div>
+
+            <section class="dash-stats" aria-label="Chỉ số tổng quan">
+                <article class="dash-card dash-stat"><div class="dash-stat-title">Doanh thu<span class="material-symbols-outlined" aria-hidden="true">payments</span></div><strong th:if="${analyticsAvailable}" th:text="${#numbers.formatDecimal(analytics.revenue.current,0,'POINT',0,'COMMA')} + ' đ'">0 đ</strong><strong th:unless="${analyticsAvailable}">—</strong><small th:if="${analyticsAvailable and analytics.revenue.percentageChange() != null}" th:text="${#numbers.formatDecimal(analytics.revenue.percentageChange(),1,'POINT',1,'COMMA')} + '% so với kỳ trước'"></small><small th:if="${analyticsAvailable and analytics.revenue.percentageChange() == null}" th:text="${analytics.revenue.delta() + ' đ so với kỳ trước (kỳ trước = 0)'}"></small></article>
+                <article class="dash-card dash-stat"><div class="dash-stat-title">Đơn hàng<span class="material-symbols-outlined" aria-hidden="true">shopping_bag</span></div><strong th:if="${analyticsAvailable}" th:text="${analytics.orders.current}">0</strong><strong th:unless="${analyticsAvailable}">—</strong><small th:if="${analyticsAvailable and analytics.orders.percentageChange() != null}" th:text="${#numbers.formatDecimal(analytics.orders.percentageChange(),1,'COMMA',1,'POINT')} + '% so với kỳ trước'"></small><small th:if="${analyticsAvailable and analytics.orders.percentageChange() == null}" th:text="${analytics.orders.delta() + ' đơn so với kỳ trước (kỳ trước = 0)'}"></small></article>
+                <article class="dash-card dash-stat"><div class="dash-stat-title">Đơn cần xử lý<span class="material-symbols-outlined" aria-hidden="true">pending_actions</span></div><strong th:text="${opsPendingOrders}">0</strong><small><a th:href="@{/admin/orders(attention=true)}">Xem danh sách cần xử lý →</a></small></article>
+                <article class="dash-card dash-stat"><div class="dash-stat-title">Người dùng mới<span class="material-symbols-outlined" aria-hidden="true">person_add</span></div><strong th:if="${analyticsAvailable}" th:text="${analytics.newUsers.current}">0</strong><strong th:unless="${analyticsAvailable}">—</strong><small th:if="${analyticsAvailable and analytics.newUsers.percentageChange() != null}" th:text="${#numbers.formatDecimal(analytics.newUsers.percentageChange(),1,'COMMA',1,'POINT')} + '% so với kỳ trước'"></small><small th:if="${analyticsAvailable and analytics.newUsers.percentageChange() == null}" th:text="${analytics.newUsers.delta() + ' người so với kỳ trước (kỳ trước = 0)'}"></small></article>
+            </section>
+            <div class="dash-grid">
+                <section id="revenueChartData" class="dash-card dash-panel" th:if="${analyticsAvailable}" th:attr="data-labels=${#strings.listJoin(chartLabels, '|')},data-values=${#strings.listJoin(chartValues, '|')},data-range=${rangeLabel},data-has-data=${hasRevenueData}">
+                    <div class="dash-section-head"><div><h2>Doanh thu cửa hàng</h2><p>Theo ngày thanh toán trong khoảng thời gian đã chọn</p></div><span class="dash-period" th:text="${rangeLabel}">Khoảng ngày</span></div>
+                    <div class="dash-chart-total" th:text="${#numbers.formatDecimal(analytics.revenue.current,0,'POINT',0,'COMMA')} + ' đ'">0 đ</div>
+                    <div class="dashboard-chart dash-chart" th:if="${hasRevenueData}"><canvas id="revenueChart" aria-label="Biểu đồ doanh thu theo khoảng thời gian" role="img"></canvas></div>
+                    <div class="dash-empty" th:unless="${hasRevenueData}">Không có dữ liệu doanh thu trong khoảng thời gian này.</div>
+                </section>
+                <section class="dash-card dash-panel" aria-labelledby="dashboard-tasks">
+                    <div class="dash-section-head"><div><h2 id="dashboard-tasks">Việc cần xử lý</h2><p>Các mục cần chú ý trên hệ thống</p></div></div>
+                    <div class="dash-task-list">
+                        <a class="dash-task" th:href="@{/admin/orders(attention=true)}"><span class="material-symbols-outlined" aria-hidden="true">pending_actions</span><span>Đơn cần xử lý</span><strong th:text="${opsPendingOrders}">0</strong><span aria-hidden="true">›</span></a>
+                        <a class="dash-task" th:href="@{/admin/support(needsReply=true)}"><span class="material-symbols-outlined" aria-hidden="true">support_agent</span><span>Ticket chờ phản hồi</span><strong th:text="${opsPendingTickets}">0</strong><span aria-hidden="true">›</span></a>
+                        <a class="dash-task" th:href="@{/admin/reviews}"><span class="material-symbols-outlined" aria-hidden="true">star</span><span>Đánh giá chờ duyệt</span><strong th:text="${opsPendingReviews}">0</strong><span aria-hidden="true">›</span></a>
+                        <a class="dash-task" th:href="@{/admin/review-reports}"><span class="material-symbols-outlined" aria-hidden="true">flag</span><span>Báo cáo đánh giá</span><strong th:text="${opsOpenReviewReports}">0</strong><span aria-hidden="true">›</span></a>
+                        <a class="dash-task" th:href="@{/admin/returns}"><span class="material-symbols-outlined" aria-hidden="true">assignment_return</span><span>Trả hàng cần xử lý</span><strong th:text="${opsPendingReturns}">0</strong><span aria-hidden="true">›</span></a>
+                        <div class="dash-task"><span class="material-symbols-outlined" aria-hidden="true">inventory_2</span><span>Tồn kho thấp</span><strong th:text="${opsLowStock ?: 0}">0</strong></div>
+                    </div>
+                </section>
+            </div>
+            <div class="dash-grid dash-grid-lower">
+                <section class="dash-card dash-panel" aria-labelledby="recent-orders-heading"><div class="dash-section-head"><div><h2 id="recent-orders-heading">Đơn hàng gần đây</h2><p>Trạng thái mới nhất</p></div><a class="dash-text-link" th:href="@{/admin/orders}">Xem tất cả →</a></div><div th:if="${recentOrders == null or recentOrders.empty}" class="dash-empty">Chưa có đơn hàng.</div><div th:unless="${recentOrders == null or recentOrders.empty}" class="dash-table-wrap"><table class="dash-table"><thead><tr><th scope="col">STT</th><th>Mã đơn</th><th>Khách hàng</th><th>Trạng thái</th><th>Tổng tiền</th></tr></thead><tbody><tr th:each="order, rowStat : ${recentOrders}"><td class="text-secondary" th:text="${rowStat.count}">1</td><td><a th:href="@{/admin/orders/{id}(id=${order.id})}" th:text="${order.orderNumber}">Mã đơn</a></td><td th:text="${order.buyerName}">Khách hàng</td><td><span class="badge" th:classappend="${order.statusBadgeClass}" th:text="${order.statusDescription}">Trạng thái</span></td><td th:text="${#numbers.formatDecimal(order.total,0,'POINT',0,'COMMA')} + ' đ'">0 đ</td></tr></tbody></table></div></section>
+                <section class="dash-card dash-panel" aria-labelledby="featured-products-heading"><div class="dash-section-head"><div><h2 id="featured-products-heading">Sản phẩm nổi bật</h2><p>Sản phẩm đang hoạt động</p></div><a class="dash-text-link" th:href="@{/admin/products}">Quản lý →</a></div><div th:if="${featuredProducts == null or featuredProducts.empty}" class="dash-empty">Chưa có sản phẩm để hiển thị.</div><div class="dash-product" th:each="product : ${featuredProducts}"><img th:src="${!#strings.isEmpty(product.imageUrl) ? product.imageUrl : '/images/placeholder-product.svg'}" th:alt="${product.name}"><div><strong th:text="${product.name}">Sản phẩm</strong><small th:text="${#numbers.formatDecimal(product.unitPrice,0,'POINT',0,'COMMA')} + ' đ'">0 đ</small></div></div></section>
+            </div>
+            <section class="dash-snapshot" aria-label="Tổng quan hiện tại"><div class="dash-card dash-snapshot-item"><span>Sản phẩm đang hoạt động</span><strong th:text="${productCount}">0</strong></div><div class="dash-card dash-snapshot-item"><span>Tổng người dùng hiện tại</span><strong th:text="${userCount}">0</strong></div></section>
+        </main>
+        <footer th:replace="~{fragments :: footer}"></footer>
+    </div>
+</div>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script th:src="@{/js/dashboard.js}"></script>
+<script th:src="@{/js/admin-dashboard-shell.js}"></script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Xem xét sản phẩm · UTEWedding')}"></head>
+<body class="bg-cream admin-dashboard-page">
+<nav th:replace="~{fragments :: adminnav('products')}"></nav>
+<main class="container py-5">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4"><div><p class="eyebrow">NHÀ BÁN · KIỂM DUYỆT</p><h1 class="display-subtitle mt-2 mb-0" th:text="${detail.product.name}">Sản phẩm</h1></div><a class="btn btn-outline-dark" th:href="@{/admin/products/moderation}">Về hàng chờ</a></div>
+    <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}"></div><div th:if="${formError}" class="alert alert-danger" th:text="${formError}"></div>
+    <div class="row g-4"><div class="col-lg-7"><section class="card border-0 shadow-sm p-4 h-100">
+        <img th:if="${detail.product.imageUrl != null}" th:src="${detail.product.imageUrl}" th:alt="${detail.product.name}" class="img-fluid rounded mb-3" style="max-height:360px;object-fit:contain">
+        <p class="eyebrow mb-1" th:text="${detail.product.shopName}">Cửa hàng</p><h2 class="h4" th:text="${detail.product.name}">Sản phẩm</h2>
+        <p class="text-secondary" th:text="${detail.product.sku}">SKU</p><p th:text="${detail.product.description}">Mô tả</p>
+        <p class="fw-semibold" th:text="${#numbers.formatDecimal(detail.product.unitPrice,0,'COMMA',0,'POINT')} + ' đ'">0 đ</p>
+        <p>Trạng thái: <strong th:text="${statusLabels[detail.product.moderationStatus]}">Chờ duyệt</strong></p>
+        <div th:if="${detail.product.moderationReason != null}" class="alert alert-warning" th:text="${detail.product.moderationReason}"></div>
+    </section></div>
+    <div class="col-lg-5"><section class="card border-0 shadow-sm p-4">
+        <h2 class="h5">Quyết định kiểm duyệt</h2><p class="text-secondary">Sản phẩm chờ duyệt không xuất hiện trong catalog. Chặn sẽ giữ trạng thái cho đến khi quản trị viên đổi quyết định.</p>
+        <form th:object="${moderationForm}" method="post" class="d-grid gap-3">
+            <div><label class="form-label" for="reason">Lý do (bắt buộc khi từ chối hoặc chặn)</label><textarea id="reason" class="form-control" rows="4" th:field="*{reason}" maxlength="1000"></textarea></div>
+            <button class="btn btn-success" type="submit" th:formaction="@{/admin/products/moderation/{id}/APPROVED(id=${detail.product.id})}">Duyệt sản phẩm</button>
+            <button class="btn btn-outline-danger" type="submit" th:formaction="@{/admin/products/moderation/{id}/REJECTED(id=${detail.product.id})}">Từ chối</button>
+            <button class="btn btn-danger" type="submit" th:formaction="@{/admin/products/moderation/{id}/BLOCKED(id=${detail.product.id})}">Chặn sản phẩm</button>
+        </form>
+    </section></div></div>
+    <section class="card border-0 shadow-sm p-4 mt-4"><h2 class="h5">Lịch sử kiểm duyệt</h2><div th:if="${#lists.isEmpty(detail.history)}" class="text-secondary">Chưa có quyết định kiểm duyệt.</div><ol th:unless="${#lists.isEmpty(detail.history)}" class="list-group list-group-flush">
+        <li class="list-group-item px-0" th:each="event : ${detail.history}"><div class="d-flex justify-content-between gap-3"><strong th:text="${statusLabels[event.toStatus]}">Chờ duyệt</strong><time class="text-secondary" th:text="${#temporals.format(event.occurredAt, 'dd/MM/yyyy HH:mm')}">28/10/2026</time></div><div class="small text-secondary" th:text="${event.fromStatus == null ? 'Sản phẩm được gửi để kiểm duyệt' : statusLabels[event.fromStatus] + ' → ' + statusLabels[event.toStatus]}"></div><p class="mb-0 mt-1" th:if="${event.reason != null}" th:text="${event.reason}"></p></li>
+    </ol></section>
+</main><footer th:replace="~{fragments :: footer}"></footer><th:block th:replace="~{fragments :: scripts}"></th:block>
+</body></html>

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Giao hàng · UTEWedding')}"></head>
+<body class="bg-cream admin-dashboard-page"><nav th:replace="~{fragments :: adminnav('fulfillments')}"></nav>
+<main class="container py-5">
+    <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}" data-flash-success></div>
+    <div th:if="${errorMessage}" class="alert alert-danger" th:text="${errorMessage}"></div>
+    <p class="eyebrow">VẬN HÀNH</p><h1 class="display-subtitle mt-2">Chuẩn bị và giao hàng</h1>
+    <form method="get" th:action="@{/admin/fulfillments}" class="card border-0 shadow-sm rounded-4 p-4 mt-4 mb-4">
+        <h2 class="h6">Tìm và lọc vận đơn</h2><div class="row g-3 align-items-end">
+            <div class="col-md-6 col-xl-4"><label class="form-label" for="fulfillment-q">Mã đơn hoặc tracking</label><input id="fulfillment-q" class="form-control" name="q" th:value="${q}" placeholder="UTE-… hoặc mã vận đơn"></div>
+            <div class="col-md-6 col-xl-2"><label class="form-label" for="fulfillment-status">Trạng thái</label><select id="fulfillment-status" class="form-select" name="status"><option value="">Tất cả</option><option th:each="item : ${statuses}" th:value="${item}" th:text="${item}" th:selected="${item.name() == status}"></option></select></div>
+            <div class="col-md-6 col-xl-2"><label class="form-label" for="fulfillment-shipper">Shipper</label><select id="fulfillment-shipper" class="form-select" name="shipperId"><option value="">Tất cả</option><option th:each="person : ${shippers}" th:value="${person.id()}" th:text="${person.displayName() + ' · ' + person.email()}" th:selected="${person.id().toString() == shipperId}"></option></select></div>
+            <div class="col-md-6 col-xl-2"><label class="form-label" for="fulfillment-from">Từ ngày</label><input id="fulfillment-from" class="form-control" name="from" type="date" th:value="${from}"></div>
+            <div class="col-md-6 col-xl-2"><label class="form-label" for="fulfillment-to">Đến ngày</label><input id="fulfillment-to" class="form-control" name="to" type="date" th:value="${to}"></div>
+            <div class="col-12 d-flex gap-2"><button class="btn btn-dark" type="submit">Áp dụng bộ lọc</button><a class="btn btn-outline-secondary" th:href="@{/admin/fulfillments}">Xóa lọc</a></div>
+        </div>
+    </form>
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="d-flex justify-content-between align-items-center p-3 border-bottom"><h2 class="h6 mb-0">Danh sách vận đơn</h2><span class="badge text-bg-light" th:if="${fulfillments != null}" th:text="${fulfillments.totalElements + ' kết quả'}">0</span></div>
+        <div class="table-responsive"><table class="table align-middle mb-0"><thead class="table-light"><tr><th class="text-center text-secondary" scope="col">STT</th><th class="ps-3">Đơn hàng</th><th>Đơn vị giao hàng</th><th>Trạng thái</th><th>Shipper</th><th>Mã vận đơn</th><th>Thao tác nhanh</th></tr></thead>
+            <tbody><tr th:each="fulfillment, rowStat : ${fulfillments}">
+                <td class="text-center text-secondary" th:text="${fulfillments.number * fulfillments.size + rowStat.count}">1</td>
+                <td class="ps-3"><a class="fw-semibold" th:href="@{/admin/fulfillments/{id}(id=${fulfillment.id})}" th:text="${fulfillment.orderNumber ?: fulfillment.orderId}">Order</a><small class="d-block text-secondary" th:text="${#temporals.format(fulfillment.createdAt, 'dd/MM/yyyy HH:mm')}"></small></td>
+                <td>
+                    <span th:text="${shippingCarriers != null and shippingCarriers[fulfillment.orderId] != null ? shippingCarriers[fulfillment.orderId].name : 'Chưa xác định nhà vận chuyển'}">GHN</span>
+                    <small class="d-block text-secondary" th:if="${shippingCarriers != null and shippingCarriers[fulfillment.orderId] != null and shippingCarriers[fulfillment.orderId].providerCode == 'INTERNAL'}">Giao nội bộ · miễn phí tại TP.HCM</small>
+                    <small class="d-block text-secondary" th:if="${shippingCarriers != null and shippingCarriers[fulfillment.orderId] != null and shippingCarriers[fulfillment.orderId].providerCode == 'GHN'}" th:text="${'GHN Staging · cước theo báo giá: ' + #numbers.formatDecimal(shippingCarriers[fulfillment.orderId].quotedFee,0,'COMMA',0,'POINT') + ' đ'}">GHN Staging · cước theo báo giá</small>
+                    <small class="d-block text-secondary" th:if="${shippingCarriers != null and shippingCarriers[fulfillment.orderId] != null and shippingCarriers[fulfillment.orderId].providerCode != null and shippingCarriers[fulfillment.orderId].providerCode != 'INTERNAL' and shippingCarriers[fulfillment.orderId].providerCode != 'GHN'}"
+                           th:text="${'Provider ' + shippingCarriers[fulfillment.orderId].providerCode}">Provider</small>
+                </td>
+                <td><span class="badge rounded-pill" th:classappend="${T(com.utewedding.app.service.web.StatusLabels).badgeClass(fulfillment.status)}" th:text="${T(com.utewedding.app.service.web.StatusLabels).label(fulfillment.status)}">Trạng thái</span></td>
+                <td><span th:if="${fulfillment.shipperId == null}" class="text-secondary">Chưa gán</span><span th:each="person : ${shippers}" th:if="${person.id() == fulfillment.shipperId}" th:text="${person.displayName() + ' · ' + person.email()}">Shipper</span></td>
+                <td th:text="${fulfillment.trackingNumber ?: '—'}">—</td>
+                <td><div class="d-flex flex-column gap-2" style="min-width:260px">
+                    <form th:if="${shippingCarriers == null or shippingCarriers[fulfillment.orderId] == null or shippingCarriers[fulfillment.orderId].providerCode != 'GHN'}" th:action="@{/admin/fulfillments/{id}/assign(id=${fulfillment.id})}" method="post" class="d-flex flex-column gap-2"><select class="form-select form-select-sm" name="shipperId" required aria-label="Chọn shipper"><option value="">Chọn shipper</option><option th:each="person : ${shippers}" th:value="${person.id()}" th:text="${person.displayName() + ' · ' + person.email()}" th:selected="${person.id() == fulfillment.shipperId}"></option></select><label class="visually-hidden" th:for="${'fulfillment-tracking-' + fulfillment.id}">Mã vận đơn</label><input class="form-control form-control-sm" th:id="${'fulfillment-tracking-' + fulfillment.id}" type="text" name="trackingNumber" th:value="${fulfillment.trackingNumber}" maxlength="120" th:disabled="${shippingCarriers != null and shippingCarriers[fulfillment.orderId] != null and shippingCarriers[fulfillment.orderId].providerCode == 'INTERNAL'}" th:placeholder="${shippingCarriers != null and shippingCarriers[fulfillment.orderId] != null and shippingCarriers[fulfillment.orderId].providerCode == 'INTERNAL' ? 'Luồng nội bộ không cần mã GHN' : 'Mã vận đơn từ đơn vị vận chuyển'}"><button class="btn btn-outline-secondary btn-sm" type="submit">Gán shipper</button></form>
+                    <p class="small text-secondary mb-0" th:if="${shippingCarriers != null and shippingCarriers[fulfillment.orderId] != null and shippingCarriers[fulfillment.orderId].providerCode == 'GHN'}">Đơn GHN được quản lý trong luồng vận chuyển GHN.</p>
+                    <form th:if="${fulfillment.status.name() == 'CONFIRMED'}" th:action="@{/admin/fulfillments/{id}/processing(id=${fulfillment.id})}" method="post"><button class="btn btn-shop-primary btn-sm" type="submit">Chuẩn bị hàng</button></form>
+                </div></td>
+            </tr>
+            <tr th:if="${fulfillments == null or fulfillments.empty}"><td colspan="7" class="p-5 text-center text-secondary">Không tìm thấy vận đơn phù hợp bộ lọc.</td></tr></tbody>
+        </table></div>
+    </div>
+    <nav th:if="${fulfillments != null and fulfillments.totalPages > 1}" class="mt-4" aria-label="Phân trang fulfillment"><ul class="pagination justify-content-center">
+        <li class="page-item" th:classappend="${fulfillments.first ? ' disabled' : ''}"><a class="page-link" th:href="@{/admin/fulfillments(page=${fulfillments.number - 1},q=${q},status=${status},shipperId=${shipperId},from=${from},to=${to})}">‹</a></li>
+        <li class="page-item disabled"><span class="page-link" th:text="${fulfillments.number + 1 + ' / ' + fulfillments.totalPages}">1 / 1</span></li>
+        <li class="page-item" th:classappend="${fulfillments.last ? ' disabled' : ''}"><a class="page-link" th:href="@{/admin/fulfillments(page=${fulfillments.number + 1},q=${q},status=${status},shipperId=${shipperId},from=${from},to=${to})}">›</a></li>
+    </ul></nav>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer><th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>
