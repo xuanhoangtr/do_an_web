@@ -1,6 +1,10 @@
 package com.utewedding.app.config;
 
 import com.utewedding.app.dto.response.CartItemResponse;
+import com.utewedding.app.domain.ShopMembershipRole;
+import com.utewedding.app.domain.ShopMembershipStatus;
+import com.utewedding.app.repository.ShopMembershipRepository;
+import com.utewedding.app.repository.ShopRepository;
 import com.utewedding.app.repository.UserNotificationRepository;
 import com.utewedding.app.security.UserPrincipal;
 import com.utewedding.app.service.CartService;
@@ -16,10 +20,13 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 @ControllerAdvice(annotations = Controller.class)
 public class NavbarModelAdvice {
     private static final Set<String> CUSTOMER_ROLES = Set.of("ROLE_USER", "ROLE_CUSTOMER");
+    private MarketplaceFeatureFlags marketplaceFeatures = new MarketplaceFeatureFlags();
 
     private final ObjectProvider<CartService> cartServiceProvider;
     private final ObjectProvider<UserNotificationRepository> notifications;
     private com.utewedding.app.service.impl.AdminAttentionService adminAttentionService;
+    private ShopMembershipRepository memberships;
+    private ShopRepository shops;
 
     public NavbarModelAdvice(org.springframework.beans.factory.ObjectProvider<CartService> cartServiceProvider,
                              org.springframework.beans.factory.ObjectProvider<UserNotificationRepository> notifications) {
@@ -28,13 +35,32 @@ public class NavbarModelAdvice {
     }
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void attachMarketplaceFeatures(MarketplaceFeatureFlags features) {
+        this.marketplaceFeatures = features == null ? new MarketplaceFeatureFlags() : features;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
     void attachAdminAttentionService(com.utewedding.app.service.impl.AdminAttentionService service) {
         this.adminAttentionService = service;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void attachShopMembershipRepository(ShopMembershipRepository repository) {
+        this.memberships = repository;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void attachShopRepository(ShopRepository repository) {
+        this.shops = repository;
     }
 
     @ModelAttribute
     public void navigation(Authentication authentication, org.springframework.ui.Model model) {
         model.addAttribute("roleHome", SecurityConfig.loginSuccessUrl(authentication));
+        model.addAttribute("marketplacePublicDirectoryEnabled",
+                marketplaceFeatures.isEnabled(MarketplaceFeatureFlags.Feature.MARKETPLACE));
+        model.addAttribute("sellerOnboardingEnabled",
+                marketplaceFeatures.isEnabled(MarketplaceFeatureFlags.Feature.ONBOARDING));
         var roles = authentication == null ? java.util.Set.<String>of() : authentication.getAuthorities().stream()
                 .map(org.springframework.security.core.GrantedAuthority::getAuthority).collect(java.util.stream.Collectors.toSet());
         model.addAttribute("profileRole", roles.stream().filter(role -> role.startsWith("ROLE_")).sorted()
@@ -53,6 +79,17 @@ public class NavbarModelAdvice {
         return authentication != null && authentication.isAuthenticated()
                 && !(authentication instanceof AnonymousAuthenticationToken)
                 && authentication.getPrincipal() instanceof UserPrincipal;
+    }
+
+    @ModelAttribute("currentUserId")
+    public String currentUserId(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()
+                || authentication instanceof AnonymousAuthenticationToken
+                || !(authentication.getPrincipal() instanceof UserPrincipal user)
+                || user.getId() == null) {
+            return "";
+        }
+        return user.getId().toString();
     }
 
     @ModelAttribute("adminNavActiveItem")
@@ -78,6 +115,12 @@ public class NavbarModelAdvice {
         return "";
     }
 
+    /** Carries the explicit contact deep-link through the shared customer widget without exposing Thymeleaf's request maps. */
+    @ModelAttribute("supportChatInitialContactId")
+    public String supportChatInitialContactId(jakarta.servlet.http.HttpServletRequest request) {
+        return request == null ? null : request.getParameter("contactId");
+    }
+
     @ModelAttribute("headerUnreadNotifications")
     public long headerUnreadNotifications(Authentication authentication) {
         if (!headerAuthenticated(authentication)) return 0;
@@ -93,6 +136,27 @@ public class NavbarModelAdvice {
             return user.getDisplayName();
         }
         return authentication == null ? "" : authentication.getName();
+    }
+
+    @ModelAttribute("headerVendorAccount")
+    public boolean headerVendorAccount(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()
+                || authentication instanceof AnonymousAuthenticationToken
+                || !(authentication.getPrincipal() instanceof UserPrincipal user)
+                || !user.isEnabled()
+                || !marketplaceFeatures.isEnabled(MarketplaceFeatureFlags.Feature.VENDOR_MANAGEMENT)
+                || memberships == null || shops == null) {
+            return false;
+        }
+        var ownerMemberships = memberships.findByUserIdAndRoleAndStatus(user.getId(), ShopMembershipRole.OWNER,
+                ShopMembershipStatus.ACTIVE);
+        return ownerMemberships != null && ownerMemberships.stream()
+                .anyMatch(membership -> membership != null && membership.getRevokedAt() == null
+                        && shops.findById(membership.getShopId())
+                                .filter(shop -> shop.getKind() == com.utewedding.app.domain.ShopKind.VENDOR)
+                                .map(shop -> shop.getStatus() == com.utewedding.app.domain.ShopStatus.ACTIVE
+                                        || shop.getStatus() == com.utewedding.app.domain.ShopStatus.SUSPENDED)
+                                .orElse(false));
     }
 
     @ModelAttribute("headerCartCount")
