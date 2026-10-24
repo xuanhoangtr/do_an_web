@@ -1,0 +1,17 @@
+.admin-audit-page {
+    max-width: 1800px;
+}
+
+.admin-audit-table {
+    min-width: 1150px;
+}
+
+.admin-audit-table th {
+    font-size: var(--type-meta);
+    white-space: nowrap;
+}
+
+.audit-summary-cell {
+    min-width: 240px;
+    max-width: 360px;
+}

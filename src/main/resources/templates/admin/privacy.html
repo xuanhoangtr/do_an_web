@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Yêu cầu quyền riêng tư · UTEWedding')}"></head>
+<body class="bg-cream admin-dashboard-page"><nav th:replace="~{fragments :: adminnav('privacy')}"></nav>
+<main class="container py-5">
+    <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}" data-flash-success></div><div th:if="${errorMessage}" class="alert alert-danger" th:text="${errorMessage}"></div>
+    <p class="eyebrow">Quyền riêng tư & an toàn dữ liệu</p><h1 class="display-subtitle">Yêu cầu quyền riêng tư</h1>
+    <form method="get" th:action="@{/admin/privacy}" class="card border-0 shadow-sm rounded-4 p-3 mt-4 mb-4"><div class="row g-2 align-items-end">
+        <div class="col-md-5"><label class="form-label" for="privacy-type">Loại yêu cầu</label><select id="privacy-type" class="form-select" name="type"><option value="">Mọi loại</option><option th:each="item : ${requestTypes}" th:value="${item}" th:text="${item.name() == 'EXPORT' ? 'Truy cập / xuất dữ liệu' : 'Xóa tài khoản'}" th:selected="${item.name() == selectedType}"></option></select></div>
+        <div class="col-md-5"><label class="form-label" for="privacy-status">Trạng thái</label><select id="privacy-status" class="form-select" name="status"><option value="">Mọi trạng thái</option><option th:each="item : ${statuses}" th:value="${item}" th:text="${item}" th:selected="${item.name() == selectedStatus}"></option></select></div>
+        <div class="col-md-2 d-flex flex-wrap gap-2"><button class="btn btn-dark" type="submit">Lọc</button><a class="btn btn-outline-secondary" th:href="@{/admin/privacy}">Xóa</a></div>
+    </div></form>
+    <section class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="table-responsive"><table class="table align-middle mb-0"><thead class="table-light"><tr><th class="text-center text-secondary" scope="col">STT</th><th class="ps-3">Thời gian</th><th>Tài khoản</th><th>Loại yêu cầu</th><th>Trạng thái</th><th>Lý do yêu cầu</th><th class="pe-3">Xử lý</th></tr></thead>
+            <tbody><tr th:each="row, rowStat : ${requests}" th:with="owner=${owners[row.userId]}">
+                <td class="text-center text-secondary" th:text="${requests.number * requests.size + rowStat.count}">1</td>
+                <td class="ps-3 small text-secondary text-nowrap" th:text="${#temporals.format(row.requestedAt, 'dd/MM/yyyy HH:mm')}"></td>
+                <td><strong th:text="${owner != null ? owner.displayName() : 'Tài khoản không còn tồn tại'}"></strong><small class="d-block text-secondary" th:text="${owner != null ? owner.email() : row.userId}"></small><small class="d-block text-secondary" th:text="${row.userId}"></small></td>
+                <td><span class="badge text-bg-light" th:text="${row.requestType.name() == 'EXPORT' ? 'Truy cập / xuất dữ liệu' : 'Xóa tài khoản'}"></span></td>
+                <td><span class="badge rounded-pill" th:classappend="${row.status.name() == 'COMPLETED' ? ' text-bg-success' : (row.status.name() == 'REJECTED' ? ' text-bg-danger' : ' text-bg-warning')}" th:text="${row.status}"></span></td>
+                <td style="min-width:180px"><span th:text="${row.requestReason ?: '—'}"></span><small class="d-block text-secondary" th:if="${row.decisionReason != null}" th:text="${'Quyết định: ' + row.decisionReason}"></small></td>
+                <td class="pe-3" style="min-width:310px">
+                    <div th:if="${row.requestType.name() == 'DELETION' and (row.status.name() == 'PENDING' or row.status.name() == 'IN_PROGRESS')}">
+                        <form th:action="@{/admin/privacy/{id}/decision(id=${row.id})}" method="post" class="mb-2"><input type="hidden" name="approve" value="false"><label class="form-label small" th:for="${'reject-reason-' + row.id}">Lý do từ chối</label><div class="d-flex gap-2"><input class="form-control form-control-sm" th:id="${'reject-reason-' + row.id}" name="reason" maxlength="2000" placeholder="Nhập lý do" required><button class="btn btn-sm btn-outline-danger" type="submit">Từ chối</button></div></form>
+                        <button class="btn btn-danger btn-sm" type="button" data-bs-toggle="modal" th:attr="data-bs-target=${'#privacy-approve-' + row.id}">Chấp thuận xóa dữ liệu</button>
+                        <div class="modal fade" th:id="${'privacy-approve-' + row.id}" tabindex="-1" th:attr="aria-labelledby=${'privacy-approve-title-' + row.id}" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered"><form class="modal-content privacy-approve-form" th:action="@{/admin/privacy/{id}/decision(id=${row.id})}" method="post"><input type="hidden" name="approve" value="true">
+                                <div class="modal-header bg-danger text-white"><h2 class="modal-title fs-5" th:id="${'privacy-approve-title-' + row.id}">Cảnh báo: xóa tài khoản vĩnh viễn</h2><button class="btn-close btn-close-white" type="button" data-bs-dismiss="modal" aria-label="Đóng"></button></div>
+                                <div class="modal-body"><p>Chấp thuận sẽ ẩn danh hóa thông tin người dùng vĩnh viễn theo chính sách quyền riêng tư. Dữ liệu đơn hàng và hóa đơn kế toán được giữ theo quy định nhưng không thể liên kết lại với người dùng. Hành động này KHÔNG THỂ HOÀN TÁC.</p>
+                                    <label class="form-label small" th:for="${'privacy-approve-reason-' + row.id}">Ghi chú xử lý (không bắt buộc)</label><textarea class="form-control mb-3" th:id="${'privacy-approve-reason-' + row.id}" name="reason" maxlength="2000" rows="2"></textarea>
+                                    <div class="form-check"><input class="form-check-input privacy-approve-check" type="checkbox" name="confirmed" value="true" th:id="${'confirm-delete-' + row.id}" required><label class="form-check-label small" th:for="${'confirm-delete-' + row.id}">Tôi đã kiểm tra yêu cầu và hiểu hậu quả không thể hoàn tác.</label></div>
+                                </div>
+                                <div class="modal-footer"><button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Hủy</button><button class="btn btn-danger privacy-approve-button" type="submit" disabled>Chấp thuận xóa vĩnh viễn</button></div>
+                            </form></div>
+                        </div>
+                    </div>
+                    <span class="small text-secondary" th:if="${row.requestType.name() == 'EXPORT'}">Yêu cầu xuất dữ liệu được xử lý qua hồ sơ người dùng.</span>
+                    <span class="small text-secondary" th:if="${row.requestType.name() == 'DELETION' and row.status.name() != 'PENDING' and row.status.name() != 'IN_PROGRESS'}">Đã xử lý vào <span th:text="${row.processedAt != null ? #temporals.format(row.processedAt, 'dd/MM/yyyy HH:mm') : '—'}"></span></span>
+                </td>
+            </tr><tr th:if="${requests == null or requests.empty}"><td colspan="7" class="p-5 text-center text-secondary">Không có yêu cầu phù hợp bộ lọc.</td></tr></tbody>
+        </table></div>
+    </section>
+    <nav th:if="${requests != null and requests.totalPages > 1}" class="mt-4" aria-label="Phân trang yêu cầu quyền riêng tư"><ul class="pagination justify-content-center">
+        <li class="page-item" th:classappend="${requests.first ? ' disabled' : ''}"><a class="page-link" th:href="@{/admin/privacy(page=${requests.number - 1},type=${selectedType},status=${selectedStatus})}">‹</a></li>
+        <li class="page-item disabled"><span class="page-link" th:text="${requests.number + 1 + ' / ' + requests.totalPages}">1 / 1</span></li>
+        <li class="page-item" th:classappend="${requests.last ? ' disabled' : ''}"><a class="page-link" th:href="@{/admin/privacy(page=${requests.number + 1},type=${selectedType},status=${selectedStatus})}">›</a></li>
+    </ul></nav>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer><th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

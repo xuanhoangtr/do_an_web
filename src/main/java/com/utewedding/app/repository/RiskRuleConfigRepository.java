@@ -1,0 +1,2 @@
+package com.utewedding.app.repository;import com.utewedding.app.domain.entity.RiskRuleConfigEntity;import java.util.*;import org.springframework.data.jpa.repository.*;
+public interface RiskRuleConfigRepository extends JpaRepository<RiskRuleConfigEntity,UUID>{@Query(value="select distinct on (rule_code) * from risk_rule_configs where enabled order by rule_code,version desc",nativeQuery=true)List<RiskRuleConfigEntity> findLatestEnabled();}

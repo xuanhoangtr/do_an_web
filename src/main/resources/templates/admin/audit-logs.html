@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Nhật ký kiểm toán · UTEWedding')}"></head>
+<body class="bg-cream admin-dashboard-page">
+<link rel="stylesheet" th:href="@{/css/admin-audit.css(v='ui-fonts-20261027-v2')}">
+<nav th:replace="~{fragments :: adminnav('audit')}"></nav>
+<main class="container-fluid py-4 px-lg-5 admin-audit-page">
+    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-end gap-3 mb-4">
+        <div>
+            <p class="eyebrow mb-2">Quản trị · Bảo mật</p>
+            <h1 class="display-subtitle mb-2">Nhật ký kiểm toán</h1>
+            <p class="text-secondary mb-0">Theo dõi các thay đổi và sự kiện đăng nhập trong hệ thống.</p>
+        </div>
+        <a class="btn btn-outline-dark" th:unless="${filterError != null}"
+           th:href="@{/admin/audit-logs/export(actor=${filter.actor},action=${filter.action},resourceType=${filter.resourceType},resourceId=${filter.resourceId},from=${filter.from},to=${filter.to},query=${filter.query})}">
+            Xuất CSV theo bộ lọc
+        </a>
+    </div>
+
+    <div class="alert alert-danger" role="alert" th:if="${filterError}" th:text="${filterError}"></div>
+
+    <form class="card border-0 shadow-sm rounded-3 p-3 p-lg-4 mb-4" method="get" th:action="@{/admin/audit-logs}">
+        <div class="row g-3 align-items-end">
+            <div class="col-12 col-md-6 col-xl-2">
+                <label class="form-label" for="actor">Người thực hiện</label>
+                <input class="form-control" id="actor" name="actor" type="text" maxlength="36"
+                       placeholder="UUID, SYSTEM hoặc ANONYMOUS" th:value="${filter.actor}">
+            </div>
+            <div class="col-12 col-md-6 col-xl-2">
+                <label class="form-label" for="action">Sự kiện</label>
+                <select class="form-select" id="action" name="action">
+                    <option value="">Tất cả sự kiện</option>
+                    <option th:each="option : ${actions}" th:value="${option.action.name()}"
+                            th:text="${option.label}" th:selected="${filter.action == option.action.name()}"></option>
+                </select>
+            </div>
+            <div class="col-12 col-md-6 col-xl-2">
+                <label class="form-label" for="resourceType">Loại tài nguyên</label>
+                <input class="form-control" id="resourceType" name="resourceType" type="text" maxlength="60"
+                       placeholder="Ví dụ: Order" th:value="${filter.resourceType}">
+            </div>
+            <div class="col-12 col-md-6 col-xl-2">
+                <label class="form-label" for="resourceId">Mã tài nguyên</label>
+                <input class="form-control" id="resourceId" name="resourceId" type="text" maxlength="80"
+                       th:value="${filter.resourceId}">
+            </div>
+            <div class="col-6 col-xl-2">
+                <label class="form-label" for="from">Từ ngày</label>
+                <input class="form-control" id="from" name="from" type="date" th:value="${filter.from}">
+            </div>
+            <div class="col-6 col-xl-2">
+                <label class="form-label" for="to">Đến ngày</label>
+                <input class="form-control" id="to" name="to" type="date" th:value="${filter.to}">
+            </div>
+            <div class="col-12 col-lg-9">
+                <label class="form-label" for="query">Tìm kiếm</label>
+                <input class="form-control" id="query" name="query" type="search" maxlength="120"
+                       placeholder="Từ khóa trong sự kiện, tài nguyên hoặc vai trò" th:value="${filter.query}">
+            </div>
+            <div class="col-12 col-lg-3 d-flex gap-2">
+                <button class="btn btn-primary flex-grow-1" type="submit">Lọc nhật ký</button>
+                <a class="btn btn-outline-secondary" th:href="@{/admin/audit-logs}">Đặt lại</a>
+            </div>
+        </div>
+    </form>
+
+    <section class="card border-0 shadow-sm rounded-3 overflow-hidden" aria-label="Danh sách sự kiện kiểm toán">
+        <div class="table-responsive" th:if="${auditLogs != null and !auditLogs.empty}">
+            <table class="table table-hover align-middle mb-0 admin-audit-table">
+                <thead class="table-light">
+                <tr>
+                    <th class="text-center text-secondary" scope="col">STT</th>
+                    <th class="ps-4">Thời điểm</th>
+                    <th>Người thực hiện</th>
+                    <th>ID người thực hiện</th>
+                    <th>Vai trò</th>
+                    <th>Sự kiện</th>
+                    <th>Tài nguyên ảnh hưởng</th>
+                    <th class="pe-4">Tóm tắt thay đổi</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="row, rowStat : ${auditLogs.content}">
+                    <td class="text-center text-secondary" th:text="${auditLogs.number * auditLogs.size + rowStat.count}">1</td>
+                    <td class="ps-4 text-nowrap small" th:text="${row.timestamp}"></td>
+                    <td class="fw-semibold" th:text="${row.actor}"></td>
+                    <td class="small text-secondary text-break" th:text="${row.actorId ?: '—'}"></td>
+                    <td><span class="badge rounded-pill text-bg-light" th:text="${row.actorRole ?: '—'}"></span></td>
+                    <td>
+                        <span class="d-block fw-semibold" th:text="${row.actionLabel}"></span>
+                        <code class="small text-secondary" th:text="${row.action.name()}"></code>
+                    </td>
+                    <td class="small">
+                        <span th:if="${row.targetType == null and row.targetReference == null}">—</span>
+                        <span th:if="${row.targetType != null and row.targetReference == null}"
+                              th:text="${row.targetType}"></span>
+                        <a th:if="${row.targetUrl != null and row.targetReference != null}"
+                           class="d-block text-break" th:href="${row.targetUrl}"
+                           th:text="${row.targetType + ' · ' + row.targetReference}"></a>
+                        <span th:if="${row.targetUrl == null and row.targetReference != null}"
+                              class="d-block text-secondary text-break"
+                              th:text="${row.targetReference}"></span>
+                    </td>
+                    <td class="pe-4 audit-summary-cell">
+                        <span th:text="${row.summary}"></span>
+                        <details class="small mt-1" th:if="${!row.safeMetadata.empty}">
+                            <summary>Chi tiết an toàn</summary>
+                            <dl class="row mb-0 mt-2">
+                                <th:block th:each="detail : ${row.safeMetadata}">
+                                    <dt class="col-5" th:text="${detail.key}"></dt>
+                                    <dd class="col-7 text-break" th:text="${detail.value}"></dd>
+                                </th:block>
+                            </dl>
+                        </details>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="empty-state p-5 text-center" th:if="${auditLogs == null or auditLogs.empty}">
+            <div class="empty-icon" aria-hidden="true">◷</div>
+            <h2 class="h4 mt-3">Không có sự kiện trong khoảng thời gian này.</h2>
+            <p class="text-secondary mb-0">Thử điều chỉnh bộ lọc hoặc khoảng ngày.</p>
+        </div>
+    </section>
+
+    <nav class="mt-4" aria-label="Phân trang nhật ký kiểm toán"
+         th:if="${auditLogs != null and auditLogs.totalPages > 1}">
+        <ul class="pagination justify-content-end">
+            <li class="page-item" th:classappend="${auditLogs.first ? ' disabled' : ''}">
+                <a class="page-link" th:href="@{/admin/audit-logs(page=${auditLogs.number - 1},actor=${filter.actor},action=${filter.action},resourceType=${filter.resourceType},resourceId=${filter.resourceId},from=${filter.from},to=${filter.to},query=${filter.query})}">‹ Trước</a>
+            </li>
+            <li class="page-item disabled"><span class="page-link"
+                    th:text="${auditLogs.number + 1 + ' / ' + auditLogs.totalPages}"></span></li>
+            <li class="page-item" th:classappend="${auditLogs.last ? ' disabled' : ''}">
+                <a class="page-link" th:href="@{/admin/audit-logs(page=${auditLogs.number + 1},actor=${filter.actor},action=${filter.action},resourceType=${filter.resourceType},resourceId=${filter.resourceId},from=${filter.from},to=${filter.to},query=${filter.query})}">Sau ›</a>
+            </li>
+        </ul>
+    </nav>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>
