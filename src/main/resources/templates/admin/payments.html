@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Thanh toán · UTEWedding')}"></head>
+<body class="bg-cream admin-dashboard-page"><nav th:replace="~{fragments :: adminnav('payments')}"></nav>
+<main class="container py-5">
+    <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}" data-flash-success></div>
+    <p class="eyebrow">Bán hàng · Tài chính</p><h1 class="display-subtitle">Giao dịch thanh toán</h1>
+    <p class="text-secondary">Tra cứu lần thanh toán và trạng thái đơn. Hoàn tiền được thực hiện tại chi tiết đơn theo cơ chế idempotency; không tạo giao dịch payment ảo độc lập.</p>
+    <form method="get" th:action="@{/admin/payments}" class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-6 col-xl-4"><label class="form-label" for="payment-q">Mã đơn hoặc mã giao dịch</label><input id="payment-q" class="form-control" name="q" th:value="${q}" placeholder="UTE… / transaction id"></div>
+            <div class="col-md-6 col-xl-2"><label class="form-label" for="payment-method">Phương thức</label><select id="payment-method" class="form-select" name="method"><option value="">Tất cả</option><option th:each="item : ${methods}" th:value="${item}" th:text="${item}" th:selected="${item.name() == method}"></option></select></div>
+            <div class="col-md-6 col-xl-2"><label class="form-label" for="payment-status">Trạng thái thanh toán</label><select id="payment-status" class="form-select" name="paymentStatus"><option value="">Tất cả</option><option th:each="item : ${paymentStatuses}" th:value="${item}" th:text="${item}" th:selected="${item.name() == paymentStatus}"></option></select></div>
+            <div class="col-md-6 col-xl-2"><label class="form-label" for="order-status">Trạng thái đơn</label><select id="order-status" class="form-select" name="orderStatus"><option value="">Tất cả</option><option th:each="item : ${orderStatuses}" th:value="${item}" th:text="${item}" th:selected="${item.name() == orderStatus}"></option></select></div>
+            <div class="col-12 d-flex gap-2"><button class="btn btn-dark" type="submit">Lọc giao dịch</button><a class="btn btn-outline-secondary" th:href="@{/admin/payments}">Xóa lọc</a></div>
+        </div>
+    </form>
+    <section class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="p-3 border-bottom d-flex justify-content-between align-items-center"><h2 class="h6 mb-0">Lịch sử giao dịch</h2><span class="badge text-bg-light" th:if="${payments != null}" th:text="${payments.totalElements + ' giao dịch'}">0</span></div>
+        <div class="table-responsive"><table class="table align-middle mb-0"><thead class="table-light"><tr><th class="text-center text-secondary" scope="col">STT</th><th class="ps-3">Đơn hàng</th><th>Ngày giao dịch</th><th>Phương thức / Cổng</th><th>Mã giao dịch</th><th>Số tiền</th><th>Thanh toán</th><th>Đơn hàng</th><th></th></tr></thead>
+            <tbody><tr th:each="payment, rowStat : ${payments}">
+                <td class="text-center text-secondary" th:text="${payments.number * payments.size + rowStat.count}">1</td>
+                <td class="ps-3"><a class="fw-semibold" th:href="@{/admin/orders/{id}(id=${payment.orderId()})}" th:text="${payment.orderNumber()}">UTE-ORDER</a></td>
+                <td class="small text-secondary" th:text="${#temporals.format(payment.paymentCreatedAt(), 'dd/MM/yyyy HH:mm')}">Ngày</td>
+                <td><strong th:text="${payment.paymentMethod() ?: '—'}">VNPay</strong><small class="d-block text-secondary" th:text="${payment.provider()}">Provider</small></td>
+                <td class="small text-break" th:text="${payment.transactionId() ?: 'Chưa có mã giao dịch'}">transaction</td>
+                <td class="text-nowrap" th:text="${#numbers.formatDecimal(payment.amount(),0,'COMMA',0,'POINT') + ' đ'}">0 đ</td>
+                <td><span class="badge rounded-pill" th:classappend="${payment.paymentStatus().name() == 'SUCCEEDED' ? ' text-bg-success' : (payment.paymentStatus().name().contains('FAILED') ? ' text-bg-danger' : ' text-bg-warning')}" th:text="${payment.paymentStatus()}">PENDING</span></td>
+                <td><span class="badge text-bg-light" th:text="${payment.orderStatus()}">PAID</span></td>
+                <td><a class="btn btn-sm btn-outline-dark" th:href="@{/admin/orders/{id}(id=${payment.orderId()})}">Xem đơn</a></td>
+            </tr>
+            <tr th:if="${payments == null or payments.empty}"><td colspan="9" class="p-5 text-center text-secondary">Không tìm thấy giao dịch phù hợp bộ lọc.</td></tr></tbody>
+        </table></div>
+    </section>
+    <nav th:if="${payments != null and payments.totalPages > 1}" class="mt-4" aria-label="Phân trang giao dịch"><ul class="pagination justify-content-center">
+        <li class="page-item" th:classappend="${payments.first ? ' disabled' : ''}"><a class="page-link" th:href="@{/admin/payments(page=${payments.number - 1},q=${q},method=${method},paymentStatus=${paymentStatus},orderStatus=${orderStatus})}">‹</a></li>
+        <li class="page-item disabled"><span class="page-link" th:text="${payments.number + 1 + ' / ' + payments.totalPages}">1 / 1</span></li>
+        <li class="page-item" th:classappend="${payments.last ? ' disabled' : ''}"><a class="page-link" th:href="@{/admin/payments(page=${payments.number + 1},q=${q},method=${method},paymentStatus=${paymentStatus},orderStatus=${orderStatus})}">›</a></li>
+    </ul></nav>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer><th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

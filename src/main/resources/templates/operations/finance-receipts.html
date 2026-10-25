@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Biên nhận đối soát · UTEWedding')}"></head>
+<body class="bg-cream" th:classappend="${profileRole == 'ADMIN' or profileRole == 'SUPER_ADMIN'} ? ' admin-dashboard-page' : ''">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5">
+    <div th:replace="~{operations/common :: messages}"></div>
+    <p class="eyebrow">TÀI CHÍNH · CHỈ ADMIN</p>
+    <h1 class="h3">Biên nhận đối soát</h1>
+    <p class="text-secondary">Chỉ ghi nhận khi đã đối chiếu khoản tiền thực nhận với sao kê của cổng. Khách đã thanh toán thành công chưa tự chứng minh nền tảng đã nhận tiền.</p>
+    <div class="d-flex flex-wrap gap-2 mb-4">
+        <a class="btn btn-outline-dark" th:href="@{/admin/finance/cod}">Đối soát COD</a>
+        <a class="btn btn-outline-dark" th:href="@{/admin/finance/commission}">Chính sách hoa hồng</a>
+    </div>
+
+    <section class="mb-5">
+        <h2 class="h4">Biên nhận COD GHN theo shipment</h2>
+        <p class="text-secondary">Shop, đơn, account, môi trường và COD dự kiến được lấy từ snapshot đã lưu. Nhập đúng COD thực thu trong bảng kê GHN cùng phí, khấu trừ và bằng chứng; không lấy COD dự kiến làm số đã thu.</p>
+        <div th:if="${carrierRemittanceCandidates.empty}" class="card border-0 shadow-sm p-4 text-secondary">
+            Không có shipment Vendor GHN nào đang chờ biên nhận COD đủ điều kiện.
+        </div>
+        <article th:each="candidate : ${carrierRemittanceCandidates}" class="card border-0 shadow-sm p-3 p-md-4 mb-3">
+            <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
+                <div>
+                    <a class="fw-semibold text-decoration-none" th:href="@{/admin/orders/{id}(id=${candidate.orderId})}"
+                       th:text="${candidate.orderNumber}">Mã đơn</a>
+                    <div class="small text-secondary">
+                        <span th:text="${candidate.shopName}">Shop</span>
+                        · GHN <span th:text="${candidate.providerShipmentId}">Mã shipment</span>
+                        · tracking <span th:text="${candidate.trackingNumber ?: '—'}">Mã vận đơn</span>
+                    </div>
+                    <div class="small text-secondary">
+                        Tài khoản <span th:text="${candidate.accountName}">GHN account</span>
+                        · <span th:text="${candidate.accountEnvironment}">PRODUCTION</span>
+                    </div>
+                </div>
+                <div class="text-end">
+                    <strong th:text="|${#numbers.formatDecimal(candidate.expectedCodAmount,0,'COMMA',0,'POINT')} đ|">0 đ</strong>
+                    <div class="small text-secondary">COD dự kiến từ snapshot</div>
+                    <div class="small text-secondary" th:if="${candidate.grossAmount > 0}"
+                         th:text="|Số thực thu đã lưu: ${#numbers.formatDecimal(candidate.grossAmount,0,'COMMA',0,'POINT')} đ|">Số thực thu đã lưu</div>
+                </div>
+            </div>
+            <form th:action="@{/admin/finance/receipts/carrier/{id}(id=${candidate.shipmentId})}"
+                  method="post" class="row g-2" data-confirm-title="Xác nhận biên nhận COD từ GHN"
+                  data-confirm-label="Đã đối chiếu chứng từ" data-confirm-message="Nhập đúng số COD thực thu trên bảng kê GHN. Snapshot COD dự kiến không phải bằng chứng số tiền đã thu.">
+                <input type="hidden" name="token" th:value="${carrierRemittanceTokens[candidate.shipmentId.toString()]}">
+                <label class="col-12 col-md-3 form-label">Thời điểm thực nhận · giờ Việt Nam
+                    <input class="form-control" type="datetime-local" name="receivedAt" required th:value="${receivedAtDefault}">
+                </label>
+                <label class="col-12 col-md-3 form-label">COD thực thu theo sao kê GHN (đ)
+                    <input class="form-control" type="number" name="reportedCodAmount" min="1" required
+                           th:value="${candidate.grossAmount > 0 ? candidate.grossAmount : null}">
+                </label>
+                <label class="col-6 col-md-2 form-label">Phí GHN (đ)
+                    <input class="form-control" type="number" name="feeAmount" min="0" value="0" required>
+                </label>
+                <label class="col-6 col-md-2 form-label">Khấu trừ khác (đ)
+                    <input class="form-control" type="number" name="deductionAmount" min="0" value="0" required>
+                </label>
+                <label class="col-12 col-md-6 form-label">Mã bảng kê / dòng sao kê
+                    <input class="form-control" name="externalReference" required maxlength="190">
+                </label>
+                <label class="col-12 col-md-6 form-label">Mã hoặc liên kết bằng chứng
+                    <input class="form-control" name="evidenceReference" required maxlength="512">
+                </label>
+                <label class="col-12 col-md-6 form-label">Ghi chú đối chiếu
+                    <input class="form-control" name="evidenceNote" required maxlength="1000">
+                </label>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-shop-primary">Ghi nhận tiền thực nhận</button>
+                    <span class="small text-secondary ms-2">Net = gross COD đã thu − phí GHN − khấu trừ.</span>
+                </div>
+            </form>
+        </article>
+    </section>
+
+    <section class="mb-5">
+        <h2 class="h4">Capture nhóm chờ đối soát</h2>
+        <p class="text-secondary">Mỗi capture VNPAY/MoMo của một nhóm chỉ xuất hiện một lần. Đơn/shop và số tiền phân bổ được lấy từ allocation đã lưu; phí và khấu trừ được chia theo tỷ lệ gross, phần lẻ theo thứ tự ổn định của mã đơn.</p>
+        <div th:if="${groupedCandidates.empty}" class="card border-0 shadow-sm p-4 text-secondary">
+            Không còn capture nhóm đủ điều kiện để ghi nhận biên nhận.
+        </div>
+        <article th:each="candidate : ${groupedCandidates}" class="card border-0 shadow-sm p-3 p-md-4 mb-3">
+            <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
+                <div>
+                    <strong class="text-decoration-none" th:text="${candidate.groupNumber()}">Mã nhóm</strong>
+                    <div class="small text-secondary">
+                        <span th:text="${candidate.provider()}">VNPAY</span>
+                        · Capture <span th:text="${candidate.providerTransactionId()}">transaction</span>
+                        · <span th:text="${candidate.allocationCount()}">2</span> đơn con
+                    </div>
+                </div>
+                <div class="text-end">
+                    <strong th:text="${#numbers.formatDecimal(candidate.amount(),0,'COMMA',0,'POINT')} + ' đ'">0 đ</strong>
+                    <div class="small text-secondary" th:text="${#temporals.format(candidate.capturedAt(), 'dd/MM/yyyy HH:mm')}">Thời điểm</div>
+                </div>
+            </div>
+            <div class="small text-secondary mb-3">
+                Môi trường lúc tạo capture:
+                <strong th:text="${candidate.providerEnvironment() == null ? 'Chưa xác định' : candidate.providerEnvironment().name() == 'SANDBOX' ? 'Sandbox · thử nghiệm' : 'Production'}">Sandbox · thử nghiệm</strong>
+            </div>
+            <form th:if="${candidate.providerEnvironment() != null}"
+                  th:action="@{/admin/finance/receipts/group-gateway/{id}(id=${candidate.captureTransactionId()})}"
+                  method="post" class="row g-2" data-confirm-title="Xác nhận biên nhận capture nhóm"
+                  data-confirm-label="Đã đối chiếu sao kê" data-confirm-message="Chỉ tiếp tục khi khoản nhận tiền khớp sao kê và bằng chứng theo đúng môi trường của capture nhóm.">
+                <input type="hidden" name="token" th:value="${groupedReceiptTokens[candidate.captureTransactionId().toString()]}">
+                <label class="col-12 col-md-4 form-label">Mã tài khoản merchant
+                    <input class="form-control" name="providerAccountReference" required maxlength="120" autocomplete="off">
+                </label>
+                <label class="col-12 col-md-3 form-label">Thời điểm thực nhận · giờ Việt Nam
+                    <input class="form-control" type="datetime-local" name="receivedAt" required th:value="${receivedAtDefault}">
+                </label>
+                <label class="col-6 col-md-2 form-label">Phí cổng (đ)
+                    <input class="form-control" type="number" name="feeAmount" min="0" value="0" required>
+                </label>
+                <label class="col-6 col-md-3 form-label">Khấu trừ khác (đ)
+                    <input class="form-control" type="number" name="deductionAmount" min="0" value="0" required>
+                </label>
+                <label class="col-12 col-md-6 form-label">Mã bảng kê / dòng sao kê
+                    <input class="form-control" name="externalReference" required maxlength="190">
+                </label>
+                <label class="col-12 col-md-6 form-label">Mã hoặc liên kết bằng chứng
+                    <input class="form-control" name="evidenceReference" required maxlength="512">
+                </label>
+                <label class="col-12 form-label">Ghi chú đối chiếu
+                    <textarea class="form-control" name="evidenceNote" rows="2" required maxlength="1000"
+                              placeholder="Nếu là giao dịch thử nghiệm, ghi rõ SANDBOX."></textarea>
+                </label>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-shop-primary">Xác nhận khoản thực nhận của nhóm</button>
+                    <span class="small text-secondary ms-2">Một receipt tổng, nhiều allocation theo đơn; capture Sandbox không tự chứng minh tiền thật đã về.</span>
+                </div>
+            </form>
+            <div th:if="${candidate.providerEnvironment() == null}" class="alert alert-warning mb-0">
+                Capture chưa lưu môi trường. Hệ thống không cho tự gắn nhãn Sandbox hoặc Production; cần đối chiếu bằng chứng riêng.
+            </div>
+        </article>
+        <nav th:if="${groupedCandidates.totalPages > 1}" class="d-flex justify-content-between align-items-center mt-3">
+            <a class="btn btn-outline-dark" th:if="${groupedCandidates.hasPrevious()}" th:href="@{/admin/finance/receipts(page=${page - 1})}">Trước</a>
+            <span class="text-secondary" th:text="'Trang ' + ${groupedCandidates.number + 1} + ' / ' + ${groupedCandidates.totalPages}">Trang</span>
+            <a class="btn btn-outline-dark" th:if="${groupedCandidates.hasNext()}" th:href="@{/admin/finance/receipts(page=${page + 1})}">Sau</a>
+        </nav>
+    </section>
+
+    <section class="mb-5">
+        <h2 class="h4">Giao dịch cổng đơn hàng chờ đối soát</h2>
+        <div th:if="${candidates.empty}" class="card border-0 shadow-sm p-4 text-secondary">
+            Không còn giao dịch VNPAY/MoMo đủ điều kiện để ghi nhận biên nhận.
+        </div>
+        <article th:each="candidate : ${candidates}" class="card border-0 shadow-sm p-3 p-md-4 mb-3">
+            <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
+                <div>
+                    <a class="fw-semibold text-decoration-none" th:href="@{/admin/orders/{id}(id=${candidate.orderId()})}"
+                       th:text="${candidate.orderNumber()}">Mã đơn</a>
+                    <div class="small text-secondary">
+                        <span th:text="${candidate.provider()}">VNPAY</span>
+                        · Mã giao dịch <span th:text="${candidate.providerTransactionId()}">transaction</span>
+                    </div>
+                </div>
+                <div class="text-end">
+                    <strong th:text="${#numbers.formatDecimal(candidate.amount(),0,'COMMA',0,'POINT')} + ' đ'">0 đ</strong>
+                    <div class="small text-secondary" th:text="${#temporals.format(candidate.capturedAt(), 'dd/MM/yyyy HH:mm')}">Thời điểm</div>
+                </div>
+            </div>
+            <div class="small text-secondary mb-3">
+                Môi trường lúc tạo giao dịch:
+                <strong th:text="${candidate.providerEnvironment() == null ? 'Chưa xác định' : candidate.providerEnvironment().name() == 'SANDBOX' ? 'Sandbox · thử nghiệm' : 'Production'}">Sandbox · thử nghiệm</strong>
+            </div>
+            <div th:if="${candidate.providerEnvironment() == null}" class="alert alert-warning mb-0">
+                Giao dịch cũ chưa lưu môi trường. Hệ thống không cho tự gắn nhãn Sandbox hoặc Production; cần đối chiếu riêng bằng chứng thực nhận.
+            </div>
+            <form th:if="${candidate.providerEnvironment() != null}"
+                  th:action="@{/admin/finance/receipts/gateway/{id}(id=${candidate.paymentId()})}"
+                  method="post" class="row g-2" data-confirm-title="Xác nhận biên nhận cổng thanh toán"
+                  data-confirm-label="Đã đối chiếu sao kê" data-confirm-message="Chỉ tiếp tục khi khoản nhận tiền khớp sao kê và bằng chứng được cung cấp.">
+                <input type="hidden" name="token" th:value="${receiptTokens[candidate.paymentId().toString()]}">
+                <label class="col-12 col-md-4 form-label">Mã tài khoản merchant
+                    <input class="form-control" name="providerAccountReference" required maxlength="120" autocomplete="off">
+                </label>
+                <label class="col-12 col-md-3 form-label">Thời điểm thực nhận · giờ Việt Nam
+                    <input class="form-control" type="datetime-local" name="receivedAt" required th:value="${receivedAtDefault}">
+                </label>
+                <label class="col-6 col-md-2 form-label">Phí cổng (đ)
+                    <input class="form-control" type="number" name="feeAmount" min="0" value="0" required>
+                </label>
+                <label class="col-6 col-md-3 form-label">Khấu trừ khác (đ)
+                    <input class="form-control" type="number" name="deductionAmount" min="0" value="0" required>
+                </label>
+                <label class="col-12 col-md-6 form-label">Mã bảng kê / dòng sao kê
+                    <input class="form-control" name="externalReference" required maxlength="190">
+                </label>
+                <label class="col-12 col-md-6 form-label">Mã hoặc liên kết bằng chứng
+                    <input class="form-control" name="evidenceReference" required maxlength="512">
+                </label>
+                <label class="col-12 form-label">Ghi chú đối chiếu
+                    <textarea class="form-control" name="evidenceNote" rows="2" required maxlength="1000"
+                              placeholder="Nếu là giao dịch thử nghiệm, ghi rõ SANDBOX."></textarea>
+                </label>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-shop-primary">Xác nhận khoản thực nhận</button>
+                    <span class="small text-secondary ms-2">Tiền gộp lấy từ giao dịch đã xác minh; shop và đơn không nhận từ dữ liệu trình duyệt.</span>
+                </div>
+            </form>
+        </article>
+        <nav th:if="${candidates.totalPages > 1}" class="d-flex justify-content-between align-items-center mt-3">
+            <a class="btn btn-outline-dark" th:if="${candidates.hasPrevious()}" th:href="@{/admin/finance/receipts(page=${page - 1})}">Trước</a>
+            <span class="text-secondary" th:text="'Trang ' + ${candidates.number + 1} + ' / ' + ${candidates.totalPages}">Trang</span>
+            <a class="btn btn-outline-dark" th:if="${candidates.hasNext()}" th:href="@{/admin/finance/receipts(page=${page + 1})}">Sau</a>
+        </nav>
+    </section>
+
+    <section class="mb-5">
+        <h2 class="h4">Xác nhận nguồn trợ giá voucher hàng hóa</h2>
+        <p class="text-secondary">Chỉ dùng khi quỹ nền tảng thực sự có nguồn tiền để bù khoản giảm hàng hóa. Voucher giảm phí giao hàng không tạo khoản trợ giá cho nhà bán.</p>
+        <div th:if="${subsidyCandidates.empty}" class="card border-0 shadow-sm p-4 text-secondary">
+            Không có khoản trợ giá hàng hóa nào đang chờ ghi nhận nguồn quỹ.
+        </div>
+        <article th:each="candidate : ${subsidyCandidates}" class="card border-0 shadow-sm p-3 p-md-4 mb-3">
+            <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
+                <div>
+                    <a class="fw-semibold text-decoration-none" th:href="@{/admin/orders/{id}(id=${candidate.orderId()})}"
+                       th:text="${candidate.orderNumber()}">Mã đơn</a>
+                    <div class="small text-secondary">Nguồn voucher: nền tảng · Số tiền từ snapshot</div>
+                </div>
+                <strong th:text="${#numbers.formatDecimal(candidate.subsidyAmount(),0,'COMMA',0,'POINT')} + ' đ'">0 đ</strong>
+            </div>
+            <form th:action="@{/admin/finance/receipts/platform-subsidy/{id}(id=${candidate.orderId()})}"
+                  method="post" class="row g-2" data-confirm-title="Xác nhận nguồn trợ giá nền tảng"
+                  data-confirm-label="Đã đối chiếu quỹ" data-confirm-message="Chỉ xác nhận nếu nguồn quỹ có thật và bằng chứng khớp khoản trợ giá của đơn.">
+                <input type="hidden" name="token" th:value="${subsidyTokens[candidate.orderId().toString()]}">
+                <label class="col-12 col-md-3 form-label">Thời điểm xác nhận · giờ Việt Nam
+                    <input class="form-control" type="datetime-local" name="receivedAt" required th:value="${receivedAtDefault}">
+                </label>
+                <label class="col-12 col-md-3 form-label">Mã tham chiếu quỹ
+                    <input class="form-control" name="externalReference" required maxlength="190">
+                </label>
+                <label class="col-12 col-md-3 form-label">Mã hoặc liên kết bằng chứng
+                    <input class="form-control" name="evidenceReference" required maxlength="512">
+                </label>
+                <label class="col-12 col-md-3 form-label">Ghi chú xác nhận
+                    <input class="form-control" name="evidenceNote" required maxlength="1000">
+                </label>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-shop-primary">Ghi nhận nguồn quỹ trợ giá</button>
+                    <span class="small text-secondary ms-2">Khoản tiền và shop được tính từ dữ liệu đã lưu, không nhận số tiền từ trình duyệt.</span>
+                </div>
+            </form>
+        </article>
+    </section>
+
+    <section>
+        <h2 class="h4">Biên nhận gần đây</h2>
+        <div th:if="${receipts.empty}" class="card border-0 shadow-sm p-4 text-secondary">Chưa có biên nhận đối soát.</div>
+        <div th:unless="${receipts.empty}" class="table-responsive card border-0 shadow-sm">
+            <table class="table align-middle mb-0">
+                <thead><tr><th>Nguồn</th><th>Nhà cung cấp</th><th>Môi trường</th><th>Tham chiếu</th><th>Gộp</th><th>Phí / khấu trừ</th><th>Thực nhận</th><th>Ngày ghi nhận</th></tr></thead>
+                <tbody>
+                <tr th:each="receipt : ${receipts}">
+                    <td th:text="${receipt.sourceCode}">GATEWAY_SETTLEMENT</td>
+                    <td th:text="${receipt.providerCode}">VNPAY</td>
+                    <td><span class="badge text-bg-light" th:text="${receipt.environment}">SANDBOX</span></td>
+                    <td th:text="${receipt.externalReference ?: receipt.sourceIdentity}">Statement</td>
+                    <td th:text="${#numbers.formatDecimal(receipt.grossAmount,0,'COMMA',0,'POINT')} + ' đ'">0 đ</td>
+                    <td th:text="${#numbers.formatDecimal(receipt.feeAmount + receipt.deductionAmount,0,'COMMA',0,'POINT')} + ' đ'">0 đ</td>
+                    <td th:text="${#numbers.formatDecimal(receipt.netAmount,0,'COMMA',0,'POINT')} + ' đ'">0 đ</td>
+                    <td th:text="${#temporals.format(receipt.receivedAt, 'dd/MM/yyyy HH:mm')}">Ngày</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

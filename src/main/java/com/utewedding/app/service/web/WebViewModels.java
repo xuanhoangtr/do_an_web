@@ -66,6 +66,7 @@ public final class WebViewModels {
         private final boolean customizable;
         private final String customizationGuide;
         private final String sku;
+        private final String shopSlug;
 
         public ProductView(UUID id, String name, String category, String imageUrl,
                            BigDecimal unitPrice, BigDecimal rating, int reviewCount,
@@ -124,6 +125,18 @@ public final class WebViewModels {
                            String material, int inventory, boolean active, String shopName,
                            int minOrderQuantity, boolean customizable, String customizationGuide,
                            String sku) {
+            this(id, slug, name, category, imageUrl, galleryImages, unitPrice, originalPrice,
+                    discountPercent, rating, reviewCount, description, material, inventory, active,
+                    shopName, minOrderQuantity, customizable, customizationGuide, sku, null);
+        }
+
+        public ProductView(UUID id, String slug, String name, String category, String imageUrl,
+                           List<String> galleryImages, BigDecimal unitPrice,
+                           BigDecimal originalPrice, int discountPercent,
+                           BigDecimal rating, int reviewCount, String description,
+                           String material, int inventory, boolean active, String shopName,
+                           int minOrderQuantity, boolean customizable, String customizationGuide,
+                           String sku, String shopSlug) {
             this.id = id;
             this.slug = slug != null && !slug.isBlank() ? slug : (id != null ? id.toString() : "");
             this.name = name;
@@ -144,6 +157,7 @@ public final class WebViewModels {
             this.customizable = customizable;
             this.customizationGuide = customizationGuide;
             this.sku = sku;
+            this.shopSlug = shopSlug;
         }
 
         public UUID getId() { return id; }
@@ -169,6 +183,7 @@ public final class WebViewModels {
         public int getInventory() { return inventory; }
         public boolean isActive() { return active; }
         public String getShopName() { return shopName; }
+        public String getShopSlug() { return shopSlug; }
     }
 
     public static final class CartItemView {
@@ -182,13 +197,24 @@ public final class WebViewModels {
         private final long discountAmount;
         private final long lineTotal;
         private final String imageUrl;
+        private final UUID shopId;
         private final String shopName;
         private final String customizationText;
+        private final boolean checkoutAvailable;
+        private final String unavailableReason;
 
         public CartItemView(UUID id, UUID productId, String sku, String name, long unitPrice,
                             int quantity, int discountPercent, long discountAmount,
                             long lineTotal, String imageUrl,
                             String shopName, String customizationText) {
+            this(id, productId, sku, name, unitPrice, quantity, discountPercent, discountAmount,
+                    lineTotal, imageUrl, null, shopName, customizationText, true, null);
+        }
+
+        public CartItemView(UUID id, UUID productId, String sku, String name, long unitPrice,
+                            int quantity, int discountPercent, long discountAmount,
+                            long lineTotal, String imageUrl, UUID shopId, String shopName,
+                            String customizationText, boolean checkoutAvailable, String unavailableReason) {
             this.id = id;
             this.productId = productId;
             this.sku = sku;
@@ -199,8 +225,11 @@ public final class WebViewModels {
             this.discountAmount = discountAmount;
             this.lineTotal = lineTotal;
             this.imageUrl = imageUrl;
-            this.shopName = shopName == null ? "UTEWedding" : shopName;
+            this.shopId = shopId;
+            this.shopName = shopName == null || shopName.isBlank() ? "Cửa hàng chưa xác định" : shopName;
             this.customizationText = customizationText;
+            this.checkoutAvailable = checkoutAvailable;
+            this.unavailableReason = unavailableReason;
         }
 
         public UUID getId() { return id; }
@@ -213,21 +242,53 @@ public final class WebViewModels {
         public long getDiscountAmount() { return discountAmount; }
         public long getLineTotal() { return lineTotal; }
         public String getImageUrl() { return imageUrl; }
+        public UUID getShopId() { return shopId; }
         public String getShopName() { return shopName; }
         public String getCustomizationText() { return customizationText; }
+        public boolean isCheckoutAvailable() { return checkoutAvailable; }
+        public String getUnavailableReason() { return unavailableReason; }
     }
 
     public static final class ShopGroupView {
+        private final UUID shopId;
         private final String shopName;
         private final List<CartItemView> items;
+        private final long subtotal;
+        private final long discountAmount;
+        private final long totalAmount;
+        private final boolean checkoutAvailable;
+        private final String unavailableReason;
+        private final String selectionFingerprint;
 
         public ShopGroupView(String shopName, List<CartItemView> items) {
-            this.shopName = shopName;
-            this.items = List.copyOf(items);
+            this(null, shopName, items, 0, 0, 0, false,
+                    "Không thể xác định cửa hàng của nhóm sản phẩm.", "");
         }
 
+        public ShopGroupView(UUID shopId, String shopName, List<CartItemView> items,
+                             long subtotal, long discountAmount, long totalAmount,
+                             boolean checkoutAvailable, String unavailableReason,
+                             String selectionFingerprint) {
+            this.shopId = shopId;
+            this.shopName = shopName;
+            this.items = List.copyOf(items);
+            this.subtotal = subtotal;
+            this.discountAmount = discountAmount;
+            this.totalAmount = totalAmount;
+            this.checkoutAvailable = checkoutAvailable;
+            this.unavailableReason = checkoutAvailable ? null : unavailableReason;
+            this.selectionFingerprint = selectionFingerprint;
+        }
+
+        public UUID getShopId() { return shopId; }
         public String getShopName() { return shopName; }
         public List<CartItemView> getItems() { return items; }
+        public long getSubtotal() { return subtotal; }
+        public long getDiscountAmount() { return discountAmount; }
+        public long getTotalAmount() { return totalAmount; }
+        public boolean isCheckoutAvailable() { return checkoutAvailable; }
+        public String getUnavailableReason() { return unavailableReason; }
+        public String getSelectionFingerprint() { return selectionFingerprint; }
     }
 
     public static final class CartView {
@@ -239,27 +300,53 @@ public final class WebViewModels {
         private final long productDiscountAmount;
         private final long voucherDiscountAmount;
         private final long grandTotal;
+        private final boolean multiShopCheckoutEnabled;
 
         public CartView(UUID id, List<CartItemView> items, long subtotal,
                         long shippingFee, long productDiscountAmount,
                         long voucherDiscountAmount, long grandTotal) {
+            this(id, items, deriveGroups(items), subtotal, shippingFee, productDiscountAmount,
+                    voucherDiscountAmount, grandTotal, false);
+        }
+
+        public CartView(UUID id, List<CartItemView> items, List<ShopGroupView> shopGroups,
+                        long subtotal, long shippingFee, long productDiscountAmount,
+                        long voucherDiscountAmount, long grandTotal, boolean multiShopCheckoutEnabled) {
             this.id = id;
             this.items = List.copyOf(items);
-            this.shopGroups = items.stream().collect(java.util.stream.Collectors.groupingBy(
-                    CartItemView::getShopName, java.util.LinkedHashMap::new,
-                    java.util.stream.Collectors.toList())).entrySet().stream()
-                    .map(entry -> new ShopGroupView(entry.getKey(), entry.getValue()))
-                    .toList();
+            this.shopGroups = shopGroups == null ? List.of() : List.copyOf(shopGroups);
             this.subtotal = subtotal;
             this.shippingFee = shippingFee;
             this.productDiscountAmount = productDiscountAmount;
             this.voucherDiscountAmount = voucherDiscountAmount;
             this.grandTotal = grandTotal;
+            this.multiShopCheckoutEnabled = multiShopCheckoutEnabled;
         }
 
         public CartView(UUID id, List<CartItemView> items, long subtotal,
                         long shippingFee, long discountAmount, long grandTotal) {
             this(id, items, subtotal, shippingFee, discountAmount, 0, grandTotal);
+        }
+
+        private static List<ShopGroupView> deriveGroups(List<CartItemView> items) {
+            if (items == null) return List.of();
+            java.util.Map<UUID, List<CartItemView>> grouped = new java.util.LinkedHashMap<>();
+            for (CartItemView item : items) {
+                grouped.computeIfAbsent(item.getShopId(), ignored -> new ArrayList<>()).add(item);
+            }
+            return grouped.entrySet().stream().map(entry -> {
+                List<CartItemView> groupItems = entry.getValue();
+                boolean available = entry.getKey() != null
+                        && groupItems.stream().allMatch(CartItemView::isCheckoutAvailable);
+                String reason = groupItems.stream().filter(item -> !item.isCheckoutAvailable())
+                        .map(CartItemView::getUnavailableReason).filter(value -> value != null && !value.isBlank())
+                        .findFirst().orElse(entry.getKey() == null
+                                ? "Không xác định được cửa hàng của nhóm sản phẩm." : null);
+                return new ShopGroupView(entry.getKey(), groupItems.getFirst().getShopName(), groupItems,
+                        groupItems.stream().mapToLong(item -> item.getUnitPrice() * item.getQuantity()).sum(),
+                        groupItems.stream().mapToLong(CartItemView::getDiscountAmount).sum(),
+                        groupItems.stream().mapToLong(CartItemView::getLineTotal).sum(), available, reason, "");
+            }).toList();
         }
 
         public UUID getId() { return id; }
@@ -272,6 +359,7 @@ public final class WebViewModels {
         public long getDiscountAmount() { return productDiscountAmount + voucherDiscountAmount; }
         public long getGrandTotal() { return grandTotal; }
         public long getTotal() { return grandTotal; }
+        public boolean isMultiShopCheckoutEnabled() { return multiShopCheckoutEnabled; }
         public int getItemCount() { return items.stream().mapToInt(CartItemView::getQuantity).sum(); }
         public boolean isEmpty() { return items.isEmpty(); }
     }
@@ -318,11 +406,16 @@ public final class WebViewModels {
         @jakarta.validation.constraints.NotNull(message = "Vui lòng chọn phương thức thanh toán.")
         private PaymentOption paymentMethod = PaymentOption.COD;
         private String discountCode;
+        @jakarta.validation.constraints.Size(max = 80)
+        private String shippingDiscountCode;
         private UUID weddingId;
         @jakarta.validation.constraints.NotBlank(message = "Thiếu mã phiên thanh toán. Vui lòng tải lại trang.")
         @jakarta.validation.constraints.Size(max = 120) private String idempotencyKey;
         private Long expectedTotalAmount;
         private UUID shippingQuoteId;
+        private UUID selectedShopId;
+        @jakarta.validation.constraints.Size(max = 128)
+        private String selectionFingerprint;
 
         public String getFullName() { return fullName; }
         public void setFullName(String fullName) { this.fullName = fullName; }
@@ -340,6 +433,8 @@ public final class WebViewModels {
         public void setPaymentMethod(PaymentOption paymentMethod) { this.paymentMethod = paymentMethod; }
         public String getDiscountCode() { return discountCode; }
         public void setDiscountCode(String discountCode) { this.discountCode = discountCode; }
+        public String getShippingDiscountCode() { return shippingDiscountCode; }
+        public void setShippingDiscountCode(String shippingDiscountCode) { this.shippingDiscountCode = shippingDiscountCode; }
         public UUID getWeddingId() { return weddingId; }
         public void setWeddingId(UUID weddingId) { this.weddingId = weddingId; }
         public String getIdempotencyKey() { return idempotencyKey; }
@@ -348,6 +443,10 @@ public final class WebViewModels {
         public void setExpectedTotalAmount(Long expectedTotalAmount) { this.expectedTotalAmount = expectedTotalAmount; }
         public UUID getShippingQuoteId() { return shippingQuoteId; }
         public void setShippingQuoteId(UUID shippingQuoteId) { this.shippingQuoteId = shippingQuoteId; }
+        public UUID getSelectedShopId() { return selectedShopId; }
+        public void setSelectedShopId(UUID selectedShopId) { this.selectedShopId = selectedShopId; }
+        public String getSelectionFingerprint() { return selectionFingerprint; }
+        public void setSelectionFingerprint(String selectionFingerprint) { this.selectionFingerprint = selectionFingerprint; }
     }
 
     public static final class WishForm {
@@ -699,5 +798,46 @@ public final class WebViewModels {
         public String getTrackingNumber() { return trackingNumber; }
         public String getTrackingCode() { return trackingNumber; }
         public UUID getShipperId() { return shipperId; }
+    }
+
+    /** Group context shown alongside an individual child order in admin views. */
+    public static final class AdminCheckoutGroupView {
+        private final String groupNumber;
+        private final long groupTotalAmount;
+        private final String paymentMethod;
+        private final String paymentStatus;
+        private final int orderCount;
+        private final List<AdminOrderSiblingView> siblingOrders;
+
+        public AdminCheckoutGroupView(String groupNumber, long groupTotalAmount, String paymentMethod,
+                                      String paymentStatus, int orderCount,
+                                      List<AdminOrderSiblingView> siblingOrders) {
+            this.groupNumber = groupNumber;
+            this.groupTotalAmount = groupTotalAmount;
+            this.paymentMethod = paymentMethod;
+            this.paymentStatus = paymentStatus;
+            this.orderCount = orderCount;
+            this.siblingOrders = siblingOrders == null ? List.of() : List.copyOf(siblingOrders);
+        }
+
+        public String getGroupNumber() { return groupNumber; }
+        public long getGroupTotalAmount() { return groupTotalAmount; }
+        public String getPaymentMethod() { return paymentMethod; }
+        public String getPaymentStatus() { return paymentStatus; }
+        public int getOrderCount() { return orderCount; }
+        public List<AdminOrderSiblingView> getSiblingOrders() { return siblingOrders; }
+    }
+
+    public static final class AdminOrderSiblingView {
+        private final UUID id;
+        private final String orderNumber;
+
+        public AdminOrderSiblingView(UUID id, String orderNumber) {
+            this.id = id;
+            this.orderNumber = orderNumber;
+        }
+
+        public UUID getId() { return id; }
+        public String getOrderNumber() { return orderNumber; }
     }
 }

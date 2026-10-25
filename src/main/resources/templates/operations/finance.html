@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Đối soát COD · UTEWedding')}"></head>
+<body class="bg-cream" th:classappend="${profileRole == 'MANAGER' or profileRole == 'ADMIN' or profileRole == 'SUPER_ADMIN'} ? ' admin-dashboard-page' : ''">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5">
+    <div th:replace="~{operations/common :: messages}"></div>
+    <p class="eyebrow">VẬN HÀNH CỬA HÀNG</p>
+    <h1 class="h3">Đối soát COD</h1>
+    <p class="text-secondary">Theo dõi số tiền thu hộ và xử lý các khoản cần xác minh.</p>
+    <a class="btn btn-outline-dark mb-3" th:if="${profileRole == 'ADMIN' or profileRole == 'SUPER_ADMIN'}"
+       th:href="@{/admin/finance/receipts}">Biên nhận cổng thanh toán</a>
+    <a class="btn btn-outline-dark mb-3 ms-1" th:if="${profileRole == 'ADMIN' or profileRole == 'SUPER_ADMIN'}"
+       th:href="@{/admin/finance/commission}">Chính sách hoa hồng</a>
+    <form method="get" class="row g-2 my-3">
+        <div class="col-sm-7 col-md-4">
+            <label class="form-label" for="cod-status">Trạng thái</label>
+            <select id="cod-status" class="form-select" name="status">
+                <option value="">Tất cả</option>
+                <option th:each="value : ${statuses}" th:value="${value.name()}"
+                        th:selected="${status == value.name()}"
+                        th:text="${T(com.utewedding.app.service.web.StatusLabels).label(value)}"></option>
+            </select>
+        </div>
+        <div class="col-sm-5 col-md-2 align-self-end">
+            <button type="submit" class="btn btn-outline-dark w-100">Lọc</button>
+        </div>
+    </form>
+    <div th:if="${rows.empty}" class="card border-0 shadow-sm p-4 text-secondary">Chưa có dữ liệu đối soát COD.</div>
+    <section th:each="row : ${rows}" class="card border-0 shadow-sm p-3 p-md-4 mb-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+            <div>
+                <a class="fw-semibold text-decoration-none" th:href="@{/admin/orders/{id}(id=${row.orderId})}"
+                   th:text="${row.orderId}">Đơn hàng</a>
+                <div class="small text-secondary" th:text="${#temporals.format(row.createdAt, 'dd/MM/yyyy HH:mm')}"></div>
+            </div>
+            <span class="badge rounded-pill text-bg-light"
+                  th:text="${T(com.utewedding.app.service.web.StatusLabels).label(row.status)}"></span>
+        </div>
+        <p class="mt-3 mb-2" th:text="'Cần thu: ' + ${#numbers.formatDecimal(row.finalDueAmount,0,'COMMA',0,'POINT')} + ' đ · Đã thu: ' + ${#numbers.formatDecimal(row.collectedAmount,0,'COMMA',0,'POINT')} + ' đ'"></p>
+        <form th:if="${row.status.name() == 'REVIEW_REQUIRED' or row.status.name() == 'AWAITING_AMOUNT'}"
+              th:action="@{/admin/finance/cod/{orderId}/resolve(orderId=${row.orderId})}" method="post"
+              class="row g-2" data-confirm-title="Xác nhận đối soát COD"
+              data-confirm-label="Đối soát COD" data-confirm-message="Hãy đối chiếu số tiền và chứng từ trước khi xác nhận.">
+            <input type="hidden" name="token" th:value="${rowTokens[row.orderId.toString()]}">
+            <label class="col-sm-6 col-lg-3 form-label">Số tiền đã thu
+                <input class="form-control" type="number" name="collectedAmount" min="0" required th:value="${row.collectedAmount}">
+            </label>
+            <label class="col-sm-6 col-lg-3 form-label">Tham chiếu
+                <input class="form-control" name="reference" required maxlength="190">
+            </label>
+            <label class="col-12 col-lg-4 form-label">Ghi chú
+                <input class="form-control" name="note" required maxlength="1000">
+            </label>
+            <div class="col-12 col-lg-2 align-self-end"><button type="submit" class="btn btn-primary w-100">Đối soát</button></div>
+        </form>
+    </section>
+    <section class="mt-5">
+        <h2 class="h4">Tiền COD shipper cần nộp về shop</h2>
+        <p class="text-secondary">Khách đã trả cho shipper được ghi nhận riêng. Chỉ xác nhận mục này sau khi quản lý hoặc admin thực sự nhận đủ tiền từ shipper.</p>
+        <div th:if="${remittances == null or #lists.isEmpty(remittances)}" class="card border-0 shadow-sm p-4 text-secondary">Không có khoản COD nào đang chờ shipper nộp về shop.</div>
+        <article th:each="obligation : ${remittances}" class="card border-0 shadow-sm p-3 p-md-4 mb-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                <div>
+                    <a class="fw-semibold text-decoration-none"
+                       th:href="@{/admin/fulfillments/{id}(id=${obligation.fulfillmentId})}"
+                       th:text="'Vận đơn · ' + ${obligation.fulfillmentId}">Vận đơn</a>
+                    <div class="small text-secondary" th:if="${obligation.systemReceiptCode != null}"
+                         th:text="'Mã thu của hệ thống · ' + ${obligation.systemReceiptCode}"></div>
+                    <div class="small text-secondary" th:if="${obligation.collectionReference != null and !#strings.isEmpty(obligation.collectionReference)}"
+                         th:text="'Phiếu thu bên ngoài · ' + ${obligation.collectionReference}"></div>
+                </div>
+                <strong th:text="${#numbers.formatDecimal(obligation.actualCollected,0,'COMMA',0,'POINT')} + ' đ'">0 đ</strong>
+            </div>
+            <form th:action="@{/admin/finance/cod/remittances/{id}/receive(id=${obligation.fulfillmentId})}"
+                  method="post" class="row g-2 mt-2" data-confirm-title="Xác nhận shop đã nhận COD"
+                  data-confirm-label="Đã nhận đủ tiền" data-confirm-message="Chỉ xác nhận nếu shop đã nhận đủ số tiền này từ shipper.">
+                <input type="hidden" name="token" th:value="${remittanceTokens[obligation.fulfillmentId.toString()]}">
+                <label class="col-sm-6 col-lg-3 form-label">Số tiền shop đã nhận
+                    <input class="form-control" type="number" name="receivedAmount" min="0" required readonly th:value="${obligation.actualCollected}">
+                </label>
+                <label class="col-sm-6 col-lg-3 form-label">Tham chiếu (nếu có)
+                    <input class="form-control" name="reference" maxlength="190">
+                </label>
+                <label class="col-12 col-lg-4 form-label">Ghi chú xác nhận
+                    <input class="form-control" name="note" required maxlength="1000">
+                </label>
+                <div class="col-12 col-lg-2 align-self-end"><button type="submit" class="btn btn-shop-primary w-100">Xác nhận đã nhận</button></div>
+            </form>
+        </article>
+    </section>
+    <nav th:replace="~{operations/common :: pager(${rows})}"></nav>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>
