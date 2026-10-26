@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments :: head('Đối soát vận đơn · UTEWedding')}"></head>
+<body class="bg-cream admin-dashboard-page">
+<nav th:replace="~{fragments :: navbar}"></nav>
+<main class="container py-5">
+    <div th:replace="~{operations/common :: messages}"></div>
+    <h1 class="h3 mb-3">Vận đơn cần đối soát</h1>
+    <p class="text-secondary">Mọi kết quả chỉ được ghi nhận sau khi GHN Staging tra cứu và đối chiếu đúng đơn hàng.</p>
+    <p th:if="${operations.empty}" class="card p-4">Không có vận đơn mơ hồ đang chờ.</p>
+    <section th:each="operation : ${operations}" class="card border-0 shadow-sm rounded-4 p-4 mb-3">
+        <h2 class="h6" th:text="${operation.operation + ' · ' + operation.id}">CREATE · id</h2>
+        <dl class="row small"><dt class="col-sm-3">Mã yêu cầu</dt><dd class="col-sm-9 text-break" th:text="${operation.idempotencyKey}"></dd>
+            <dt class="col-sm-3">Lỗi gần nhất</dt><dd class="col-sm-9" th:text="${operation.lastError}"></dd>
+            <dt class="col-sm-3">Số lần thử</dt><dd class="col-sm-9" th:text="${operation.attemptCount}"></dd>
+            <dt class="col-sm-3">Mã phản hồi GHN</dt><dd class="col-sm-9 text-break" th:text="${operation.sanitizedResponse}"></dd></dl>
+        <form th:action="@{/admin/shipping-operations/{id}/check-and-retry(id=${operation.id})}" method="post" class="border-top pt-3">
+            <button class="btn btn-outline-warning" type="submit">Tra theo mã yêu cầu GHN; chỉ thử lại nếu GHN xác nhận chưa tạo</button>
+        </form>
+        <form th:action="@{/admin/shipping-operations/{id}/verify-created(id=${operation.id})}" method="post" class="row g-2 mt-2">
+            <div class="col-md-8"><label class="form-label">Mã vận đơn GHN</label><input class="form-control" name="providerShipmentId" required maxlength="190" autocomplete="off"></div>
+            <div class="col-md-4 align-self-end"><button class="btn btn-primary w-100" type="submit">Tra GHN Detail và đối chiếu</button></div>
+        </form>
+    </section>
+    <h2 class="h4 mt-5 mb-3">Webhook chưa ghép được vận đơn</h2>
+    <p class="text-secondary">Các webhook này chưa gắn với cửa hàng hoặc vận đơn. Chỉ quản trị viên được xem và xử lý hàng đợi này.</p>
+    <p th:if="${unmatchedEvents.empty}" class="card p-4">Không có webhook chưa ghép.</p>
+    <section th:each="event : ${unmatchedEvents}" class="card border-0 shadow-sm rounded-4 p-4 mb-3">
+        <h3 class="h6" th:text="${event.outcome + ' · ' + event.providerCode}">UNKNOWN_SHIPMENT · GHN</h3>
+        <dl class="row small">
+            <dt class="col-sm-3">Mã sự kiện</dt><dd class="col-sm-9 text-break" th:text="${event.providerEventId}"></dd>
+            <dt class="col-sm-3">Trạng thái GHN</dt><dd class="col-sm-9" th:text="${event.providerStatus}"></dd>
+            <dt class="col-sm-3">Tài khoản GHN</dt><dd class="col-sm-9 text-break" th:text="${event.providerAccountId != null ? event.providerAccountId : 'Chưa xác định'}"></dd>
+            <dt class="col-sm-3">Lý do</dt><dd class="col-sm-9" th:text="${event.rejectionReason != null ? event.rejectionReason : 'Không tìm thấy vận đơn khớp'}"></dd>
+            <dt class="col-sm-3">Nhận lúc</dt><dd class="col-sm-9" th:text="${event.receivedAt}"></dd>
+        </dl>
+        <form th:if="${event.outcome == 'UNKNOWN_SHIPMENT'}"
+              th:action="@{/admin/shipping-operations/events/{id}/reconcile(id=${event.id})}"
+              method="post" class="border-top pt-3">
+            <p class="small text-secondary">Chỉ ghép khi mã vận đơn duy nhất và ShopId khớp snapshot GHN bất biến.</p>
+            <button class="btn btn-outline-primary" type="submit">Đối chiếu và ghép webhook GHN</button>
+        </form>
+        <p th:unless="${event.outcome == 'UNKNOWN_SHIPMENT'}" class="small text-secondary border-top pt-3 mb-0">
+            Sự kiện này chỉ để kiểm tra; hệ thống không tự ghép do có dấu hiệu trùng, mơ hồ hoặc sai tài khoản.
+        </p>
+    </section>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

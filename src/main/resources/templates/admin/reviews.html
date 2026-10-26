@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Kiểm duyệt đánh giá · UTEWedding')}"></head>
+<body class="bg-cream admin-dashboard-page"><nav th:replace="~{fragments :: adminnav('reviews')}"></nav>
+<main class="container py-5">
+    <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}" data-flash-success></div><div th:if="${errorMessage}" class="alert alert-danger" th:text="${errorMessage}"></div>
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4"><div><p class="eyebrow">Kiểm duyệt nội dung</p><h1 class="display-subtitle mt-2 mb-0">Kiểm duyệt đánh giá</h1><p class="text-secondary mb-0 mt-2">Chỉ đánh giá đã duyệt mới hiển thị công khai và được tính vào điểm sản phẩm.</p></div><span class="badge text-bg-secondary" th:text="${reviews.totalElements + ' đánh giá'}">0 đánh giá</span></div>
+    <form method="get" th:action="@{/admin/reviews}" class="card border-0 shadow-sm rounded-4 p-4 mb-4"><div class="row g-3 align-items-end">
+        <div class="col-md-6 col-xl-3"><label class="form-label" for="review-q">Nội dung hoặc sản phẩm</label><input class="form-control" id="review-q" name="q" th:value="${q}" placeholder="Từ khóa"></div>
+        <div class="col-md-6 col-xl-2"><label class="form-label" for="review-status">Trạng thái</label><select class="form-select" id="review-status" name="status"><option value="">Tất cả</option><option th:each="item : ${statuses}" th:value="${item}" th:text="${T(com.utewedding.app.service.web.StatusLabels).label(item)}" th:selected="${item.name() == status}"></option></select></div>
+        <div class="col-md-6 col-xl-2"><label class="form-label" for="review-rating">Số sao</label><select class="form-select" id="review-rating" name="rating"><option value="">Mọi số sao</option><option th:each="stars : ${#numbers.sequence(1,5)}" th:value="${stars}" th:text="${stars + ' sao'}" th:selected="${stars == rating}"></option></select></div>
+        <div class="col-md-6 col-xl-2"><label class="form-label" for="review-from">Từ ngày</label><input class="form-control" id="review-from" type="date" name="from" th:value="${from}"></div>
+        <div class="col-md-6 col-xl-2"><label class="form-label" for="review-to">Đến ngày</label><input class="form-control" id="review-to" type="date" name="to" th:value="${to}"></div>
+        <div class="col-12 col-lg-6 col-xl-2 admin-filter-actions"><button class="btn btn-dark flex-grow-1" type="submit">Lọc</button><a class="btn btn-outline-secondary" th:href="@{/admin/reviews}">Xóa</a></div>
+    </div></form>
+    <div th:if="${reviews == null or reviews.empty}" class="card border-0 shadow-sm rounded-4 p-5 text-center text-secondary">Không có đánh giá phù hợp bộ lọc.</div>
+    <div th:unless="${reviews == null or reviews.empty}" class="card border-0 shadow-sm rounded-4 overflow-hidden"><div class="table-responsive"><table class="table align-middle mb-0">
+        <thead class="table-light"><tr><th class="text-center text-secondary" scope="col">STT</th><th class="ps-4">Khách hàng</th><th>Nội dung</th><th>Sao</th><th>Sản phẩm</th><th>Trạng thái</th><th>Ngày gửi</th><th class="text-end pe-4">Thao tác</th></tr></thead>
+        <tbody><tr th:each="review, rowStat : ${reviews}"><td class="text-center text-secondary" th:text="${reviews.number * reviews.size + rowStat.count}">1</td><td class="ps-4"><strong th:text="${review.reviewerName}">Khách</strong></td>
+            <td style="min-width:260px"><span th:text="${review.content}">Review</span></td><td class="text-warning text-nowrap" th:text="${'★'.repeat(review.rating)}">★★★★★</td>
+            <td><a class="small" th:href="@{/products/{id}(id=${review.productId})}" th:text="${review.productName}">Sản phẩm</a></td>
+            <td><span class="badge rounded-pill" th:classappend="${T(com.utewedding.app.service.web.StatusLabels).badgeClass(review.status)}" th:text="${T(com.utewedding.app.service.web.StatusLabels).label(review.status)}">Trạng thái</span></td>
+            <td class="small text-secondary text-nowrap" th:text="${#temporals.format(review.createdAt, 'dd/MM/yyyy HH:mm')}"></td>
+            <td class="text-end pe-4"><div class="d-flex justify-content-end gap-2">
+                <form th:if="${review.status.name() == 'PENDING' or review.status.name() == 'REJECTED' or review.status.name() == 'HIDDEN'}" th:action="@{/admin/reviews/{id}/approve(id=${review.id})}" method="post" data-confirm-title="Duyệt đánh giá" data-confirm-label="Duyệt" data-confirm-tone="primary" data-confirm-message="Đánh giá sẽ hiển thị công khai và được tính vào điểm sản phẩm."><button class="btn btn-sm btn-primary" type="submit" th:text="${review.status.name() == 'PENDING' ? 'Duyệt' : 'Duyệt lại'}">Duyệt</button></form>
+                <form th:if="${review.status.name() == 'PENDING'}" th:action="@{/admin/reviews/{id}/reject(id=${review.id})}" method="post" data-confirm-title="Từ chối đánh giá" data-confirm-label="Từ chối" data-confirm-message="Đánh giá sẽ được giữ lại nhưng không hiển thị công khai."><button class="btn btn-sm btn-outline-danger" type="submit">Từ chối</button></form>
+                <form th:if="${review.status.name() == 'APPROVED'}" th:action="@{/admin/reviews/{id}/hide(id=${review.id})}" method="post" data-confirm-title="Ẩn đánh giá" data-confirm-label="Ẩn đánh giá" data-confirm-message="Đánh giá sẽ ngừng hiển thị và không còn được tính vào điểm sản phẩm."><button class="btn btn-sm btn-outline-danger" type="submit">Ẩn</button></form>
+            </div></td>
+        </tr></tbody>
+    </table></div></div>
+    <nav th:if="${reviews != null and reviews.totalPages > 1}" class="mt-4" aria-label="Phân trang đánh giá"><ul class="pagination justify-content-center"><li class="page-item" th:classappend="${reviews.first ? ' disabled' : ''}"><a class="page-link" th:href="@{/admin/reviews(page=${reviews.number - 1},q=${q},status=${status},rating=${rating},from=${from},to=${to})}">‹</a></li><li class="page-item disabled"><span class="page-link" th:text="${reviews.number + 1 + ' / ' + reviews.totalPages}">1 / 1</span></li><li class="page-item" th:classappend="${reviews.last ? ' disabled' : ''}"><a class="page-link" th:href="@{/admin/reviews(page=${reviews.number + 1},q=${q},status=${status},rating=${rating},from=${from},to=${to})}">›</a></li></ul></nav>
+</main>
+<footer th:replace="~{fragments :: footer}"></footer><th:block th:replace="~{fragments :: scripts}"></th:block><script th:src="@{/js/marketplace-admin.js}" defer></script>
+</body>
+</html>

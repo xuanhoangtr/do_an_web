@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<body>
+<section th:fragment="categoryContent" aria-labelledby="categoryHeading">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
+        <div><p class="eyebrow mb-1">DANH MỤC SẢN PHẨM</p><h2 id="categoryHeading" class="h3 mb-0">Danh mục</h2></div>
+        <span class="text-secondary small" th:if="${categories != null}" th:text="${categories.totalElements + ' danh mục'}"></span>
+    </div>
+    <section class="card border-0 shadow-sm mb-4" aria-labelledby="newCategoryHeading">
+        <div class="card-body p-4">
+            <h3 id="newCategoryHeading" class="h5 mb-3">Tạo danh mục</h3>
+            <form method="post" th:action="@{/admin/categories}" class="row g-3">
+                <div class="col-md-6"><label class="form-label" for="newCategoryName">Tên danh mục</label><input id="newCategoryName" class="form-control" name="name" maxlength="120" required></div>
+                <div class="col-md-6"><label class="form-label" for="newCategorySlug">Slug</label><input id="newCategorySlug" class="form-control" name="slug" maxlength="120" required></div>
+                <div class="col-md-4"><label class="form-label" for="newCategoryParentSearch">Danh mục cha <span class="text-secondary">(không bắt buộc)</span></label><input id="newCategoryParentSearch" class="form-control form-control-sm mb-1" type="search" placeholder="Tìm danh mục" data-parent-search><select id="newCategoryParent" class="form-select" name="parentId" data-parent-select><option value="">— Không có · danh mục gốc</option><option th:each="parent : ${categoryParentOptions}" th:value="${parent.id}" th:text="${parent.name}" th:attr="data-category-id=${parent.id},data-parent-id=${parent.parentId}"></option></select></div>
+                <div class="col-md-4"><label class="form-label" for="newCategoryOrder">Thứ tự hiển thị</label><input id="newCategoryOrder" class="form-control" name="displayOrder" type="number" value="0"></div>
+                <div class="col-md-4"><label class="form-label" for="newCategoryStatus">Trạng thái</label><select id="newCategoryStatus" class="form-select" name="active" required><option value="true" selected>Đang hoạt động</option><option value="false">Ngừng hoạt động</option></select></div>
+                <div class="col-md-6"><label class="form-label" for="newCategoryImage">URL hình ảnh <span class="text-secondary">(không bắt buộc)</span></label><input id="newCategoryImage" class="form-control" name="imageUrl" type="url" maxlength="2048"></div>
+                <div class="col-md-6"><label class="form-label" for="newCategoryDescription">Mô tả</label><textarea id="newCategoryDescription" class="form-control" name="description" maxlength="1000" rows="2"></textarea></div>
+                <div class="col-12"><button class="btn btn-primary" type="submit">Tạo danh mục</button></div>
+            </form>
+        </div>
+    </section>
+    <div class="card border-0 shadow-sm">
+        <div th:if="${categories == null or categories.content.isEmpty()}" class="marketplace-empty-state text-center p-5">
+            <span class="material-symbols-outlined" aria-hidden="true">category</span><h3 class="h5 mt-3">Chưa có danh mục</h3><p class="text-secondary mb-0">Tạo danh mục đầu tiên bằng biểu mẫu phía trên.</p>
+        </div>
+        <div class="table-responsive" th:if="${categories != null and !categories.content.isEmpty()}">
+            <table class="table align-middle marketplace-table mb-0">
+                <thead><tr><th class="text-center text-secondary" scope="col">STT</th><th scope="col">Danh mục</th><th scope="col">ID / cha</th><th scope="col">Thứ tự</th><th scope="col">Trạng thái</th><th scope="col"><span class="visually-hidden">Thao tác</span></th></tr></thead>
+                <tbody>
+                <tr th:each="category, rowStat : ${categories.content}">
+                    <td class="text-center text-secondary" th:text="${categories.number * categories.size + rowStat.count}">1</td>
+                    <td><strong th:text="${category.name}">Tên danh mục</strong><span class="d-block text-secondary small" th:text="${category.slug}">slug</span></td>
+                    <td class="small"><span th:text="${category.id}"></span><span class="text-secondary" th:text="${category.parentId != null ? ' · cha ' + category.parentId : ' · danh mục gốc'}"></span></td>
+                    <td th:text="${category.displayOrder}"></td>
+                    <td><span class="badge rounded-pill" th:classappend="${category.active ? ' text-bg-success' : ' text-bg-secondary'}" th:text="${category.active ? 'Đang hoạt động' : 'Ngừng hoạt động'}"></span></td>
+                    <td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" th:attr="data-bs-target=${'#categories-edit-' + category.id}">Chỉnh sửa</button></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <th:block th:if="${categories != null and !categories.content.isEmpty()}"><div th:each="category : ${categories.content}" class="modal fade" data-marketplace-modal tabindex="-1" th:id="${'categories-edit-' + category.id}" th:attr="aria-labelledby=${'categories-edit-title-' + category.id}" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h3 class="modal-title h5" th:id="${'categories-edit-title-' + category.id}">Chỉnh sửa danh mục</h3><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button></div><div class="modal-body"><form method="post" class="marketplace-edit-form text-start" th:action="@{/admin/categories/{id}(id=${category.id})}" th:attr="data-edit-category-id=${category.id}">
+                            <div class="row g-3">
+                                <div class="col-md-6"><label class="form-label">Tên danh mục</label><input class="form-control" name="name" maxlength="120" required th:value="${category.name}"></div>
+                                <div class="col-md-6"><label class="form-label">Slug</label><input class="form-control" name="slug" maxlength="120" required th:value="${category.slug}"></div>
+                                <div class="col-md-4"><label class="form-label" th:for="${'parent-search-' + category.id}">Danh mục cha</label><input class="form-control form-control-sm mb-1" type="search" placeholder="Tìm danh mục" th:id="${'parent-search-' + category.id}" data-parent-search><select class="form-select" name="parentId" data-parent-select><option value="">— Không có · danh mục gốc</option><option th:each="parent : ${categoryParentOptions}" th:value="${parent.id}" th:text="${parent.name}" th:selected="${parent.id == category.parentId}" th:attr="data-category-id=${parent.id},data-parent-id=${parent.parentId}"></option></select></div>
+                                <div class="col-md-4"><label class="form-label">Thứ tự hiển thị</label><input class="form-control" name="displayOrder" type="number" th:value="${category.displayOrder}"></div>
+                                <div class="col-md-4"><label class="form-label">Trạng thái</label><select class="form-select" name="active"><option value="true" th:selected="${category.active}">Đang hoạt động</option><option value="false" th:selected="${!category.active}">Ngừng hoạt động</option></select></div>
+                                <div class="col-md-6"><label class="form-label">URL hình ảnh</label><input class="form-control" name="imageUrl" type="url" maxlength="2048" th:value="${category.imageUrl}"></div>
+                                <div class="col-md-6"><label class="form-label">Mô tả</label><textarea class="form-control" name="description" maxlength="1000" rows="2" th:text="${category.description}"></textarea></div>
+                                <div class="col-12 d-flex flex-wrap gap-2"><button class="btn btn-primary btn-sm" type="submit">Lưu thay đổi</button></div>
+                            </div>
+                        </form>
+                        <form th:if="${category.active}" method="post" class="marketplace-deactivate-form mt-2" th:action="@{/admin/categories/{id}/deactivate(id=${category.id})}"
+                              data-confirm-title="Ngừng hoạt động danh mục" data-confirm-label="Ngừng hoạt động"
+                              data-confirm="Danh mục không bị xóa và có thể được kích hoạt lại. Chỉ có thể ngừng hoạt động khi danh mục không còn sản phẩm đang hoạt động.">
+                            <button class="btn btn-sm btn-outline-danger" type="submit">Ngừng hoạt động</button>
+                        </form>
+                    </div></div></div></div>
+</th:block>
+        <nav th:if="${categories != null and categories.totalPages > 1}" aria-label="Phân trang danh mục" class="p-3">
+            <ul class="pagination justify-content-end mb-0"><li class="page-item" th:classappend="${categories.first ? ' disabled' : ''}"><a class="page-link" th:href="@{/admin/categories(page=${categories.number - 1},size=${categories.size})}">Trước</a></li><li class="page-item disabled"><span class="page-link" th:text="${(categories.number + 1) + ' / ' + categories.totalPages}">1 / 1</span></li><li class="page-item" th:classappend="${categories.last ? ' disabled' : ''}"><a class="page-link" th:href="@{/admin/categories(page=${categories.number + 1},size=${categories.size})}">Sau</a></li></ul>
+        </nav>
+    </div>
+</section>
+</body>
+</html>
