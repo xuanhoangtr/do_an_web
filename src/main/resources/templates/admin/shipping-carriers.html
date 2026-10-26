@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Nhà vận chuyển · UTEWedding')}"></head>
+<body class="admin-dashboard-page admin-dashboard-wrapped-layout" id="top">
+<div class="dash-layout">
+    <aside th:replace="~{fragments :: adminSidebar('shippingCarriers')}"></aside>
+    <button type="button" class="dash-sidebar-backdrop" id="dashboardSidebarBackdrop" aria-label="Đóng menu"></button>
+    <div class="dash-main">
+        <header th:replace="~{fragments :: adminTopbar('shippingCarriers')}"></header>
+        <main class="dash-content">
+            <div class="dash-heading">
+                <div><h1>Nhà vận chuyển</h1><p>TP. Hồ Chí Minh giao nội bộ miễn phí; ngoài TP.HCM nhận báo giá trực tiếp từ GHN Staging.</p></div>
+            </div>
+
+            <div class="alert alert-success" role="status" th:if="${successMessage}" th:text="${successMessage}"></div>
+            <div class="alert alert-danger" role="alert" th:if="${errorMessage}" th:text="${errorMessage}"></div>
+            <div class="alert alert-info" role="note">Chế độ giá được xác định theo tuyến: <strong>FREE</strong> cho nội bộ TP.HCM, <strong>PROVIDER_QUOTE</strong> cho GHN Staging. Cước GHN ở checkout lấy theo báo giá thực tế; trường phí legacy chỉ được giữ nội bộ để tương thích dữ liệu cũ.</div>
+
+            <section class="dash-card dash-panel mb-4" aria-labelledby="carrier-create-title">
+                <div class="dash-section-head"><div><h2 id="carrier-create-title">Thêm cấu hình</h2><p>Chỉ hỗ trợ tuyến nội bộ miễn phí tại TP. Hồ Chí Minh và tuyến ngoài TP.HCM qua GHN Staging.</p></div></div>
+                <form method="post" th:action="@{/admin/shipping-carriers}" class="row g-3 align-items-end">
+                    <div class="col-12 col-md-4 col-xl-2"><label class="form-label" for="carrier-code">Mã cấu hình</label><input class="form-control" id="carrier-code" name="code" maxlength="60" pattern="[A-Za-z0-9][A-Za-z0-9_-]{1,59}" required placeholder="GHN-OUTSIDE-2"></div>
+                    <div class="col-12 col-md-4 col-xl-3"><label class="form-label" for="carrier-name">Tên hiển thị</label><input class="form-control" id="carrier-name" name="displayName" maxlength="120" required></div>
+                    <div class="col-12 col-md-4 col-xl-4"><label class="form-label" for="carrier-route">Tuyến và chế độ giá</label><select class="form-select" id="carrier-route" name="route" required><option value="INTERNAL:HCM">TP. Hồ Chí Minh · FREE · Giao nội bộ</option><option value="GHN:OUTSIDE_HCM">Ngoài TP.HCM · PROVIDER_QUOTE · GHN Staging</option></select></div>
+                    <div class="col-12 col-md-8 col-xl-3"><label class="form-label" for="carrier-description">Mô tả</label><input class="form-control" id="carrier-description" name="description" maxlength="500"></div>
+                    <input type="hidden" name="customerFee" value="0">
+                    <div class="col-12 d-flex flex-wrap align-items-center gap-3">
+                        <div class="form-check"><input class="form-check-input" id="carrier-active" type="checkbox" name="active" value="true" checked><label class="form-check-label" for="carrier-active">Đang hoạt động</label></div>
+                        <div class="form-check"><input class="form-check-input" id="carrier-default" type="checkbox" name="defaultForNewOrders" value="true"><label class="form-check-label" for="carrier-default">Đặt làm mặc định (thay mặc định hiện tại của cùng tuyến)</label></div>
+                        <button class="dash-button dash-button-primary" type="submit">Thêm cấu hình</button>
+                    </div>
+                    <p class="small text-secondary mb-0">Không nhập cước cố định. Giá khách trả cho GHN sẽ lấy từ báo giá trực tiếp; phí legacy được giữ ẩn để tương thích với handler cũ.</p>
+                </form>
+            </section>
+
+            <form method="get" th:action="@{/admin/shipping-carriers}" class="dash-card dash-panel mb-4">
+                <div class="row g-3 align-items-end">
+                    <div class="col-12 col-md-6 col-xl-4"><label class="form-label" for="carrier-search">Tìm cấu hình</label><input class="form-control" id="carrier-search" name="q" th:value="${q}" placeholder="Mã, tên, mô tả"></div>
+                    <div class="col-12 col-md-6 col-xl-2"><label class="form-label" for="carrier-scope">Phạm vi</label><select class="form-select" id="carrier-scope" name="scope"><option value="">Tất cả</option><option value="HCM" th:selected="${scope == 'HCM'}">TP. Hồ Chí Minh</option><option value="OUTSIDE_HCM" th:selected="${scope == 'OUTSIDE_HCM'}">Ngoại tỉnh</option></select></div>
+                    <div class="col-12 col-md-6 col-xl-2"><label class="form-label" for="carrier-provider">Adapter</label><select class="form-select" id="carrier-provider" name="provider"><option value="">Tất cả</option><option value="INTERNAL" th:selected="${provider == 'INTERNAL'}">Nội bộ</option><option value="GHN" th:selected="${provider == 'GHN'}">GHN</option></select></div>
+                    <div class="col-12 col-md-6 col-xl-2"><label class="form-label" for="carrier-state">Trạng thái</label><select class="form-select" id="carrier-state" name="state"><option value="">Tất cả</option><option value="ACTIVE" th:selected="${state == 'ACTIVE'}">Đang hoạt động</option><option value="INACTIVE" th:selected="${state == 'INACTIVE'}">Đã ngừng</option><option value="DELETED" th:selected="${state == 'DELETED'}">Đã xóa mềm</option></select></div>
+                    <div class="col-12 col-md-6 col-xl-3 admin-filter-actions"><button class="dash-button dash-button-primary flex-grow-1" type="submit">Lọc</button><a class="dash-button dash-button-outline" th:href="@{/admin/shipping-carriers}">Xóa lọc</a></div>
+                </div>
+            </form>
+
+            <section class="dash-card dash-panel p-0 overflow-hidden" aria-labelledby="carrier-list-title">
+                <div class="dash-section-head p-4 mb-0"><div><h2 id="carrier-list-title">Danh sách cấu hình</h2><p th:text="${carriers.totalElements + ' cấu hình'}">0 cấu hình</p></div></div>
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead class="table-light"><tr><th class="text-center">STT</th><th>Mã / tuyến</th><th>Tên và mô tả</th><th>Chế độ tính giá</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+                        <tbody>
+                        <tr th:each="carrier,rowStat : ${carriers}">
+                            <td class="text-center text-secondary" th:text="${carriers.number * carriers.size + rowStat.count}">1</td>
+                            <td><strong th:text="${carrier.code}">GHN-OUTSIDE</strong><small class="d-block text-secondary" th:text="${carrier.providerCode == 'GHN' ? 'Ngoài TP.HCM · GHN Staging' : 'TP. Hồ Chí Minh · Nội bộ'}"></small></td>
+                            <td>
+                                <form th:id="${'carrier-edit-' + carrier.id}" method="post" th:action="@{/admin/shipping-carriers/{id}/update(id=${carrier.id})}"><input type="hidden" name="version" th:value="${carrier.version}"><input type="hidden" name="customerFee" th:value="${carrier.customerFee}"></form>
+                                <label class="visually-hidden" th:for="${'carrier-name-' + carrier.id}">Tên hiển thị</label><input class="form-control form-control-sm mb-1" th:id="${'carrier-name-' + carrier.id}" name="displayName" th:value="${carrier.displayName}" maxlength="120" required th:attr="form=${'carrier-edit-' + carrier.id}" th:disabled="${carrier.deletedAt != null}">
+                                <label class="visually-hidden" th:for="${'carrier-description-' + carrier.id}">Mô tả</label><input class="form-control form-control-sm" th:id="${'carrier-description-' + carrier.id}" name="description" th:value="${carrier.description}" maxlength="500" th:attr="form=${'carrier-edit-' + carrier.id}" th:disabled="${carrier.deletedAt != null}">
+                            </td>
+                            <td><code th:text="${carrier.pricingMode}">PROVIDER_QUOTE</code>
+                                <small class="d-block text-secondary" th:if="${carrier.pricingMode == 'FREE'}">Miễn phí · giao nội bộ tại TP.HCM.</small>
+                                <small class="d-block text-secondary" th:if="${carrier.pricingMode == 'PROVIDER_QUOTE'}">GHN Staging báo giá trực tiếp theo địa chỉ và kiện hàng.</small>
+                                <small class="d-block text-secondary" th:if="${carrier.pricingMode == 'LEGACY'}">Cấu hình cũ · phí lưu <span th:text="${#numbers.formatDecimal(carrier.customerFee,0,'COMMA',0,'POINT') + ' đ'}">0 đ</span>; không chỉnh tại đây.</small>
+                            </td>
+                            <td><span class="badge rounded-pill" th:classappend="${carrier.deletedAt != null ? 'text-bg-secondary' : carrier.active ? 'text-bg-success' : 'text-bg-light'}" th:text="${carrier.deletedAt != null ? 'Đã xóa mềm' : carrier.active ? 'Đang hoạt động' : 'Đã ngừng'}">Đang hoạt động</span><span class="badge text-bg-primary ms-1" th:if="${carrier.defaultForNewOrders}">Mặc định</span></td>
+                            <td><div class="d-flex flex-wrap gap-2" style="min-width:220px">
+                                <button class="btn btn-sm btn-outline-primary" type="submit" th:attr="form=${'carrier-edit-' + carrier.id}" th:disabled="${carrier.deletedAt != null}">Lưu</button>
+                                <form th:if="${carrier.deletedAt == null and carrier.active and !carrier.defaultForNewOrders}" method="post" th:action="@{/admin/shipping-carriers/{id}/default(id=${carrier.id})}"><input type="hidden" name="version" th:value="${carrier.version}"><button class="btn btn-sm btn-outline-secondary" type="submit">Đặt mặc định</button></form>
+                                <form th:if="${carrier.deletedAt == null and carrier.active and !carrier.defaultForNewOrders}" method="post" th:action="@{/admin/shipping-carriers/{id}/active(id=${carrier.id})}"><input type="hidden" name="version" th:value="${carrier.version}"><input type="hidden" name="active" value="false"><button class="btn btn-sm btn-outline-warning" type="submit">Ngừng</button></form>
+                                <form th:if="${carrier.deletedAt == null and !carrier.active}" method="post" th:action="@{/admin/shipping-carriers/{id}/active(id=${carrier.id})}"><input type="hidden" name="version" th:value="${carrier.version}"><input type="hidden" name="active" value="true"><button class="btn btn-sm btn-outline-success" type="submit">Bật</button></form>
+                                <form th:if="${carrier.deletedAt == null and !carrier.defaultForNewOrders}" method="post" th:action="@{/admin/shipping-carriers/{id}/delete(id=${carrier.id})}" data-confirm-title="Xóa cấu hình" data-confirm-label="Xóa mềm" data-confirm-tone="danger" data-confirm-message="Cấu hình sẽ bị ngừng và không áp dụng cho báo giá mới. Các đơn đã đặt vẫn giữ nguyên snapshot."><input type="hidden" name="version" th:value="${carrier.version}"><button class="btn btn-sm btn-outline-danger" type="submit">Xóa mềm</button></form>
+                                <form th:if="${carrier.deletedAt != null}" method="post" th:action="@{/admin/shipping-carriers/{id}/restore(id=${carrier.id})}"><input type="hidden" name="version" th:value="${carrier.version}"><button class="btn btn-sm btn-outline-secondary" type="submit">Khôi phục</button></form>
+                            </div></td>
+                        </tr>
+                        <tr th:if="${carriers.empty}"><td colspan="6" class="p-5 text-center text-secondary">Không tìm thấy cấu hình phù hợp.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <nav th:if="${carriers.totalPages > 1}" class="p-3" aria-label="Phân trang nhà vận chuyển"><ul class="pagination justify-content-center mb-0"><li class="page-item" th:classappend="${carriers.first ? 'disabled' : ''}"><a class="page-link" th:href="@{/admin/shipping-carriers(page=${carriers.number - 1},q=${q},scope=${scope},provider=${provider},state=${state})}">‹</a></li><li class="page-item disabled"><span class="page-link" th:text="${carriers.number + 1 + ' / ' + carriers.totalPages}">1 / 1</span></li><li class="page-item" th:classappend="${carriers.last ? 'disabled' : ''}"><a class="page-link" th:href="@{/admin/shipping-carriers(page=${carriers.number + 1},q=${q},scope=${scope},provider=${provider},state=${state})}">›</a></li></ul></nav>
+            </section>
+            <p class="small text-secondary mt-3">Thay đổi chỉ áp dụng báo giá và đơn mới. Giá GHN được lấy lại khi khách cập nhật báo giá; đơn đã đặt luôn giữ phí giao hàng tại thời điểm đặt.</p>
+        </main>
+    </div>
+</div>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+<script th:src="@{/js/admin-dashboard-shell.js}" defer></script>
+</body>
+</html>

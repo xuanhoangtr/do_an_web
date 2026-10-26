@@ -1,60 +1,287 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:fragment="head(title)">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${title} + ' - UTEWedding'">UTEWedding</title>
-    <link rel="stylesheet" th:href="@{/css/bootstrap.min.css}">
-    <link rel="stylesheet" th:href="@{/css/custom.css}">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="_csrf" th:if="${_csrf != null}" th:content="${_csrf.token}">
+    <meta name="_csrf_parameter" th:if="${_csrf != null}" th:content="${_csrf.parameterName}">
+    <meta name="websocket-destinations"
+          th:content="${#strings.listJoin(webSocketDestinations, ',')}">
+    <title th:text="${title}">UTEWedding</title>
+    <link rel="icon" th:href="@{/favicon.ico}" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" th:href="@{/css/be-vietnam-pro.css(v='font-20261027')}">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&amp;display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..700,0..1,0..1&amp;display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/custom.css(v='ui-fonts-20261030-v13')}">
+    <link rel="stylesheet" th:href="@{/css/admin-dashboard.css(v='ui-layout-20261029-v5')}">
+    <link rel="stylesheet" th:href="@{/css/customer-messages.css(v='messages-20261029-v2')}">
 </head>
 <body>
-    <nav th:fragment="navbar" class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
-        <div class="container">
-            <a class="navbar-brand" th:href="@{/}">💍 UTEWedding</a>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a class="nav-link" th:href="@{/}">Trang chủ</a></li>
-                    <li class="nav-item"><a class="nav-link" th:href="@{/wedding/create}">Tạo Thiệp Cưới</a></li>
-                    <li class="nav-item"><a class="nav-link" th:href="@{/shop/catalog}">Dịch Vụ Cưới</a></li>
-                    <li class="nav-item"><a class="nav-link text-warning fw-semibold" th:href="@{/seller/onboarding}">Kênh Người Bán</a></li>
-                    <li class="nav-item position-relative">
-                        <a class="nav-link" th:href="@{/cart}">
-                            🛒 Giỏ hàng
-                            <span class="badge bg-danger rounded-pill" id="cartCountBadge" th:text="${cartItemCount ?: 0}">0</span>
-                        </a>
+<th:block th:fragment="navbar">
+<th:block th:if="${adminNavActiveItem != null and !#strings.isEmpty(adminNavActiveItem)}">
+    <nav th:replace="~{fragments :: adminnav(${adminNavActiveItem})}"></nav>
+</th:block>
+<th:block th:if="${adminNavActiveItem == null or #strings.isEmpty(adminNavActiveItem)}">
+<span id="top" aria-hidden="true"></span>
+<nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
+    <div class="container py-2">
+        <a class="navbar-brand brand-mark" th:href="@{/}">UTE<span>Wedding</span><i aria-hidden="true"></i></a>
+        <div class="header-actions d-flex align-items-center gap-2">
+            <a sec:authorize="isAuthenticated()" class="header-cart-link" th:href="@{/notifications}" aria-label="Thông báo">
+                <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
+                <span id="notificationBadge" class="header-cart-badge"
+                      th:hidden="${headerUnreadNotifications == null or headerUnreadNotifications <= 0}"
+                      th:text="${headerUnreadNotifications != null and headerUnreadNotifications > 99 ? '99+' : (headerUnreadNotifications ?: 0)}">0</span>
+            </a>
+            <span id="liveUpdateConfig" th:if="${headerAuthenticated}" hidden></span>
+            <a sec:authorize="hasAnyRole('USER','CUSTOMER')" class="header-cart-link" th:href="@{/cart}" aria-label="Giỏ hàng">
+                <span class="material-symbols-outlined" aria-hidden="true">shopping_bag</span>
+                <span id="cartBadge" class="header-cart-badge"
+                      th:hidden="${headerCartCount == null or headerCartCount <= 0}"
+                      th:text="${headerCartCount != null and headerCartCount > 99 ? '99+' : (headerCartCount ?: 0)}">0</span>
+            </a>
+            <div sec:authorize="isAuthenticated()" class="dropdown account-menu"
+                 th:with="displayName=${headerDisplayName}">
+                <button class="btn account-menu-toggle" type="button" data-bs-toggle="dropdown"
+                        aria-expanded="false" aria-label="Mở menu tài khoản">
+                    <span class="material-symbols-outlined account-avatar" aria-hidden="true">account_circle</span>
+                    <span class="account-name" th:if="${displayName != null and !#strings.isEmpty(displayName)}"
+                          th:text="${displayName}">Tên tài khoản</span>
+                    <span class="account-name" th:unless="${displayName != null and !#strings.isEmpty(displayName)}"
+                          sec:authentication="name">email@example.test</span>
+                    <span class="material-symbols-outlined account-chevron" aria-hidden="true">expand_more</span>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li class="account-menu-summary">
+                        <strong th:if="${displayName != null and !#strings.isEmpty(displayName)}" th:text="${displayName}">Tên tài khoản</strong>
+                        <strong th:unless="${displayName != null and !#strings.isEmpty(displayName)}" sec:authentication="name">email@example.test</strong>
+                        <small sec:authentication="name">email@example.test</small>
                     </li>
-                    <!-- Menu người dùng sau khi đăng nhập / chưa đăng nhập -->
-                    <li class="nav-item" th:if="${#authentication == null or !#authorization.expression('isAuthenticated()')}">
-                        <a class="nav-link" th:href="@{/auth/login}">Đăng nhập</a>
-                    </li>
-                    <li class="nav-item" th:if="${#authentication == null or !#authorization.expression('isAuthenticated()')}">
-                        <a class="btn btn-outline-primary btn-sm ms-2 mt-1" th:href="@{/auth/register}">Đăng ký</a>
-                    </li>
-                    <li class="nav-item dropdown" th:if="${#authorization.expression('isAuthenticated()')}">
-                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
-                            <span th:text="${#authentication.name}">Tài khoản</span>
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" th:href="@{/account/profile}">Hồ sơ cá nhân</a></li>
-                            <li><a class="dropdown-item" th:href="@{/account/change-password}">Đổi mật khẩu</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item text-danger" th:href="@{/auth/logout}">Đăng xuất</a></li>
-                        </ul>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" th:href="@{/profile}">Tài khoản của tôi</a></li>
+                    <li><a class="dropdown-item" th:href="@{/notifications}">Thông báo</a></li>
+                    <li th:if="${headerVendorAccount}"><a class="dropdown-item" th:href="@{/vendor}">Quản lý cửa hàng</a></li>
+                    <li sec:authorize="hasAnyRole('USER','CUSTOMER')" th:if="${sellerOnboardingEnabled == true}" th:unless="${headerVendorAccount == true}"><a class="dropdown-item" th:href="@{/seller/onboarding}">Đăng ký bán hàng</a></li>
+                    <li sec:authorize="hasAnyRole('USER','CUSTOMER')"><a class="dropdown-item" th:href="@{/orders/history}">Đơn hàng của tôi</a></li>
+                    <li sec:authorize="hasAnyRole('USER','CUSTOMER')"><a class="dropdown-item" th:href="@{/returns}">Trả hàng</a></li>
+                    <li sec:authorize="hasAnyRole('USER','CUSTOMER')"><a class="dropdown-item" th:href="@{/support}">Hỗ trợ</a></li>
+                    <li sec:authorize="hasAnyRole('USER','CUSTOMER')"><a class="dropdown-item" th:href="@{/account/favorites}">Sản phẩm yêu thích</a></li>
+                    <li sec:authorize="hasAnyRole('USER','CUSTOMER')"><a class="dropdown-item" th:href="@{/account/recently-viewed}">Sản phẩm đã xem</a></li>
+                    <li sec:authorize="hasAnyRole('USER','CUSTOMER')"><a class="dropdown-item" th:href="@{/account/reviews}">Đánh giá của tôi</a></li>
+                    <li sec:authorize="hasAnyRole('USER','CUSTOMER')"><a class="dropdown-item" th:href="@{/wedding}">Thiệp cưới</a></li>
+                    <li sec:authorize="hasAnyRole('USER','CUSTOMER')"><a class="dropdown-item" th:href="@{/profile#addresses}">Địa chỉ đã lưu</a></li>
+                    <li><a class="dropdown-item" th:href="@{/profile/privacy}">Quyền riêng tư</a></li>
+                    <li sec:authorize="hasRole('SHIPPER')"><a class="dropdown-item" th:href="@{/shipper/board}">Bảng giao hàng</a></li>
+                    <li sec:authorize="hasAnyRole('ADMIN','MANAGER','SUPER_ADMIN')"><a class="dropdown-item" th:href="@{/admin/dashboard}">Quản trị</a></li>
+                    <li><a class="dropdown-item" th:href="@{/profile#password}">Đổi mật khẩu</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <form th:action="@{/logout}" method="post" class="m-0"
+                              data-confirm-title="Xác nhận đăng xuất"
+                              data-confirm-message="Bạn có chắc chắn muốn đăng xuất khỏi tài khoản này?"
+                              data-confirm-label="Đăng xuất">
+                            <button class="dropdown-item account-menu-logout" type="submit">Đăng xuất</button>
+                        </form>
                     </li>
                 </ul>
             </div>
-        </div>
-    </nav>
-    <footer th:fragment="footer" class="py-4 bg-light text-center text-muted">
-        <div class="container">
-            <small>&copy; 2026 UTEWedding - Đồ Án Tốt Nghiệp Trường Đại học Sư phạm Kỹ thuật TP.HCM</small>
-        </div>
-        <!-- Floating Realtime Chat Widget -->
-        <div id="liveChatWidget" class="position-fixed bottom-0 end-0 p-3" style="z-index: 1050;">
-            <button class="btn btn-primary rounded-circle shadow-lg p-3" id="btnToggleChat" title="Hỗ trợ trực tuyến">
-                💬
+            <a sec:authorize="!isAuthenticated()" class="btn btn-outline-dark btn-sm text-nowrap px-2 px-sm-3" th:href="@{/login}">Đăng nhập</a>
+            <a sec:authorize="!isAuthenticated()" class="btn btn-outline-dark btn-sm text-nowrap px-2 px-sm-3" th:href="@{/register}">Đăng ký</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"
+                    aria-controls="mainNav" aria-expanded="false" aria-label="Mở menu">
+                <span class="navbar-toggler-icon" aria-hidden="true"></span>
             </button>
         </div>
-    </footer>
+        <div class="collapse navbar-collapse" id="mainNav">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-4 gap-lg-2">
+                <li class="nav-item"><a class="nav-link" th:href="@{/products}">Kỷ vật cưới</a></li>
+                <li class="nav-item" th:if="${marketplacePublicDirectoryEnabled}"><a class="nav-link" th:href="@{/shops}">Cửa hàng</a></li>
+                <li class="nav-item" sec:authorize="!isAuthenticated()"><a class="nav-link" th:href="@{/login}">Đăng nhập</a></li>
+                <li class="nav-item" sec:authorize="hasAnyRole('USER','CUSTOMER')"><a class="nav-link" href="https://xuanhoang.name.vn/wedding">Thiệp cưới</a></li>
+                <li class="nav-item" sec:authorize="hasAnyRole('USER','CUSTOMER')"><a class="nav-link" th:href="@{/wedding/editor}">Tạo thiệp cưới</a></li>
+                <li class="nav-item" sec:authorize="hasAnyRole('ADMIN','MANAGER','SUPER_ADMIN')"><a class="nav-link" th:href="@{/admin/dashboard}">Quản trị</a></li>
+                <li class="nav-item" sec:authorize="hasRole('SHIPPER')"><a class="nav-link" th:href="@{/shipper/board}">Giao hàng</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+<button sec:authorize="hasAnyRole('USER','CUSTOMER')" th:if="${headerVendorAccount != true}" class="support-fab customer-messages-fab" type="button"
+   data-customer-messages-open aria-label="Mở hộp thư Tin nhắn" aria-controls="supportChatRoot" aria-expanded="false"
+   title="Tin nhắn">
+    <span class="material-symbols-outlined" aria-hidden="true">forum</span>
+    <span>Tin nhắn</span>
+    <span class="support-chat-fab-badge" data-customer-messages-unread hidden>0</span>
+</button>
+<section sec:authorize="hasAnyRole('USER','CUSTOMER')" th:if="${headerVendorAccount != true}" id="supportChatRoot" class="support-chat-shell" hidden
+         data-support-chat-mode="customer"
+         data-unified-inbox="true"
+         th:attr="data-auto-open=${supportChatAutoOpen == true or supportChatInitialContactId != null},data-new-conversation=${supportChatNew ?: false},data-conversation-id=${supportChatConversationId},data-initial-contact-id=${supportChatInitialContactId},data-current-user-id=${currentUserId},data-order-id=${supportChatOrderId},data-return-case-id=${supportChatReturnCaseId}">
+    <button class="support-chat-backdrop" type="button" data-customer-messages-close aria-label="Đóng hộp thư"></button>
+    <section class="support-chat-panel customer-messages-panel" role="dialog" aria-modal="true" aria-labelledby="customerMessagesTitle" tabindex="-1">
+        <header class="support-chat-header customer-messages-header">
+            <div><span class="support-chat-eyebrow">HỘP THƯ CỦA BẠN</span><h2 id="customerMessagesTitle">Tin nhắn</h2><p>Kết nối với cửa hàng và UTEWedding</p></div>
+            <button type="button" class="support-chat-icon-button" data-customer-messages-close aria-label="Đóng Tin nhắn"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+        </header>
+        <div class="support-chat-notice customer-messages-notice" data-message-after-hours hidden>Đội ngũ hỗ trợ đang ngoài giờ làm việc. Tin nhắn của bạn đã được lưu và sẽ được phản hồi trong giờ hỗ trợ tiếp theo.</div>
+        <div class="support-chat-view support-chat-list-view customer-messages-list-view" data-message-list-view>
+            <div class="support-chat-list-toolbar customer-messages-toolbar"><strong>Cuộc trò chuyện</strong><button type="button" class="btn-shop-primary" data-message-new-support>Liên hệ hỗ trợ</button></div>
+            <div class="customer-messages-filters" role="tablist" aria-label="Lọc tin nhắn">
+                <button type="button" role="tab" aria-selected="true" class="is-active" data-message-filter="ALL">Tất cả</button>
+                <button type="button" role="tab" aria-selected="false" data-message-filter="SHOP">Cửa hàng</button>
+                <button type="button" role="tab" aria-selected="false" data-message-filter="PLATFORM_SUPPORT">Hỗ trợ</button>
+            </div>
+            <div class="support-chat-conversation-list customer-messages-list" data-message-list aria-live="polite"><p class="support-chat-loading">Đang tải tin nhắn…</p></div>
+            <p class="support-chat-empty customer-messages-empty" data-message-empty hidden></p>
+            <button type="button" class="support-chat-more" data-message-more hidden>Xem tin nhắn cũ hơn</button>
+        </div>
+        <div class="support-chat-view support-chat-thread-view customer-messages-thread-view" data-message-thread-view hidden>
+            <div class="support-chat-thread-top customer-messages-thread-top">
+                <button type="button" class="support-chat-back" data-message-back>← Danh sách</button>
+            </div>
+            <header class="customer-messages-thread-heading">
+                <span class="customer-messages-scope" data-message-scope></span>
+                <h3 data-message-title>Tin nhắn</h3>
+                <a data-message-shop-link hidden>Xem cửa hàng</a>
+                <span class="support-chat-status" data-message-status hidden></span>
+                <button type="button" class="customer-messages-history-button" data-message-history hidden>Xem các hội thoại trước</button>
+                <button type="button" class="customer-messages-history-button" data-message-new-shop hidden>Bắt đầu hội thoại mới</button>
+            </header>
+            <div class="customer-messages-history" data-message-history-list hidden></div>
+            <button type="button" class="support-chat-more customer-messages-history-more" data-message-history-more hidden>Xem các hội thoại cũ hơn</button>
+            <div class="support-chat-context customer-messages-context" data-message-context hidden></div>
+            <div class="support-chat-messages customer-messages-thread" data-message-thread aria-live="off" aria-relevant="additions text"></div>
+            <button type="button" class="support-chat-more" data-message-older hidden>Xem tin nhắn trước</button>
+            <div class="support-chat-typing" data-message-typing aria-live="polite"></div>
+            <form class="support-chat-composer customer-messages-composer" data-message-composer>
+                <div class="support-chat-attachment-preview" data-chat-attachment-preview></div>
+                <label class="visually-hidden" for="customerMessageBody">Tin nhắn</label>
+                <textarea id="customerMessageBody" name="body" rows="2" maxlength="5000" placeholder="Nhập tin nhắn…" data-message-body></textarea>
+                <div class="support-chat-compose-actions">
+                    <label class="support-chat-attach" title="Đính kèm ảnh JPEG hoặc PNG"><span class="material-symbols-outlined" aria-hidden="true">attach_file</span><span>Ảnh</span><input type="file" accept="image/jpeg,image/png" multiple data-message-files hidden></label>
+                    <span class="support-chat-send-error" data-message-error role="alert"></span>
+                    <button type="submit" class="btn-shop-primary" data-message-send>Gửi tin</button>
+                </div>
+            </form>
+        </div>
+    </section>
+</section>
+</th:block>
+</th:block>
+
+<th:block th:fragment="adminnav(activeItem)" sec:authorize="hasAnyRole('ADMIN','MANAGER','SUPER_ADMIN')">
+    <aside th:replace="~{fragments :: adminSidebar(${activeItem})}"></aside>
+    <button type="button" class="dash-sidebar-backdrop" id="dashboardSidebarBackdrop" aria-label="Đóng menu"></button>
+    <header th:replace="~{fragments :: adminTopbar(${activeItem})}"></header>
+    <script th:src="@{/js/admin-dashboard-shell.js}" defer></script>
+</th:block>
+<aside th:fragment="adminSidebar(activeItem)" class="dash-sidebar" id="dashboardSidebar" aria-label="Điều hướng quản trị">
+        <span id="liveUpdateConfig" hidden></span>
+        <div class="dash-brand">
+            <a th:href="@{/admin/dashboard}" aria-label="UTEWedding - Tổng quan"><span class="dash-brand-mark">w</span><span><strong>UTE<i>Wedding</i></strong><small>Trang quản trị</small></span></a>
+            <button type="button" class="dash-sidebar-close" id="dashboardMenuClose" aria-label="Đóng menu">×</button>
+        </div>
+        <nav class="dash-nav">
+            <p>Tổng quan</p>
+            <a class="dash-nav-link" th:classappend="${activeItem == 'dashboard'} ? ' active' : ''" th:href="@{/admin/dashboard}" th:aria-current="${activeItem == 'dashboard' ? 'page' : null}"><span class="material-symbols-outlined" aria-hidden="true">grid_view</span>Tổng quan</a>
+            <p class="dash-nav-section">Bán hàng<span class="dash-nav-section-count" data-admin-attention="sales" th:if="${adminAttention != null}" th:hidden="${adminAttention.sales == 0}" th:text="${adminAttention.sales > 99 ? '99+' : adminAttention.sales}">0</span></p>
+            <a class="dash-nav-link" th:classappend="${activeItem == 'orders'} ? ' active' : ''" th:href="@{/admin/orders}" th:aria-current="${activeItem == 'orders' ? 'page' : null}"><span class="material-symbols-outlined" aria-hidden="true">shopping_bag</span>Đơn hàng<span class="dash-nav-count" data-admin-attention="orders" th:if="${adminAttention != null}" th:hidden="${adminAttention.orders == 0}" th:text="${adminAttention.orders > 99 ? '99+' : adminAttention.orders}">0</span></a>
+            <a class="dash-nav-link" th:classappend="${activeItem == 'fulfillments'} ? ' active' : ''" th:href="@{/admin/fulfillments}" th:aria-current="${activeItem == 'fulfillments' ? 'page' : null}"><span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>Chuẩn bị và giao hàng</a>
+            <a class="dash-nav-link" th:classappend="${activeItem == 'shippingCarriers'} ? ' active' : ''" th:href="@{/admin/shipping-carriers}" th:aria-current="${activeItem == 'shippingCarriers' ? 'page' : null}"><span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>Nhà vận chuyển</a>
+            <a class="dash-nav-link" th:classappend="${activeItem == 'payments'} ? ' active' : ''" th:href="@{/admin/payments}" th:aria-current="${activeItem == 'payments' ? 'page' : null}"><span class="material-symbols-outlined" aria-hidden="true">payments</span>Thanh toán</a>
+            <a class="dash-nav-link" th:classappend="${activeItem == 'returns'} ? ' active' : ''" th:href="@{/admin/returns}" th:aria-current="${activeItem == 'returns' ? 'page' : null}"><span class="material-symbols-outlined" aria-hidden="true">assignment_return</span>Trả hàng<span class="dash-nav-count" data-admin-attention="returns" th:if="${adminAttention != null}" th:hidden="${adminAttention.returns == 0}" th:text="${adminAttention.returns > 99 ? '99+' : adminAttention.returns}">0</span></a>
+            <a class="dash-nav-link" th:classappend="${activeItem == 'vouchers'} ? ' active' : ''" th:href="@{/admin/vouchers}" th:aria-current="${activeItem == 'vouchers' ? 'page' : null}"><span class="material-symbols-outlined" aria-hidden="true">sell</span>Mã giảm giá</a>
+            <a class="dash-nav-link" th:classappend="${activeItem == 'finance'} ? ' active' : ''" th:href="@{/admin/finance/cod}" th:aria-current="${activeItem == 'finance' ? 'page' : null}"><span class="material-symbols-outlined" aria-hidden="true">account_balance_wallet</span>Đối soát COD</a>
+            <a class="dash-nav-link" sec:authorize="hasAnyRole('ADMIN','SUPER_ADMIN')" th:if="${adminVendorFinanceEnabled}" th:classappend="${activeItem == 'vendorFinance'} ? ' active' : ''" th:href="@{/admin/finance/vendors}" th:aria-current="${activeItem == 'vendorFinance' ? 'page' : null}"><span class="material-symbols-outlined" aria-hidden="true">store</span>Tài chính nhà bán</a>
+            <a class="dash-nav-link" th:classappend="${activeItem == 'risk'} ? ' active' : ''" th:href="@{/admin/risk-events}" th:aria-current="${activeItem == 'risk' ? 'page' : null}"><span class="material-symbols-outlined" aria-hidden="true">shield</span>Cảnh báo rủi ro</a>
+            <a class="dash-nav-link" sec:authorize="hasAnyRole('ADMIN','SUPER_ADMIN')" th:classappend="${activeItem == 'shipping'} ? ' active' : ''" th:href="@{/admin/shipping-operations/ambiguous}" th:aria-current="${activeItem == 'shipping' ? 'page' : null}"><span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>Đối soát vận đơn</a>
+            <p class="dash-nav-section">Nội dung<span class="dash-nav-section-count" data-admin-attention="contentReviews" th:if="${adminAttention != null}" th:hidden="${adminAttention.contentReviews == 0}" th:text="${adminAttention.contentReviews > 99 ? '99+' : adminAttention.contentReviews}">0</span></p>
+            <a class="dash-nav-link" th:classappend="${activeItem == 'products'} ? ' active' : ''" th:href="@{/admin/products}" th:aria-current="${activeItem == 'products' ? 'page' : null}"><span class="material-symbols-outlined" aria-hidden="true">inventory_2</span>Sản phẩm</a>
+            <a class="dash-nav-link" th:classappend="${activeItem == 'categories'} ? ' active' : ''" th:href="@{/admin/categories}" th:aria-current="${activeItem == 'categories' ? 'page' : null}"><span class="material-symbols-outlined" aria-hidden="true">category</span>Danh mục</a>
+            <a class="dash-nav-link" th:classappend="${activeItem == 'reviews'} ? ' active' : ''" th:href="@{/admin/reviews}" th:aria-current="${activeItem == 'reviews' ? 'page' : null}"><span class="material-symbols-outlined" aria-hidden="true">star</span>Đánh giá<span class="dash-nav-count" data-admin-attention="reviews" th:if="${adminAttention != null}" th:hidden="${adminAttention.reviews == 0}" th:text="${adminAttention.reviews > 99 ? '99+' : adminAttention.reviews}">0</span></a>
+            <a class="dash-nav-link" th:classappend="${activeItem == 'reviewReports'} ? ' active' : ''" th:href="@{/admin/review-reports}" th:aria-current="${activeItem == 'reviewReports' ? 'page' : null}"><span class="material-symbols-outlined" aria-hidden="true">flag</span>Báo cáo đánh giá<span class="dash-nav-count" data-admin-attention="reviewReports" th:if="${adminAttention != null}" th:hidden="${adminAttention.reviewReports == 0}" th:text="${adminAttention.reviewReports > 99 ? '99+' : adminAttention.reviewReports}">0</span></a>
+            <a class="dash-nav-link" th:classappend="${activeItem == 'weddings'} ? ' active' : ''" th:href="@{/admin/weddings}" th:aria-current="${activeItem == 'weddings' ? 'page' : null}"><span class="material-symbols-outlined" aria-hidden="true">mail</span>Thiệp cưới</a>
+            <a class="dash-nav-link" th:classappend="${activeItem == 'support'} ? ' active' : ''" th:href="@{/admin/support}" th:aria-current="${activeItem == 'support' ? 'page' : null}"><span class="material-symbols-outlined" aria-hidden="true">support_agent</span>Hỗ trợ<span class="dash-nav-count" data-admin-attention="tickets" th:if="${adminAttention != null}" th:hidden="${adminAttention.tickets == 0}" th:text="${adminAttention.tickets > 99 ? '99+' : adminAttention.tickets}">0</span><span class="dash-nav-count" data-support-staff-unread hidden>0</span></a>
+            <th:block sec:authorize="hasAnyRole('ADMIN','SUPER_ADMIN')">
+                <p>Quản trị</p>
+                <a class="dash-nav-link" th:if="${adminShopManagementEnabled}" th:classappend="${activeItem == 'shops' ? ' active' : ''}" th:href="@{/admin/shops}" th:aria-current="${activeItem == 'shops' ? 'page' : null}"><span class="material-symbols-outlined" aria-hidden="true">storefront</span>Nhà bán</a>
+                <a class="dash-nav-link" th:classappend="${activeItem == 'users'} ? ' active' : ''" th:href="@{/admin/users}" th:aria-current="${activeItem == 'users' ? 'page' : null}"><span class="material-symbols-outlined" aria-hidden="true">group</span>Người dùng</a>
+                <a class="dash-nav-link" th:classappend="${activeItem == 'audit'} ? ' active' : ''" th:href="@{/admin/audit-logs}" th:aria-current="${activeItem == 'audit' ? 'page' : null}"><span class="material-symbols-outlined" aria-hidden="true">history</span>Nhật ký hoạt động</a>
+                <a class="dash-nav-link" th:classappend="${activeItem == 'privacy'} ? ' active' : ''" th:href="@{/admin/privacy}" th:aria-current="${activeItem == 'privacy' ? 'page' : null}"><span class="material-symbols-outlined" aria-hidden="true">lock</span>Quyền riêng tư</a>
+                <a class="dash-nav-link" th:classappend="${activeItem == 'addressCatalog'} ? ' active' : ''" th:href="@{/admin/settings/address-catalog}" th:aria-current="${activeItem == 'addressCatalog' ? 'page' : null}"><span class="material-symbols-outlined" aria-hidden="true">location_on</span>Danh mục địa chỉ</a>
+            </th:block>
+        </nav>
+        <div class="dash-sidebar-footer"><a th:href="@{/}"><span class="material-symbols-outlined" aria-hidden="true">storefront</span>Về cửa hàng</a></div>
+    </aside>
+<header th:fragment="adminTopbar(activeItem)" class="dash-topbar">
+        <div class="dash-topbar-left"><button type="button" class="dash-menu-button" id="dashboardMenuToggle" aria-expanded="false" aria-controls="dashboardSidebar" aria-label="Mở menu"><span class="material-symbols-outlined" aria-hidden="true">menu</span></button><span class="dash-breadcrumb">Trang quản trị <span aria-hidden="true">/</span> <strong th:switch="${activeItem}"><span th:case="'dashboard'">Tổng quan</span><span th:case="'orders'">Đơn hàng</span><span th:case="'fulfillments'">Chuẩn bị và giao hàng</span><span th:case="'shippingCarriers'">Nhà vận chuyển</span><span th:case="'payments'">Thanh toán</span><span th:case="'returns'">Trả hàng</span><span th:case="'vouchers'">Mã giảm giá</span><span th:case="'finance'">Đối soát COD</span><span th:case="'vendorFinance'">Tài chính nhà bán</span><span th:case="'risk'">Cảnh báo rủi ro</span><span th:case="'shipping'">Đối soát vận đơn</span><span th:case="'products'">Sản phẩm</span><span th:case="'categories'">Danh mục</span><span th:case="'reviews'">Đánh giá</span><span th:case="'reviewReports'">Báo cáo đánh giá</span><span th:case="'weddings'">Thiệp cưới</span><span th:case="'support'">Hỗ trợ</span><span th:case="'shops'">Nhà bán</span><span th:case="'users'">Người dùng</span><span th:case="'audit'">Nhật ký hoạt động</span><span th:case="'privacy'">Quyền riêng tư</span><span th:case="'addressCatalog'">Danh mục địa chỉ</span><span th:case="*">Quản trị</span></strong></span></div>
+        <div class="dash-topbar-actions">
+            <div class="dash-account"><span class="material-symbols-outlined" aria-hidden="true">account_circle</span><span><strong th:text="${headerDisplayName}">Tài khoản</strong><small><span sec:authorize="hasRole('MANAGER')">Quản lý</span><span sec:authorize="hasRole('ADMIN')">Quản trị viên</span><span sec:authorize="hasRole('SUPER_ADMIN')">Quản trị cấp cao</span></small></span></div>
+            <form th:action="@{/logout}" method="post" class="dash-logout-form"
+              data-confirm-title="Xác nhận đăng xuất"
+              data-confirm-message="Bạn có chắc chắn muốn đăng xuất khỏi tài khoản này?"
+              data-confirm-label="Đăng xuất">
+            <button type="submit" class="dash-logout-button" aria-label="Đăng xuất">
+                <span class="material-symbols-outlined" aria-hidden="true">logout</span>
+                <span class="dash-logout-label">Đăng xuất</span>
+            </button>
+            </form>
+        </div>
+    </header>
+<footer th:fragment="footer" class="site-footer">
+    <div class="container py-5">
+        <div class="row g-4 pb-4">
+            <div class="col-12 col-md-6 col-lg-4">
+                <a class="footer-brand" th:href="@{/}">UTEWedding</a>
+                <p class="footer-tagline mt-2 mb-0">Kỷ vật và thiệp cưới cho những ngày đáng nhớ.</p>
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+                <h2 class="footer-heading">Khám phá</h2>
+                <ul class="footer-links">
+                    <li><a th:href="@{/products}">Kỷ vật cưới</a></li>
+                    <li sec:authorize="hasAnyRole('USER','CUSTOMER')"><a th:href="@{/wedding/editor}">Tạo thiệp cưới</a></li>
+                    <li sec:authorize="!isAuthenticated()"><a th:href="@{/login}">Đăng nhập để tạo thiệp</a></li>
+                </ul>
+            </div>
+            <div class="col-6 col-md-3 col-lg-3">
+                <h2 class="footer-heading">Hỗ trợ</h2>
+                <ul class="footer-links">
+                    <li sec:authorize="hasAnyRole('USER','CUSTOMER')"><a th:href="@{/orders/history}">Đơn hàng của tôi</a></li>
+                    <li sec:authorize="hasAnyRole('USER','CUSTOMER')"><a th:href="@{/profile#addresses}">Địa chỉ đã lưu</a></li>
+                    <li sec:authorize="isAuthenticated()"><a th:href="@{/profile}">Tài khoản của tôi</a></li>
+                    <li><a th:href="@{/orders/track}">Tra cứu đơn hàng</a></li>
+                    <li sec:authorize="hasRole('SHIPPER')"><a th:href="@{/shipper/board}">Bảng giao hàng</a></li>
+                    <li><a th:href="@{/privacy}">Thông báo quyền riêng tư</a></li>
+                </ul>
+            </div>
+            <div class="col-12 col-lg-3">
+                <h2 class="footer-heading">Thanh toán</h2>
+                <div class="payment-methods" aria-label="Phương thức thanh toán">
+                    <span>COD</span><span>VNPay</span><span>MoMo</span>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 pt-3">
+            <span>© 2026 UTEWedding</span>
+            <a href="#top">Về đầu trang <span aria-hidden="true">↑</span></a>
+        </div>
+    </div>
+</footer>
+<th:block th:fragment="scripts">
+    <div th:if="${successMessage != null and !#strings.isEmpty(successMessage)}" data-flash-success hidden th:text="${successMessage}"></div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.6.1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js"></script>
+    <script th:src="@{/js/feedback-toasts.js}"></script>
+    <script sec:authorize="hasAnyRole('ADMIN','MANAGER','SUPER_ADMIN')"
+            th:src="@{/js/admin-attention.js}"></script>
+    <script th:src="@{/js/app.js}"></script>
+    <script th:src="@{/js/support-chat.js(v='support-chat-20261029-v4')}"></script>
+    <script th:src="@{/js/customer-message-policy.js(v='messages-policy-20261029-v2')}"></script>
+    <script th:src="@{/js/customer-messages.js(v='messages-20261029-v3')}"></script>
+    <script th:src="@{/js/form-feedback.js}"></script>
+</th:block>
 </body>
 </html>

@@ -1,0 +1,25 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {"datasource": {"type": "prometheus", "uid": "prometheus"}, "fieldConfig": {"defaults": {"max": 1, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}, "unit": "none"}, "overrides": []}, "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0}, "id": 1, "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}}, "targets": [{"expr": "max(utewedding_health_readiness)", "refId": "A"}], "title": "Readiness", "type": "stat"},
+    {"datasource": {"type": "prometheus", "uid": "prometheus"}, "fieldConfig": {"defaults": {"max": 1, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []}, "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0}, "id": 2, "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}}, "targets": [{"expr": "max(utewedding_health_liveness)", "refId": "A"}], "title": "Liveness", "type": "stat"},
+    {"datasource": {"type": "prometheus", "uid": "prometheus"}, "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}, "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0}, "id": 3, "options": {"reduceOptions": {"calcs": ["lastNotNull"]}}, "targets": [{"expr": "sum(increase(http_server_requests_seconds_count{status=~\"5..\"}[15m]))", "refId": "A"}], "title": "HTTP 5xx / 15m", "type": "stat"},
+    {"datasource": {"type": "prometheus", "uid": "prometheus"}, "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}, "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0}, "id": 4, "options": {"reduceOptions": {"calcs": ["lastNotNull"]}}, "targets": [{"expr": "sum(increase(utewedding_errors_total[15m]))", "refId": "A"}], "title": "Unhandled errors / 15m", "type": "stat"},
+    {"datasource": {"type": "prometheus", "uid": "prometheus"}, "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}, "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}, "id": 5, "targets": [{"expr": "sum by (provider, result) (increase(utewedding_payments_total[15m]))", "legendFormat": "{{provider}} {{result}}", "refId": "A"}], "title": "Payments / 15m", "type": "timeseries"},
+    {"datasource": {"type": "prometheus", "uid": "prometheus"}, "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}, "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}, "id": 6, "targets": [{"expr": "sum by (result) (increase(utewedding_orders_total[15m]))", "legendFormat": "order {{result}}", "refId": "A"}, {"expr": "sum by (result) (increase(utewedding_refunds_total[15m]))", "legendFormat": "refund {{result}}", "refId": "B"}, {"expr": "sum by (kind, result) (increase(utewedding_email_total[15m]))", "legendFormat": "email {{kind}} {{result}}", "refId": "C"}], "title": "Orders, refunds, email / 15m", "type": "timeseries"},
+    {"datasource": {"type": "prometheus", "uid": "prometheus"}, "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []}, "gridPos": {"h": 8, "w": 8, "x": 0, "y": 12}, "id": 7, "targets": [{"expr": "hikaricp_connections_active", "legendFormat": "active", "refId": "A"}, {"expr": "hikaricp_connections_pending", "legendFormat": "pending", "refId": "B"}, {"expr": "hikaricp_connections_max", "legendFormat": "max", "refId": "C"}], "title": "HikariCP", "type": "timeseries"},
+    {"datasource": {"type": "prometheus", "uid": "prometheus"}, "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []}, "gridPos": {"h": 8, "w": 8, "x": 8, "y": 12}, "id": 8, "targets": [{"expr": "sum(jvm_memory_used_bytes{area=\"heap\"})", "legendFormat": "heap used", "refId": "A"}, {"expr": "sum(jvm_memory_max_bytes{area=\"heap\"})", "legendFormat": "heap max", "refId": "B"}], "title": "JVM heap", "type": "timeseries"},
+    {"datasource": {"type": "prometheus", "uid": "prometheus"}, "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}, "gridPos": {"h": 8, "w": 8, "x": 16, "y": 12}, "id": 9, "targets": [{"expr": "time() - utewedding_backup_last_success_unixtime", "legendFormat": "logical backup age", "refId": "A"}, {"expr": "time() - utewedding_backup_drill_last_success_unixtime", "legendFormat": "restore drill age", "refId": "B"}, {"expr": "time() - utewedding_wal_ship_last_success_unixtime", "legendFormat": "wal ship age", "refId": "C"}], "title": "Backup age", "type": "timeseries"}
+  ],
+  "schemaVersion": 39,
+  "tags": ["utewedding"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "title": "UTEWedding",
+  "uid": "utewedding-overview",
+  "version": 1
+}

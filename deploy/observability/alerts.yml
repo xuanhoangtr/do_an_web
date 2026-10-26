@@ -1,0 +1,200 @@
+groups:
+  - name: utewedding
+    rules:
+      - alert: UteWeddingAppDown
+        expr: up{job="utewedding-app"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: App không còn scrape được metric
+          description: Prometheus không đọc được app:8081. Kiểm tra container app và cổng quản trị.
+
+      - alert: UteWeddingNotReady
+        expr: utewedding_health_readiness < 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Readiness không UP
+          description: Database hoặc disk khiến app không sẵn sàng nhận traffic.
+
+      - alert: UteWeddingNotLive
+        expr: utewedding_health_liveness < 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Liveness không UP
+          description: Process app không còn khỏe. Docker sẽ restart nếu healthcheck cũng thất bại.
+
+      - alert: UteWeddingHttp5xx
+        expr: sum(increase(http_server_requests_seconds_count{job="utewedding-app",status=~"5.."}[10m])) >= 3
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: HTTP 5xx tăng
+          description: Ít nhất 3 phản hồi 5xx trong 10 phút.
+
+      - alert: UteWeddingUnhandledErrors
+        expr: sum(increase(utewedding_errors_total[10m])) >= 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Lỗi hệ thống chưa được xử lý
+          description: API hoặc trang MVC ném exception ngoài dự kiến. Log có requestId và không chứa secret.
+
+      - alert: UteWeddingPaymentRejected
+        expr: sum(increase(utewedding_payments_total{result=~"rejected|error"}[15m])) >= 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Thanh toán bị từ chối hoặc lỗi
+          description: Chữ ký, số tiền, hoặc cổng thanh toán lỗi. Đây không phải giao dịch khách hủy.
+
+      - alert: UteWeddingPaymentDeclinedSpike
+        expr: sum(increase(utewedding_payments_total{result="declined"}[15m])) >= 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Nhiều giao dịch bị ngân hàng từ chối
+          description: Khách hủy hoặc ngân hàng từ chối. Kiểm tra nếu số lượng bất thường.
+
+      - alert: UteWeddingRefundError
+        expr: sum(increase(utewedding_refunds_total{result="error"}[30m])) >= 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Hoàn tiền gặp lỗi hệ thống
+          description: Refund không hoàn tất. Đối soát đơn và payment trước khi thử lại.
+
+      - alert: UteWeddingOrderError
+        expr: sum(increase(utewedding_orders_total{result="error"}[15m])) >= 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Tạo đơn gặp lỗi hệ thống
+          description: Checkout ném exception ngoài xung đột nghiệp vụ.
+
+      - alert: UteWeddingEmailFailures
+        expr: sum(increase(utewedding_email_total{result="failed"}[30m])) >= 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Gửi email thất bại
+          description: Xác thực, đặt lại mật khẩu, hoặc thông báo đơn không gửi được.
+
+      - alert: UteWeddingDbPoolSaturation
+        expr: sum(hikaricp_connections_active) / clamp_min(sum(hikaricp_connections_max), 1) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Pool kết nối database gần đầy
+          description: HikariCP đang dùng hơn 85% pool.
+
+      - alert: UteWeddingDbPoolPending
+        expr: sum(hikaricp_connections_pending) > 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Request đang chờ connection
+          description: Pool không còn connection rảnh.
+
+      - alert: UteWeddingJvmHeapHigh
+        expr: sum(jvm_memory_used_bytes{area="heap"}) / clamp_min(sum(jvm_memory_max_bytes{area="heap"}), 1) > 0.9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Heap JVM trên 90%
+          description: Theo dõi GC trước khi process bị dừng.
+
+      - alert: UteWeddingPostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Postgres exporter không kết nối được database
+          description: Kiểm tra postgres và DATA_SOURCE_NAME. Không ghi password vào log.
+
+      - alert: UteWeddingWalArchiveFailing
+        expr: increase(pg_stat_archiver_failed_count[10m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: PostgreSQL không lưu được WAL
+          description: archive_command thất bại. PITR đang dừng và disk có thể đầy.
+
+      - alert: UteWeddingWalArchiveStale
+        expr: (time() - pg_stat_archiver_last_archive_time) > 900 and pg_stat_archiver_last_archive_time > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: WAL archive đã cũ hơn 15 phút
+          description: Bật khi PITR đang chạy. Nếu chưa bật backup overlay thì bỏ qua cảnh báo này.
+
+      - alert: UteWeddingBackupStale
+        expr: (time() - utewedding_backup_last_success_unixtime) > 93600
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: Backup logic đã cũ hơn 26 giờ
+          description: Scheduler backup không hoàn tất dump mã hóa trong cửa sổ retention.
+
+      - alert: UteWeddingBackupMetricsMissing
+        expr: absent(utewedding_backup_last_success_unixtime)
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: Chưa có metric backup
+          description: Stack backup chưa chạy hoặc node exporter textfile chưa thấy file .prom.
+
+      - alert: UteWeddingOffsiteNotConfigured
+        expr: utewedding_backup_offsite_configured == 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: Offsite backup chưa được xác nhận
+          description: Đặt BACKUP_OFFSITE_IS_REMOTE=true chỉ khi đích nằm trên máy hoặc object storage khác.
+
+      - alert: UteWeddingOffsiteStale
+        expr: utewedding_backup_offsite_configured == 1 and (time() - utewedding_backup_offsite_last_success_unixtime) > 93600
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: Offsite backup đã cũ hơn 26 giờ
+          description: Bản mã hóa local có thể còn, nhưng bản ngoài máy thì không.
+
+      - alert: UteWeddingRestoreDrillStale
+        expr: (time() - utewedding_backup_drill_last_success_unixtime) > 691200
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: Restore drill cũ hơn 8 ngày
+          description: Bản backup chưa được chứng minh là restore được trong tuần qua.
+
+      - alert: UteWeddingWalShipStale
+        expr: utewedding_wal_ship_last_success == 0 or ((time() - utewedding_wal_ship_last_success_unixtime) > 300 and utewedding_wal_ship_last_success_unixtime > 0)
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: WAL chưa được chuyển offsite trong 5 phút
+          description: RPO 5 phút không còn đúng cho đến khi ship-wal thành công.
