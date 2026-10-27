@@ -21,7 +21,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Locale;
 import java.util.UUID;
@@ -45,7 +44,6 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
     private final ObjectMapper objectMapper;
     private final EmailVerificationRateLimitService rateLimitService;
     private final SecureRandom secureRandom = new SecureRandom();
-    private final String verificationUrl;
     private final Duration challengeTtl;
     private final Duration resendCooldown;
     private final Duration rateLimitWindow;
@@ -57,7 +55,6 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
                                         OutboxService outbox,
                                         ObjectMapper objectMapper,
                                         EmailVerificationRateLimitService rateLimitService,
-                                        @Value("${app.url:http://localhost:8080}") String appUrl,
                                         @Value("${security.email-verification.ttl:10m}") Duration challengeTtl,
                                         @Value("${security.email-verification.resend-cooldown:60s}") Duration resendCooldown,
                                         @Value("${security.email-verification.rate-limit-window:1h}") Duration rateLimitWindow) {
@@ -68,7 +65,6 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
         this.outbox = outbox;
         this.objectMapper = objectMapper;
         this.rateLimitService = rateLimitService;
-        this.verificationUrl = appUrl.replaceAll("/+$", "") + "/verify-email?token=";
         if (challengeTtl.isNegative() || challengeTtl.isZero()) {
             throw new IllegalArgumentException("Email verification TTL must be positive");
         }
@@ -94,19 +90,18 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
         }
         rateLimitService.consume(normalized, context == null ? null : context.ipAddress());
         String otp = otp();
-        String linkToken = randomToken();
         if (current == null) {
             current = new EmailVerificationChallengeEntity(userId, normalized, hash(otp),
-                    hash(linkToken), now.plus(challengeTtl), now, limitIp(context));
+                    null, now.plus(challengeTtl), now, limitIp(context));
         } else {
             boolean resetWindow = !current.getWindowStartedAt().plus(rateLimitWindow).isAfter(now);
-            current.rotate(hash(otp), hash(linkToken), now.plus(challengeTtl), now,
+            current.rotate(hash(otp), null, now.plus(challengeTtl), now,
                     limitIp(context), resetWindow);
         }
         challengeRepository.save(current);
         try {
             String payload = objectMapper.writeValueAsString(java.util.Map.of(
-                "recipient", normalized, "otp", otp, "verificationLink", verificationUrl + linkToken));
+                "recipient", normalized, "otp", otp));
             outbox.enqueue("EMAIL_VERIFICATION", "EmailVerificationChallenge", current.getId(),
                 "email-verification:" + current.getId() + ":" + current.getSentCount(), payload, context);
         } catch (JsonProcessingException exception) {
@@ -157,10 +152,13 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
         if (challenge.getAttemptCount() >= MAX_ATTEMPTS) {
             throw new UnauthorizedException("Mã xác thực đã bị khóa do nhập sai quá nhiều lần.");
         }
-        if (!MessageDigest.isEqual(challenge.getOtpHash().getBytes(StandardCharsets.UTF_8),
-                suppliedHash.getBytes(StandardCharsets.UTF_8))
-                && !MessageDigest.isEqual(challenge.getLinkTokenHash().getBytes(StandardCharsets.UTF_8),
-                suppliedHash.getBytes(StandardCharsets.UTF_8))) {
+        boolean otpMatches = MessageDigest.isEqual(challenge.getOtpHash().getBytes(StandardCharsets.UTF_8),
+                suppliedHash.getBytes(StandardCharsets.UTF_8));
+        String legacyLinkTokenHash = challenge.getLinkTokenHash();
+        boolean legacyLinkMatches = legacyLinkTokenHash != null
+                && MessageDigest.isEqual(legacyLinkTokenHash.getBytes(StandardCharsets.UTF_8),
+                suppliedHash.getBytes(StandardCharsets.UTF_8));
+        if (!otpMatches && !legacyLinkMatches) {
             challenge.incrementAttemptCount();
             challengeRepository.save(challenge);
             throw new InvalidOtpException("Mã xác thực không hợp lệ.");
@@ -178,12 +176,6 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
     }
 
     private String otp() { return String.format("%06d", secureRandom.nextInt(1_000_000)); }
-
-    private String randomToken() {
-        byte[] bytes = new byte[32];
-        secureRandom.nextBytes(bytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-    }
 
     private static String normalize(String email) {
         return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);

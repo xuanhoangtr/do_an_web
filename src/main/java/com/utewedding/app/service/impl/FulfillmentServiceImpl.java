@@ -16,6 +16,7 @@
  */
 package com.utewedding.app.service.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.utewedding.app.domain.AuditAction;
 import com.utewedding.app.domain.CodCollectorRules;
 import com.utewedding.app.domain.DeliveryAttemptOutcome;
@@ -25,12 +26,17 @@ import com.utewedding.app.domain.OrderStatus;
 import com.utewedding.app.domain.OverallFulfillmentStatus;
 import com.utewedding.app.domain.PaymentMethod;
 import com.utewedding.app.domain.PaymentStatus;
+import com.utewedding.app.domain.ShopAddressKind;
+import com.utewedding.app.domain.ShopDefaults;
 import com.utewedding.app.domain.UserRole;
 import com.utewedding.app.domain.entity.DeliveryAttemptEntity;
+import com.utewedding.app.domain.entity.OrderShippingSnapshotEntity;
 import com.utewedding.app.domain.entity.OrderEntity;
 import com.utewedding.app.domain.entity.OrderFulfillmentEntity;
+import com.utewedding.app.domain.entity.FulfillmentShipmentEntity;
 import com.utewedding.app.domain.entity.OrderFulfillmentItemEntity;
 import com.utewedding.app.domain.entity.OrderItemEntity;
+import com.utewedding.app.domain.entity.ShopAddressRevisionEntity;
 import com.utewedding.app.domain.entity.UserEntity;
 import com.utewedding.app.dto.request.AssignFulfillmentRequest;
 import com.utewedding.app.dto.response.DeliveryAttemptResponse;
@@ -40,6 +46,7 @@ import com.utewedding.app.dto.response.FulfillmentTimelineEvent;
 import com.utewedding.app.dto.response.ShipperBoardSummary;
 import com.utewedding.app.dto.response.ShipperPerformanceSummary;
 import com.utewedding.app.dto.response.ShipperResponse;
+import com.utewedding.app.dto.response.FulfillmentResponse.ShipperContext;
 import com.utewedding.app.event.FulfillmentChangedEvent;
 import com.utewedding.app.exception.BusinessConflictException;
 import com.utewedding.app.exception.ResourceNotFoundException;
@@ -52,6 +59,8 @@ import com.utewedding.app.repository.OrderFulfillmentRepository;
 import com.utewedding.app.repository.OrderItemRepository;
 import com.utewedding.app.repository.OrderRepository;
 import com.utewedding.app.repository.OrderShippingSnapshotRepository;
+import com.utewedding.app.repository.FulfillmentShipmentRepository;
+import com.utewedding.app.repository.ShopAddressRevisionRepository;
 import com.utewedding.app.repository.ProductRepository;
 import com.utewedding.app.repository.UserRepository;
 import com.utewedding.app.service.FulfillmentService;
@@ -61,6 +70,7 @@ import com.utewedding.app.service.RequestContext;
 import com.utewedding.app.service.impl.CodReconciliationService;
 import com.utewedding.app.service.impl.FulfillmentDeliveryPersistence;
 import com.utewedding.app.service.port.AuditLogPort;
+import com.utewedding.app.service.port.ShippingProvider.GhnShipmentContext;
 import jakarta.persistence.EntityManager;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -106,6 +116,62 @@ implements FulfillmentService {
     private final OrderIntegrityProbe integrityProbe;
     private CodReconciliationService codReconciliationService;
     private OrderShippingSnapshotRepository shippingSnapshots;
+    private ShopAddressRevisionRepository addressRevisions;
+    private FulfillmentShipmentRepository shipperShipments;
+    private ObjectMapper shipperProjectionJson;
+    private VendorWorkspaceContext vendorWorkspace;
+    private ShopAccessPolicy vendorAccess;
+    private com.utewedding.app.config.MarketplaceFeatureFlags vendorFeatures;
+
+    @Autowired
+    public void configureVendorCommands(VendorWorkspaceContext workspace, ShopAccessPolicy access,
+                                       com.utewedding.app.config.MarketplaceFeatureFlags features) {
+        this.vendorWorkspace = workspace;
+        this.vendorAccess = access;
+        this.vendorFeatures = features;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void acceptCodAsVendor(com.utewedding.app.security.UserPrincipal actor, UUID orderId, RequestContext context) {
+        OrderEntity order = lockedVendorOrder(actor, orderId);
+        requireVendorPayment(order, true);
+        if (order.getConfirmedAt() != null) return;
+        confirmCodOrderLocked(actor.getId(), order, context);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void startPreparationAsVendor(com.utewedding.app.security.UserPrincipal actor, UUID orderId, RequestContext context) {
+        OrderEntity order = lockedVendorOrder(actor, orderId);
+        requireVendorPayment(order, false);
+        if (PaymentMethod.COD.name().equalsIgnoreCase(order.getPaymentMethod())) {
+            requireCodOrderConfirmed(order);
+        } else {
+            ensureForOrder(orderId, context);
+        }
+        List<OrderFulfillmentEntity> rows = fulfillmentRepository.findByOrderIdForUpdate(orderId);
+        if (rows.isEmpty() || rows.stream().anyMatch(row -> !orderId.equals(row.getOrderId())
+                || (row.getStatus() != FulfillmentStatus.CONFIRMED && row.getStatus() != FulfillmentStatus.PROCESSING))) {
+            throw new BusinessConflictException("Đơn hàng không còn ở bước chuẩn bị.");
+        }
+        for (OrderFulfillmentEntity row : rows) transition(row, FulfillmentStatus.PROCESSING, actor.getId(), context);
+    }
+
+    private OrderEntity lockedVendorOrder(com.utewedding.app.security.UserPrincipal actor, UUID orderId) {
+        if (vendorFeatures == null || !vendorFeatures.isEnabled(com.utewedding.app.config.MarketplaceFeatureFlags.Feature.VENDOR_ORDERS)) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND);
+        }
+        UUID shopId = vendorWorkspace.requireWorkspace(actor).shopId();
+        vendorAccess.requireMutation(actor, shopId);
+        return orderRepository.findByIdAndShopIdForUpdate(orderId, shopId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng trong cửa hàng."));
+    }
+
+    private void requireVendorPayment(OrderEntity order, boolean codOnly) {
+        boolean cod = PaymentMethod.COD.name().equalsIgnoreCase(order.getPaymentMethod());
+        boolean eligible = cod ? order.getStatus() == OrderStatus.PENDING && order.getPaymentStatus() == PaymentStatus.PENDING
+                : !codOnly && order.getStatus() == OrderStatus.PAID && order.getPaymentStatus() == PaymentStatus.SUCCEEDED;
+        if (!eligible || (codOnly && !cod)) throw new BusinessConflictException("Đơn hàng chưa đủ điều kiện xác nhận hoặc chuẩn bị.");
+    }
 
     public FulfillmentServiceImpl(OrderRepository orderRepository, OrderItemRepository orderItemRepository, OrderFulfillmentRepository fulfillmentRepository, OrderFulfillmentItemRepository fulfillmentItemRepository, UserRepository userRepository, AuditLogPort auditLog, ApplicationEventPublisher eventPublisher, CloudinaryService cloudinaryService, FulfillmentDeliveryPersistence deliveryPersistence) {
         this(orderRepository, orderItemRepository, fulfillmentRepository, fulfillmentItemRepository, userRepository, auditLog, eventPublisher, cloudinaryService, deliveryPersistence, null, null, null, null, null);
@@ -139,6 +205,17 @@ implements FulfillmentService {
         this.shippingSnapshots = repository;
     }
 
+    @Autowired(required=false)
+    void attachShopAddressRevisionRepository(ShopAddressRevisionRepository repository) {
+        this.addressRevisions = repository;
+    }
+
+    @Autowired(required=false)
+    void attachShipperProjection(FulfillmentShipmentRepository shipments, ObjectMapper json) {
+        this.shipperShipments = shipments;
+        this.shipperProjectionJson = json;
+    }
+
     @Override
     @Transactional(rollbackFor={Exception.class})
     public void ensureForOrder(UUID orderId) {
@@ -158,6 +235,7 @@ implements FulfillmentService {
         if (existing.isEmpty()) {
             OrderFulfillmentEntity fulfillment = new OrderFulfillmentEntity();
             fulfillment.setOrderId(orderId);
+            fulfillment.setShopId(order.getShopId());
             fulfillment.setStatus(FulfillmentStatus.CONFIRMED);
             fulfillment = (OrderFulfillmentEntity)this.fulfillmentRepository.saveAndFlush(fulfillment);
             this.auditLog.record("FULFILLMENT_CREATED", null, "OrderFulfillment", fulfillment.getId(), Map.of("orderId", orderId), context);
@@ -166,6 +244,7 @@ implements FulfillmentService {
                 OrderFulfillmentItemEntity link = new OrderFulfillmentItemEntity();
                 link.setFulfillmentId(fulfillment.getId());
                 link.setOrderItemId(item.getId());
+                link.setShopId(fulfillment.getShopId());
                 this.fulfillmentItemRepository.save(link);
             }
         }
@@ -177,6 +256,11 @@ implements FulfillmentService {
     public void confirmCodOrder(UUID actorId, UUID orderId, RequestContext context) {
         this.requireOperationsRole(actorId);
         OrderEntity order = this.orderRepository.findByIdForUpdate(orderId).orElseThrow(() -> new ResourceNotFoundException("Kh\u00f4ng t\u00ecm th\u1ea5y \u0111\u01a1n h\u00e0ng."));
+        confirmCodOrderLocked(actorId, order, context);
+    }
+
+    private void confirmCodOrderLocked(UUID actorId, OrderEntity order, RequestContext context) {
+        UUID orderId = order.getId();
         if (!PaymentMethod.COD.name().equalsIgnoreCase(order.getPaymentMethod()) || order.getStatus() != OrderStatus.PENDING || order.getPaymentStatus() != PaymentStatus.PENDING) {
             throw new BusinessConflictException("Ch\u1ec9 \u0111\u01a1n COD \u0111ang ch\u1edd m\u1edbi \u0111\u01b0\u1ee3c x\u00e1c nh\u1eadn.");
         }
@@ -190,6 +274,7 @@ implements FulfillmentService {
         if (rows.isEmpty()) {
             OrderFulfillmentEntity fulfillment = new OrderFulfillmentEntity();
             fulfillment.setOrderId(orderId);
+            fulfillment.setShopId(order.getShopId());
             fulfillment.setStatus(FulfillmentStatus.CONFIRMED);
             fulfillment = (OrderFulfillmentEntity)this.fulfillmentRepository.saveAndFlush(fulfillment);
             this.auditLog.record("FULFILLMENT_CREATED", actorId, "OrderFulfillment", fulfillment.getId(), Map.of("orderId", orderId, "source", "COD_ORDER_CONFIRMED"), context);
@@ -198,6 +283,7 @@ implements FulfillmentService {
                 OrderFulfillmentItemEntity link = new OrderFulfillmentItemEntity();
                 link.setFulfillmentId(fulfillment.getId());
                 link.setOrderItemId(item.getId());
+                link.setShopId(fulfillment.getShopId());
                 this.fulfillmentItemRepository.save(link);
             }
         }
@@ -247,7 +333,8 @@ implements FulfillmentService {
     @Override
     @Transactional(readOnly=true)
     public Page<FulfillmentResponse> listForShipper(UUID shipperId, Pageable pageable) {
-        return this.toPageResponses(this.fulfillmentRepository.findByShipperId(shipperId, this.normalize(pageable)));
+        return this.toShipperPageResponses(
+                this.fulfillmentRepository.findByShipperId(shipperId, this.normalize(pageable)), shipperId);
     }
 
     @Override
@@ -256,10 +343,13 @@ implements FulfillmentService {
         Pageable safePageable = this.normalize(pageable);
         String query = this.normalize(search);
         if (query == null) {
-            return this.toPageResponses(this.fulfillmentRepository.findShipperBoardPage(shipperId, history, SHIPPER_WORK_STATUSES, TERMINAL_ORDER_STATUSES, PaymentStatus.REFUNDED, status, safePageable));
+            return this.toShipperPageResponses(this.fulfillmentRepository.findShipperBoardPage(shipperId,
+                    history, SHIPPER_WORK_STATUSES, TERMINAL_ORDER_STATUSES, PaymentStatus.REFUNDED, status,
+                    safePageable), shipperId);
         }
         List<OrderFulfillmentEntity> rows = this.fulfillmentRepository.findShipperBoardRows(shipperId, history, SHIPPER_WORK_STATUSES, TERMINAL_ORDER_STATUSES, PaymentStatus.REFUNDED, status, safePageable.getSort());
-        Page<FulfillmentResponse> candidatePage = this.toPageResponses((Page<OrderFulfillmentEntity>)new PageImpl(rows, safePageable, (long)rows.size()));
+        Page<FulfillmentResponse> candidatePage = this.toShipperPageResponses(
+                new PageImpl<>(rows, safePageable, rows.size()), shipperId);
         List<FulfillmentResponse> matches = candidatePage.getContent().stream().filter(row -> this.matchesSearch((FulfillmentResponse)row, query)).toList();
         int from = (int)Math.min(safePageable.getOffset(), (long)matches.size());
         int to = (int)Math.min((long)from + (long)safePageable.getPageSize(), (long)matches.size());
@@ -289,10 +379,19 @@ implements FulfillmentService {
         this.requireCodOrderConfirmed(order);
         this.rejectLegacyOrDelivered(fulfillment);
         UUID previousShipper = fulfillment.getShipperId();
-        fulfillment.setShipperId(shipper.getId());
         String tracking = this.normalize(request.trackingNumber());
+        OrderShippingSnapshotEntity shippingSnapshot = this.shippingSnapshot(order.getId());
+        if (this.isGhnProvider(shippingSnapshot)) {
+            throw new BusinessConflictException("Đơn GHN phải đi qua luồng vận chuyển GHN, không thể gán giao nội bộ.");
+        }
+        if (this.isInternalDelivery(shippingSnapshot) && tracking != null) {
+            throw new BusinessConflictException("Đơn giao hàng nội bộ không nhận mã vận đơn GHN.");
+        }
+        fulfillment.setShipperId(shipper.getId());
         if (tracking != null) {
             fulfillment.setTrackingNumber(tracking);
+        } else if (this.isInternalDelivery(shippingSnapshot)) {
+            fulfillment.setTrackingNumber(null);
         }
         fulfillment = (OrderFulfillmentEntity)this.fulfillmentRepository.saveAndFlush(fulfillment);
         this.auditLog.record("FULFILLMENT_ASSIGNED", actorId, "OrderFulfillment", fulfillmentId, Map.of("shipperId", String.valueOf(previousShipper) + " -> " + String.valueOf(shipper.getId())), context);
@@ -340,6 +439,7 @@ implements FulfillmentService {
         if (!Objects.equals(shipperId, fulfillment.getShipperId())) {
             throw new AccessDeniedException("Fulfillment n\u00e0y ch\u01b0a \u0111\u01b0\u1ee3c g\u00e1n cho b\u1ea1n.");
         }
+        this.requireNonGhnInternalWorkflow(this.shippingSnapshot(order.getId()));
         this.requireOrderCanBeDelivered(order);
         if (fulfillment.getStatus() != FulfillmentStatus.PICKUP_PENDING) {
             throw new BusinessConflictException("Ch\u1ec9 x\u00e1c nh\u1eadn nh\u1eadn h\u00e0ng khi fulfillment \u0111ang ch\u1edd l\u1ea5y h\u00e0ng.");
@@ -356,7 +456,7 @@ implements FulfillmentService {
         if (!Objects.equals(shipperId, located.getShipperId())) {
             throw new AccessDeniedException("Fulfillment n\u00e0y ch\u01b0a \u0111\u01b0\u1ee3c g\u00e1n cho b\u1ea1n.");
         }
-        this.requireTrackingForExternalProvider(located.getOrderId(), located.getTrackingNumber());
+        this.requireTrackingForProvider(located.getOrderId(), located.getId(), located.getTrackingNumber());
         if (this.integrityProbe != null) {
             this.integrityProbe.beforeCompetingStatusWrite("ship");
         }
@@ -371,7 +471,7 @@ implements FulfillmentService {
         if (!Objects.equals(shipperId, fulfillment.getShipperId())) {
             throw new AccessDeniedException("Fulfillment n\u00e0y ch\u01b0a \u0111\u01b0\u1ee3c g\u00e1n cho b\u1ea1n.");
         }
-        this.requireTrackingForExternalProvider(order.getId(), fulfillment.getTrackingNumber());
+        this.requireTrackingForProvider(order.getId(), fulfillment.getId(), fulfillment.getTrackingNumber());
         this.requireOrderCanBeDelivered(order);
         this.requireCodOrderConfirmed(order);
         if (fulfillment.getStatus() == FulfillmentStatus.PICKED_UP || fulfillment.getStatus() == FulfillmentStatus.RETRY_DELIVERY) {
@@ -387,12 +487,38 @@ implements FulfillmentService {
         return this.toResponse(fulfillment, order);
     }
 
-    private void requireTrackingForExternalProvider(UUID orderId, String trackingNumber) {
-        boolean internalDelivery;
-        boolean bl = internalDelivery = this.shippingSnapshots != null && orderId != null && this.shippingSnapshots.findByOrderId(orderId).map(snapshot -> "INTERNAL".equalsIgnoreCase(snapshot.getProviderCode())).orElse(false) != false;
-        if (!internalDelivery && this.normalize(trackingNumber) == null) {
-            throw new BusinessConflictException("C\u1ea7n tracking number tr\u01b0\u1edbc khi b\u1eaft \u0111\u1ea7u giao h\u00e0ng.");
+    private void requireTrackingForProvider(UUID orderId, UUID fulfillmentId, String trackingNumber) {
+        OrderShippingSnapshotEntity snapshot = this.shippingSnapshot(orderId);
+        this.requireNonGhnInternalWorkflow(snapshot);
+        if (this.isInternalDelivery(snapshot)) {
+            if (this.normalize(trackingNumber) != null) {
+                throw new BusinessConflictException("Đơn giao hàng nội bộ không được dùng mã vận đơn GHN.");
+            }
+            if (this.shipperShipments != null
+                    && this.shipperShipments.findFirstByFulfillmentIdAndProviderCodeOrderByCreatedAtDesc(
+                            fulfillmentId, "GHN").isPresent()) {
+                throw new BusinessConflictException("Đơn giao hàng nội bộ không thể tiếp tục qua vận đơn GHN.");
+            }
+            return;
         }
+        if (this.normalize(trackingNumber) == null) {
+            throw new BusinessConflictException("Cần tracking number trước khi bắt đầu giao hàng.");
+        }
+    }
+
+    private void requireNonGhnInternalWorkflow(OrderShippingSnapshotEntity snapshot) {
+        if (this.isGhnProvider(snapshot)) {
+            throw new BusinessConflictException("Đơn GHN phải được cập nhật qua luồng vận chuyển GHN.");
+        }
+    }
+
+    private OrderShippingSnapshotEntity shippingSnapshot(UUID orderId) {
+        return this.shippingSnapshots == null || orderId == null ? null
+                : this.shippingSnapshots.findByOrderId(orderId).orElse(null);
+    }
+
+    private boolean isInternalDelivery(OrderShippingSnapshotEntity snapshot) {
+        return snapshot != null && "INTERNAL".equalsIgnoreCase(snapshot.getProviderCode());
     }
 
     @Override
@@ -516,6 +642,135 @@ implements FulfillmentService {
         return new FulfillmentResponse(base.id(), base.orderId(), base.orderNumber(), base.status(), base.shipperId(), base.trackingNumber(), base.deliveredAt(), base.deliveryProofUrl(), base.createdAt(), base.updatedAt(), base.orderItemIds(), base.shippingRecipientName(), base.shippingPhone(), base.shippingAddress(), base.shippingWard(), base.shippingDistrict(), base.shippingProvince(), base.orderStatus(), base.orderPaymentStatus(), base.items(), base.paymentMethod(), base.collectsCod(), base.codAmount(), this.attempts(row.getId()), this.timeline(row.getId()), this.codReconciliationService == null ? null : this.codReconciliationService.collectionReceiptCode(row.getId()));
     }
 
+    private FulfillmentResponse toDetailedShipperResponse(OrderFulfillmentEntity row, OrderEntity order) {
+        FulfillmentResponse base = this.toDetailedResponse(row, order);
+        FulfillmentShipmentEntity shipment = this.shipperShipments == null ? null
+                : this.shipperShipments.findFirstByFulfillmentIdOrderByCreatedAtDesc(row.getId()).orElse(null);
+        return withShipperContext(base, shipperContext(row, order, shipment));
+    }
+
+    private Page<FulfillmentResponse> toShipperPageResponses(Page<OrderFulfillmentEntity> page, UUID shipperId) {
+        if (page.isEmpty()) {
+            return new PageImpl<>(List.of(), page.getPageable(), page.getTotalElements());
+        }
+        List<UUID> orderIds = page.getContent().stream().map(OrderFulfillmentEntity::getOrderId)
+                .filter(Objects::nonNull).distinct().toList();
+        Map<UUID, OrderEntity> orders = new HashMap<>();
+        this.orderRepository.findAllById(orderIds).forEach(order -> orders.put(order.getId(), order));
+        Map<UUID, OrderShippingSnapshotEntity> shippingByOrder = this.shippingSnapshots == null ? Map.of()
+                : this.shippingSnapshots.findByOrderIdIn(orderIds).stream().collect(
+                        java.util.stream.Collectors.toMap(OrderShippingSnapshotEntity::getOrderId,
+                                snapshot -> snapshot, (first, ignored) -> first));
+        Map<UUID, List<FulfillmentItemResponse>> itemsByFulfillment = this.batchFulfillmentItems(page.getContent());
+        Map<UUID, FulfillmentShipmentEntity> shipmentsByFulfillment = new HashMap<>();
+        if (this.shipperShipments != null) {
+            List<UUID> fulfillmentIds = page.getContent().stream().map(OrderFulfillmentEntity::getId)
+                    .filter(Objects::nonNull).distinct().toList();
+            for (FulfillmentShipmentEntity shipment : this.shipperShipments.findByFulfillmentIdIn(fulfillmentIds)) {
+                FulfillmentShipmentEntity current = shipmentsByFulfillment.get(shipment.getFulfillmentId());
+                if (current == null || (shipment.getCreatedAt() != null
+                        && (current.getCreatedAt() == null || shipment.getCreatedAt().isAfter(current.getCreatedAt())))) {
+                    shipmentsByFulfillment.put(shipment.getFulfillmentId(), shipment);
+                }
+            }
+        }
+        return page.map(row -> {
+            OrderEntity order = orders.get(row.getOrderId());
+            FulfillmentResponse response = this.toResponse(row, order,
+                    itemsByFulfillment.getOrDefault(row.getId(), List.of()));
+            if (!Objects.equals(shipperId, row.getShipperId())) return response;
+            return withShipperContext(response,
+                    shipperContext(row, order, shipmentsByFulfillment.get(row.getId()),
+                            shippingByOrder.get(row.getOrderId())));
+        });
+    }
+
+    private ShipperContext shipperContext(OrderFulfillmentEntity fulfillment, OrderEntity order,
+                                           FulfillmentShipmentEntity shipment) {
+        OrderShippingSnapshotEntity shippingSnapshot = order == null ? null : this.shippingSnapshot(order.getId());
+        return shipperContext(fulfillment, order, shipment, shippingSnapshot);
+    }
+
+    private ShipperContext shipperContext(OrderFulfillmentEntity fulfillment, OrderEntity order,
+                                           FulfillmentShipmentEntity shipment,
+                                           OrderShippingSnapshotEntity shippingSnapshot) {
+        String shopName = order == null ? null : normalize(order.getShopNameSnapshot());
+        if (shopName == null) shopName = "UTEWedding";
+        String contactName = null;
+        String phone = null;
+        String address = null;
+        String provinceCode = null;
+        String wardCode = null;
+        boolean vendorSnapshot = this.isScopedVendorSnapshot(fulfillment, order, shippingSnapshot);
+        if (vendorSnapshot && shippingSnapshot.getOriginAddressRevisionId() != null
+                && this.addressRevisions != null) {
+            ShopAddressRevisionEntity origin = this.addressRevisions.findByIdAndShopIdAndAddressKind(
+                    shippingSnapshot.getOriginAddressRevisionId(), order.getShopId(), ShopAddressKind.PICKUP)
+                    .filter(revision -> shippingSnapshot.getOriginAddressRevision() == null
+                            || revision.getRevision() == shippingSnapshot.getOriginAddressRevision())
+                    .orElse(null);
+            if (origin != null) {
+                contactName = normalize(origin.getContactName());
+                phone = normalize(origin.getContactPhone());
+                address = normalize(origin.getAddressLine());
+                provinceCode = normalize(origin.getProvinceCode());
+                wardCode = normalize(origin.getWardCode());
+            }
+        }
+        if (address == null && this.isScopedVendorOrder(fulfillment, order)
+                && (shippingSnapshot == null || this.isGhnProvider(shippingSnapshot))
+                && this.shipperProjectionJson != null && shipment != null
+                && "GHN".equalsIgnoreCase(shipment.getProviderCode())
+                && fulfillment.getId().equals(shipment.getFulfillmentId())
+                && Objects.equals(fulfillment.getShopId(), shipment.getShopId())
+                && Objects.equals(order.getShopId(), shipment.getShopId())) {
+            try {
+                GhnShipmentContext snapshot = this.shipperProjectionJson.readValue(
+                        shipment.getProviderContextSnapshot(), GhnShipmentContext.class);
+                if (snapshot != null && snapshot.pickupAddress() != null
+                        && snapshot.shopId().equals(shipment.getShopId())
+                        && Objects.equals(snapshot.accountId(), shipment.getProviderAccountId())
+                        && "STAGING".equalsIgnoreCase(snapshot.environment())
+                        && snapshot.externalShopId() != null && !snapshot.externalShopId().isBlank()) {
+                    contactName = normalize(snapshot.pickupAddress().recipientName());
+                    phone = normalize(snapshot.pickupAddress().phone());
+                    address = normalize(snapshot.pickupAddress().addressLine());
+                    provinceCode = normalize(snapshot.pickupAddress().provinceCode());
+                    wardCode = normalize(snapshot.pickupAddress().wardCode());
+                }
+            } catch (Exception ignored) {
+                // Keep the shop snapshot visible, but omit pickup data from an unreadable context.
+            }
+        }
+        return new ShipperContext(shopName, contactName, phone, address, provinceCode, wardCode);
+    }
+
+    private boolean isScopedVendorSnapshot(OrderFulfillmentEntity fulfillment, OrderEntity order,
+                                           OrderShippingSnapshotEntity snapshot) {
+        return this.isScopedVendorOrder(fulfillment, order) && snapshot != null
+                && Objects.equals(order.getId(), snapshot.getOrderId())
+                && Objects.equals(order.getShopId(), snapshot.getShopId());
+    }
+
+    private boolean isScopedVendorOrder(OrderFulfillmentEntity fulfillment, OrderEntity order) {
+        return fulfillment != null && order != null
+                && !ShopDefaults.PLATFORM_SHOP_ID.equals(order.getShopId())
+                && Objects.equals(order.getShopId(), fulfillment.getShopId());
+    }
+
+    private boolean isGhnProvider(OrderShippingSnapshotEntity snapshot) {
+        return snapshot != null && "GHN".equalsIgnoreCase(snapshot.getProviderCode());
+    }
+
+    private FulfillmentResponse withShipperContext(FulfillmentResponse base, ShipperContext context) {
+        return new FulfillmentResponse(base.id(), base.orderId(), base.orderNumber(), base.status(), base.shipperId(),
+                base.trackingNumber(), base.deliveredAt(), base.deliveryProofUrl(), base.createdAt(), base.updatedAt(),
+                base.orderItemIds(), base.shippingRecipientName(), base.shippingPhone(), base.shippingAddress(),
+                base.shippingWard(), base.shippingDistrict(), base.shippingProvince(), base.orderStatus(),
+                base.orderPaymentStatus(), base.items(), base.paymentMethod(), base.collectsCod(), base.codAmount(),
+                base.attempts(), base.timeline(), base.codCollectionReceiptCode(), context);
+    }
+
     private Page<FulfillmentResponse> toPageResponses(Page<OrderFulfillmentEntity> page) {
         if (page.isEmpty()) {
             return new PageImpl(List.of(), page.getPageable(), page.getTotalElements());
@@ -571,7 +826,9 @@ implements FulfillmentService {
         if (!this.canRead(actor, fulfillment = (OrderFulfillmentEntity)this.fulfillmentRepository.findById(fulfillmentId).orElseThrow(() -> new ResourceNotFoundException("Kh\u00f4ng t\u00ecm th\u1ea5y fulfillment.")), order = this.orderFor(fulfillment))) {
             throw new AccessDeniedException("B\u1ea1n kh\u00f4ng c\u00f3 quy\u1ec1n xem fulfillment n\u00e0y.");
         }
-        return this.toDetailedResponse(fulfillment, order);
+        return actor.getRole() == UserRole.SHIPPER && Objects.equals(actorId, fulfillment.getShipperId())
+                ? this.toDetailedShipperResponse(fulfillment, order)
+                : this.toDetailedResponse(fulfillment, order);
     }
 
     @Override

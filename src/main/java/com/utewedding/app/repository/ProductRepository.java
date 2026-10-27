@@ -1,6 +1,7 @@
 package com.utewedding.app.repository;
 
 import com.utewedding.app.domain.entity.ProductEntity;
+import com.utewedding.app.domain.ProductModerationStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import java.util.Optional;
@@ -32,6 +33,29 @@ public interface ProductRepository extends JpaRepository<ProductEntity, UUID> {
     long countByActiveTrueAndStockQuantityLessThanEqual(int stockQuantity);
     Page<ProductEntity> findByActiveTrueOrderByCreatedAtDesc(Pageable pageable);
     Page<ProductEntity> findByActiveTrueOrderByAverageRatingDescReviewCountDesc(Pageable pageable);
+
+    Page<ProductEntity> findByShopIdOrderByUpdatedAtDescIdAsc(UUID shopId, Pageable pageable);
+
+    /** Public shop detail uses the catalog's materialized buyability flag. */
+    Page<ProductEntity> findByShopIdAndActiveTrueOrderByCreatedAtDescIdAsc(UUID shopId, Pageable pageable);
+    long countByShopIdAndActiveTrue(UUID shopId);
+
+    Optional<ProductEntity> findByIdAndShopId(UUID id, UUID shopId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from ProductEntity p where p.id = :id and p.shopId = :shopId")
+    Optional<ProductEntity> findByIdAndShopIdForUpdate(@Param("id") UUID id, @Param("shopId") UUID shopId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from ProductEntity p where p.id = :id")
+    Optional<ProductEntity> findByIdForModerationUpdate(@Param("id") UUID id);
+
+    @Query("select p from ProductEntity p where p.moderationStatus = :status "
+            + "and p.shopId <> :platformShopId "
+            + "order by p.updatedAt desc, p.id asc")
+    Page<ProductEntity> findVendorProductsForModeration(@Param("status") ProductModerationStatus status,
+                                                        @Param("platformShopId") UUID platformShopId,
+                                                        Pageable pageable);
 
     @Query(value = "select p.* from catalog_products p "
             + "where p.active=true and p.id in (select oi.product_id from order_items oi join orders o on o.id=oi.order_id where o.status='PAID') "
@@ -130,10 +154,12 @@ public interface ProductRepository extends JpaRepository<ProductEntity, UUID> {
             + "where (:keyword = '' or lower(p.name) like lower(concat('%', :keyword, '%')) "
             + "or lower(coalesce(p.description, '')) like lower(concat('%', :keyword, '%'))) "
             + "and (:active is null or p.active = :active) "
+            + "and (:shopId is null or p.shopId = :shopId) "
             + "and (:outOfStock = false or p.stockQuantity = 0)")
     Page<ProductEntity> searchForAdmin(@Param("keyword") String keyword,
                                        @Param("active") Boolean active,
                                        @Param("outOfStock") boolean outOfStock,
+                                       @Param("shopId") UUID shopId,
                                        Pageable pageable);
 
     Optional<ProductEntity> findByIdAndActiveTrue(UUID id);
@@ -159,7 +185,10 @@ public interface ProductRepository extends JpaRepository<ProductEntity, UUID> {
     @Modifying(flushAutomatically = true)
     @Query(value = "UPDATE catalog_products SET stock_quantity = stock_quantity - :quantity, "
             + "version = version + 1, updated_at = CURRENT_TIMESTAMP "
-            + "WHERE id = :id AND active = true AND stock_quantity >= :quantity AND version = :version",
+            + "WHERE id = :id AND active = true AND seller_visible = true "
+            + "AND moderation_status = 'APPROVED' "
+            + "AND EXISTS (SELECT 1 FROM shops s WHERE s.id = catalog_products.shop_id AND s.status = 'ACTIVE') "
+            + "AND stock_quantity >= :quantity AND version = :version",
             nativeQuery = true)
     int decrementStockIfAvailable(@Param("id") UUID id, @Param("quantity") int quantity,
                                   @Param("version") long version);

@@ -4,6 +4,7 @@ import com.utewedding.app.exception.BusinessConflictException;
 import com.utewedding.app.service.EmailVerificationRateLimitService;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
+import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
@@ -73,10 +74,12 @@ public class JdbcEmailVerificationRateLimitService implements EmailVerificationR
                    OR email_verification_rate_limits.request_count < ?
                 RETURNING request_count
                 """;
+        Timestamp nowTimestamp = Timestamp.from(now);
+        Timestamp windowCutoff = Timestamp.from(now.minus(window));
         try {
             Integer count = jdbcTemplate.queryForObject(sql, Integer.class,
-                    scope, digest(rawKey), now, now,
-                    now.minus(window), now.minus(window), now.minus(window), maxSends);
+                    scope, digest(rawKey), nowTimestamp, nowTimestamp,
+                    windowCutoff, windowCutoff, windowCutoff, maxSends);
             if (count == null || count > maxSends) {
                 throw new BusinessConflictException("Đã vượt quá số lần gửi mã trong cửa sổ giới hạn.");
             }

@@ -17,7 +17,7 @@ public final class CheckoutRequestHasher {
 
     public static String hash(UUID userId, CreateOrderRequest request) {
         ShippingAddressRequest shipping = request == null ? null : request.shipping();
-        String canonical = String.join(SEPARATOR,
+        String legacyCanonical = String.join(SEPARATOR,
                 text(userId),
                 text(request == null ? null : request.weddingId()),
                 code(request == null ? null : request.discountCode()),
@@ -31,6 +31,17 @@ public final class CheckoutRequestHasher {
                 shipping == null ? "" : text(shipping.addressLine()),
                 shipping == null ? "" : text(shipping.provinceCode()),
                 shipping == null ? "" : text(shipping.wardCode()));
+        String shippingVoucherCode = request == null ? null : request.shippingDiscountCode();
+        // Keep the exact legacy fingerprint when no second slot is supplied so
+        // persisted idempotency claims remain replayable after this rollout.
+        String canonical = shippingVoucherCode == null || shippingVoucherCode.isBlank()
+                ? legacyCanonical
+                : legacyCanonical + SEPARATOR + "shipping-voucher-v1" + SEPARATOR + code(shippingVoucherCode);
+        if (request != null && (request.selectedShopId() != null
+                || request.selectionFingerprint() != null && !request.selectionFingerprint().isBlank())) {
+            canonical += SEPARATOR + "single-shop-v1" + SEPARATOR + text(request.selectedShopId())
+                    + SEPARATOR + text(request.selectionFingerprint());
+        }
         return sha256(canonical);
     }
 

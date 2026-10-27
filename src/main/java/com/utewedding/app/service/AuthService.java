@@ -10,7 +10,7 @@ import java.util.UUID;
 /** Authentication operations backed by RS256 Bearer JWTs. */
 public interface AuthService {
     String REGISTRATION_ACCEPTED_MESSAGE =
-            "Nếu email có thể đăng ký, hướng dẫn xác thực sẽ được gửi sớm.";
+            "Nếu email có thể đăng ký, mã OTP xác thực sẽ được gửi sớm.";
 
     MessageResponse register(RegisterRequest request, RequestContext context);
     AuthResponse login(LoginRequest request, RequestContext context);

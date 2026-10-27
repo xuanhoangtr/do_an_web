@@ -65,6 +65,11 @@ public interface UserRepository extends JpaRepository<UserEntity, UUID> {
     @Query(value = "select * from users where id = :id", nativeQuery = true)
     Optional<UserEntity> findByIdIncludingDeleted(@org.springframework.data.repository.query.Param("id") UUID id);
 
+    /** Locks the account row, including soft-deleted rows hidden by UserEntity's @SQLRestriction. */
+    @Query(value = "select * from users where id = :id for update", nativeQuery = true)
+    Optional<UserEntity> findByIdIncludingDeletedForUpdate(
+            @org.springframework.data.repository.query.Param("id") UUID id);
+
     @Query(value = "select cast(u.id as varchar) as id, u.email as email, u.display_name as \"displayName\", "
             + "u.role as role, u.status as status, u.created_at as \"createdAt\", "
             + "u.updated_at as \"updatedAt\", u.deleted_at as \"deletedAt\" "

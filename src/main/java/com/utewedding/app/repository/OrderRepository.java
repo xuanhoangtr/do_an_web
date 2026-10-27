@@ -18,6 +18,12 @@ import org.springframework.data.domain.Page;
 import jakarta.persistence.LockModeType;
 
 public interface OrderRepository extends JpaRepository<OrderEntity, UUID> {
+    Page<com.utewedding.app.dto.response.VendorOrderSummary> findByShopIdOrderByCreatedAtDesc(UUID shopId, Pageable pageable);
+    Optional<OrderEntity> findByIdAndShopId(UUID id, UUID shopId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from OrderEntity o where o.id = :id and o.shopId = :shopId")
+    Optional<OrderEntity> findByIdAndShopIdForUpdate(@Param("id") UUID id, @Param("shopId") UUID shopId);
     String HISTORY_FULFILLMENT_CTE = """
             with fulfillment_summary as (
                 select f.order_id,
@@ -53,6 +59,11 @@ public interface OrderRepository extends JpaRepository<OrderEntity, UUID> {
             )
             """;
     Optional<OrderEntity> findByOrderNumber(String orderNumber);
+    List<OrderEntity> findByCheckoutGroupIdOrderByCreatedAtAsc(UUID checkoutGroupId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from OrderEntity o where o.checkoutGroupId = :groupId order by o.id")
+    List<OrderEntity> findByCheckoutGroupIdForUpdateOrderByIdAsc(@Param("groupId") UUID groupId);
     Optional<OrderEntity> findByOrderNumberAndUserId(String orderNumber, UUID userId);
     Optional<OrderEntity> findByTrackingAccessCode(UUID trackingAccessCode);
 

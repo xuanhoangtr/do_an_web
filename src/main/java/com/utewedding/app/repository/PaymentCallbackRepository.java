@@ -7,4 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface PaymentCallbackRepository extends JpaRepository<PaymentCallbackEntity, UUID> {
     Optional<PaymentCallbackEntity> findByProviderAndPayloadSha256(String provider, String payloadSha256);
+    java.util.List<PaymentCallbackEntity> findByCheckoutGroupIdOrderByReceivedAtDesc(UUID checkoutGroupId);
 }

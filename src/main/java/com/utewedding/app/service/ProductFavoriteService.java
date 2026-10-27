@@ -12,10 +12,17 @@ public interface ProductFavoriteService {
 
     record FavoriteState(UUID productId, boolean favorited, long count) { }
     record FavoriteProduct(UUID productId, String name, long unitPrice, String imageUrl,
-                           int stockQuantity, String slug, String customizationGuide) {
+                           int stockQuantity, String slug, String customizationGuide,
+                           String shopName, String shopSlug) {
         public FavoriteProduct(UUID productId, String name, long unitPrice, String imageUrl,
                                int stockQuantity, String slug) {
-            this(productId, name, unitPrice, imageUrl, stockQuantity, slug, null);
+            this(productId, name, unitPrice, imageUrl, stockQuantity, slug, null, "UTEWedding", null);
+        }
+
+        public FavoriteProduct(UUID productId, String name, long unitPrice, String imageUrl,
+                               int stockQuantity, String slug, String customizationGuide) {
+            this(productId, name, unitPrice, imageUrl, stockQuantity, slug, customizationGuide,
+                    "UTEWedding", null);
         }
 
         public FavoriteProduct(UUID productId, String name, long unitPrice, String imageUrl, int stockQuantity) {

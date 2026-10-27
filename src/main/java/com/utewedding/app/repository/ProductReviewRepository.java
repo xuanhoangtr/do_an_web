@@ -17,6 +17,12 @@ import jakarta.persistence.LockModeType;
 public interface ProductReviewRepository extends JpaRepository<ProductReviewEntity, UUID> {
     Page<ProductReviewEntity> findByProductIdAndStatusOrderByCreatedAtDesc(UUID productId,
             ProductReviewStatus status, Pageable pageable);
+    @Query("select r from ProductReviewEntity r, ProductEntity p "
+            + "where r.productId = p.id and p.shopId = :shopId and r.status = :status "
+            + "order by r.createdAt desc, r.id desc")
+    Page<ProductReviewEntity> findForVendorShop(@Param("shopId") UUID shopId,
+                                                 @Param("status") ProductReviewStatus status,
+                                                 Pageable pageable);
     Page<ProductReviewEntity> findByStatusOrderByCreatedAtAsc(ProductReviewStatus status, Pageable pageable);
     Optional<ProductReviewEntity> findByProductIdAndUserId(UUID productId, UUID userId);
     boolean existsByProductIdAndUserId(UUID productId, UUID userId);

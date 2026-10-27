@@ -14,5 +14,8 @@ public interface ProductImageRepository extends JpaRepository<ProductImageEntity
     Optional<ProductImageEntity> findFirstByProductIdAndPrimaryImageTrueOrderByDisplayOrderAscCreatedAtAsc(
             UUID productId);
 
+    Optional<ProductImageEntity> findFirstByProductIdAndShopIdAndPrimaryImageTrueOrderByDisplayOrderAscCreatedAtAsc(
+            UUID productId, UUID shopId);
+
     void deleteByProductIdAndPrimaryImageTrue(UUID productId);
 }

@@ -10,4 +10,6 @@ public interface CartService {
     CartResponse addItem(UUID userId, AddCartItemRequest request);
     CartResponse updateQuantity(UUID userId, UpdateCartItemRequest request);
     CartResponse removeItem(UUID userId, UUID productId);
+    CartResponse changeItemQuantity(UUID userId, UUID cartItemId, String action);
+    CartResponse removeItemById(UUID userId, UUID cartItemId);
 }

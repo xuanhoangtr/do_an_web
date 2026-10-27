@@ -19,6 +19,8 @@ public interface FulfillmentService {
     void ensureForOrder(UUID orderId);
     void ensureForOrder(UUID orderId, RequestContext context);
     void confirmCodOrder(UUID actorId, UUID orderId, RequestContext context);
+    void acceptCodAsVendor(com.utewedding.app.security.UserPrincipal actor, UUID orderId, RequestContext context);
+    void startPreparationAsVendor(com.utewedding.app.security.UserPrincipal actor, UUID orderId, RequestContext context);
 
     List<FulfillmentResponse> listForOrder(UUID orderId);
     OverallFulfillmentStatus overallForOrder(UUID orderId);

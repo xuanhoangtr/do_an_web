@@ -9,31 +9,41 @@ import com.utewedding.app.dto.request.RegisterRequest;
 import com.utewedding.app.dto.response.AuthResponse;
 import com.utewedding.app.dto.response.MessageResponse;
 import com.utewedding.app.dto.response.UserResponse;
+import com.utewedding.app.exception.BusinessConflictException;
 import com.utewedding.app.exception.DuplicateRegistrationException;
+import com.utewedding.app.exception.DuplicateUsernameException;
 import com.utewedding.app.exception.UnauthorizedException;
 import com.utewedding.app.repository.UserRepository;
+import com.utewedding.app.security.CustomUserDetailsService;
+import com.utewedding.app.security.WebSessionRevocationService;
 import com.utewedding.app.service.AuthService;
 import com.utewedding.app.service.EmailVerificationService;
 import com.utewedding.app.service.RequestContext;
 import com.utewedding.app.service.port.AuditLogPort;
 import com.utewedding.app.service.port.PasswordHashService;
 import com.utewedding.app.service.port.SessionService;
+import com.utewedding.app.service.port.SessionService.SessionRotation;
 import com.utewedding.app.service.port.SessionTokens;
 import com.utewedding.app.service.port.TokenService;
-import com.utewedding.app.security.CustomUserDetailsService;
-import com.utewedding.app.security.WebSessionRevocationService;
-import com.utewedding.app.service.port.SessionService.SessionRotation;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
+import org.hibernate.exception.ConstraintViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class AuthServiceImpl implements AuthService {
 
     private static final String PASSWORD_CHANGED_MESSAGE = "Đổi mật khẩu thành công.";
+    private static final Pattern SAFE_REQUEST_ID = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9._:#-]{7,127}$");
+    private static final Logger LOGGER = LoggerFactory.getLogger(AuthServiceImpl.class);
     // Same Argon2id parameters as the production encoder. This is only used
     // when the account lookup misses, so credential timing does not disclose
     // whether an email exists.
@@ -69,32 +79,57 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MessageResponse register(RegisterRequest request, RequestContext context) {
-        String email = normaliseEmail(request.email());
-        if (userRepository.findByEmail(email).isPresent()) {
-            throw new DuplicateRegistrationException();
-        }
-        String username = normaliseUsername(request.username());
-        if (username != null && userRepository.findByUsernameIgnoreCase(username).isPresent()) {
-            throw new com.utewedding.app.exception.DuplicateUsernameException();
-        }
-        String passwordHash = passwordHashService.hash(request.password());
-
-        UserEntity user = new UserEntity();
-        user.setEmail(email);
-        user.setUsername(username);
-        user.setDisplayName(request.displayName().trim());
-        user.setPasswordHash(passwordHash);
-        user.setRole(UserRole.USER);
-        user.setStatus(UserStatus.ACTIVE);
         try {
-            user = userRepository.saveAndFlush(user);
-        } catch (DataIntegrityViolationException duplicateEmail) {
-            throw new DuplicateRegistrationException();
-        }
+            String email = normaliseEmail(request.email());
+            if (userRepository.findByEmail(email).isPresent()) {
+                throw new DuplicateRegistrationException();
+            }
+            String username = normaliseUsername(request.username());
+            if (username != null && userRepository.findByUsernameIgnoreCase(username).isPresent()) {
+                throw new com.utewedding.app.exception.DuplicateUsernameException();
+            }
+            String passwordHash = passwordHashService.hash(request.password());
 
-        auditLog.record("USER_REGISTERED", user.getId(), "User", user.getId(), Map.of(), context);
-        emailVerificationService.issue(user.getId(), user.getEmail(), context);
-        return new MessageResponse(REGISTRATION_ACCEPTED_MESSAGE);
+            UserEntity user = new UserEntity();
+            user.setEmail(email);
+            user.setUsername(username);
+            user.setDisplayName(request.displayName().trim());
+            user.setPasswordHash(passwordHash);
+            user.setRole(UserRole.USER);
+            user.setStatus(UserStatus.ACTIVE);
+            try {
+                user = userRepository.saveAndFlush(user);
+            } catch (DataIntegrityViolationException integrityViolation) {
+                RuntimeException duplicate = duplicateRegistrationFor(integrityViolation);
+                if (duplicate != null) throw duplicate;
+                throw integrityViolation;
+            }
+
+            UUID registeredUserId = user.getId();
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    try {
+                        auditLog.record("USER_REGISTERED", registeredUserId, "User", registeredUserId,
+                                Map.of(), context);
+                    } catch (RuntimeException auditFailure) {
+                        LOGGER.error("Registration audit write failed after commit; exceptionType={}, requestId={}",
+                                auditFailure.getClass().getSimpleName(), safeRequestId(context));
+                    }
+                }
+            });
+            emailVerificationService.issue(user.getId(), user.getEmail(), context);
+            return new MessageResponse(REGISTRATION_ACCEPTED_MESSAGE);
+        } catch (RuntimeException failure) {
+            LOGGER.error("User registration failed; exceptionType={}, requestId={}",
+                    failure.getClass().getSimpleName(), safeRequestId(context));
+            if (failure instanceof DuplicateUsernameException
+                    || failure instanceof DuplicateRegistrationException
+                    || failure instanceof BusinessConflictException) {
+                throw failure;
+            }
+            throw new RegistrationFailureException();
+        }
     }
 
     @Override
@@ -208,5 +243,34 @@ public class AuthServiceImpl implements AuthService {
     private String normaliseUsername(String username) {
         return username == null || username.isBlank()
                 ? null : username.trim().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    private static String safeRequestId(RequestContext context) {
+        String requestId = context == null ? null : context.requestId();
+        return requestId != null && SAFE_REQUEST_ID.matcher(requestId).matches()
+                ? requestId : "unavailable";
+    }
+
+    private static RuntimeException duplicateRegistrationFor(DataIntegrityViolationException failure) {
+        Throwable cause = failure;
+        while (cause != null) {
+            if (cause instanceof ConstraintViolationException violation) {
+                String constraint = violation.getConstraintName();
+                if ("users_username_key".equalsIgnoreCase(constraint)) {
+                    return new DuplicateUsernameException();
+                }
+                if ("users_email_key".equalsIgnoreCase(constraint)) {
+                    return new DuplicateRegistrationException();
+                }
+            }
+            cause = cause.getCause();
+        }
+        return null;
+    }
+
+    private static final class RegistrationFailureException extends RuntimeException {
+        private RegistrationFailureException() {
+            super("Registration failed");
+        }
     }
 }
