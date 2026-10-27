@@ -56,10 +56,24 @@
                 <tbody>
                 <tr th:each="order, rowStat : ${orders.content}">
                     <td th:text="${orders.number * orders.size + rowStat.count}">1</td>
-                    <td><a class="fw-semibold text-decoration-none" th:href="@{/orders/{id}(id=${order.id})}" th:text="${order.orderNumber}">UTE</a></td>
+                    <td>
+                        <a class="fw-semibold text-decoration-none" th:href="@{/orders/{id}(id=${order.id})}" th:text="${order.orderNumber}">UTE</a>
+                        <small class="d-block text-secondary" th:text="${order.shopNameSnapshot != null ? order.shopNameSnapshot : 'UTEWedding'}">UTEWedding</small>
+                        <div class="small mt-1" th:if="${checkoutGroupsByOrder[order.id] != null}">
+                            <span class="text-secondary">Nhóm thanh toán </span>
+                            <strong th:text="${checkoutGroupsByOrder[order.id].groupNumber}">WTC</strong>
+                            <span th:each="child : ${checkoutGroupsByOrder[order.id].orders}"
+                                  th:if="${child.orderId != order.id}" class="d-block">
+                                <span class="text-secondary" th:text="${child.shopName + ' · '}">Cửa hàng · </span>
+                                <a th:href="@{/orders/{id}(id=${child.orderId})}" th:text="${child.orderNumber}">Đơn liên quan</a>
+                            </span>
+                        </div>
+                    </td>
                     <td><span class="badge rounded-pill" th:classappend="${T(com.utewedding.app.service.web.StatusLabels).orderStatusBadgeClass(order.status)}" th:text="${T(com.utewedding.app.service.web.StatusLabels).orderStatusLabel(order.status, order.paymentMethod)}">Đã thanh toán</span></td>
                     <td><span class="badge rounded-pill" th:classappend="${T(com.utewedding.app.service.web.StatusLabels).paymentStatusBadgeClass(order.paymentStatus)}" th:text="${T(com.utewedding.app.service.web.StatusLabels).paymentStatusLabel(order.paymentStatus, order.paymentMethod)}">Thanh toán thành công</span></td>
-                    <td><span class="badge rounded-pill" th:classappend="${T(com.utewedding.app.service.web.StatusLabels).fulfillmentStatusBadgeClass(order.overallFulfillmentStatus)}" th:text="${T(com.utewedding.app.service.web.StatusLabels).label(order.overallFulfillmentStatus)}">Đang giao</span></td>
+                    <td><span class="badge rounded-pill" th:classappend="${T(com.utewedding.app.service.web.StatusLabels).fulfillmentStatusBadgeClass(order.overallFulfillmentStatus)}" th:text="${T(com.utewedding.app.service.web.StatusLabels).label(order.overallFulfillmentStatus)}">Đang giao</span>
+                        <small class="d-block text-secondary" th:text="${'Phí theo báo giá: ' + #numbers.formatDecimal(order.shippingFeeBeforeDiscount,0,'COMMA',0,'POINT') + ' đ'}">Phí theo báo giá</small>
+                        <small class="d-block text-success" th:if="${order.shippingDiscountAmount > 0}" th:text="${'Khách trả ' + #numbers.formatDecimal(order.shippingFee,0,'COMMA',0,'POINT') + ' đ sau ưu đãi'}">Khách trả sau ưu đãi</small></td>
                     <td th:text="${#numbers.formatDecimal(order.total,0,'COMMA',0,'POINT')} + ' đ'"></td>
                     <td th:text="${#temporals.format(order.createdAt, 'dd/MM/yyyy HH:mm')}"></td>
                     <td><a class="btn btn-sm btn-outline-dark" th:href="@{/orders/{id}(id=${order.id})}">Xem chi tiết</a></td>

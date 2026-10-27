@@ -6,6 +6,8 @@ import com.utewedding.app.domain.PaymentCallbackOutcome;
 import com.utewedding.app.domain.PaymentReconciliationReason;
 import com.utewedding.app.domain.PaymentReconciliationResolution;
 import com.utewedding.app.domain.PaymentStatus;
+import com.utewedding.app.domain.CheckoutGroupPaymentStatus;
+import com.utewedding.app.domain.PaymentProviderEnvironment;
 import com.utewedding.app.domain.ProviderTransactionStatus;
 import com.utewedding.app.domain.ProviderTransactionType;
 import com.utewedding.app.domain.entity.OrderEntity;
@@ -68,7 +70,16 @@ public class PaymentIntegrityService {
 
     public record VnpayAttemptReference(java.util.UUID orderId, String orderNumber,
                                         java.util.UUID attemptId, String providerReference,
-                                        PaymentAttemptStatus status) { }
+                                        PaymentAttemptStatus status, java.util.UUID checkoutGroupId,
+                                        String groupNumber, CheckoutGroupPaymentStatus groupPaymentStatus) {
+        public VnpayAttemptReference(java.util.UUID orderId, String orderNumber,
+                                     java.util.UUID attemptId, String providerReference,
+                                     PaymentAttemptStatus status) {
+            this(orderId, orderNumber, attemptId, providerReference, status, null, null, null);
+        }
+
+        public boolean groupOwned() { return checkoutGroupId != null; }
+    }
 
     private enum VnpayDecisionState { READY, QUERY_REQUIRED, BLOCKED }
 
@@ -96,6 +107,8 @@ public class PaymentIntegrityService {
     private final TransactionTemplate independent;
     private AccountingDocumentService accountingDocuments;
     private com.utewedding.app.repository.ReturnCaseRepository returnCases;
+    private com.utewedding.app.service.impl.ShopFinancialService shopFinancialService;
+    private GroupedPaymentIntegrityService groupedPayments;
 
     public PaymentIntegrityService(PaymentOrderLock orderLock, OrderRepository orders, PaymentRepository payments,
                                    PaymentAttemptRepository attempts,
@@ -135,6 +148,49 @@ public class PaymentIntegrityService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     void attachReturnCases(com.utewedding.app.repository.ReturnCaseRepository repository) {
         this.returnCases = repository;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void attachShopFinancialService(com.utewedding.app.service.impl.ShopFinancialService service) {
+        this.shopFinancialService = service;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void attachGroupedPaymentIntegrityService(GroupedPaymentIntegrityService service) {
+        this.groupedPayments = service;
+    }
+
+    public GroupedPaymentIntegrityService.SessionResult createOrReuseVnpayGroupSession(
+            java.util.UUID actorId, java.util.UUID groupId, String orderInfo, String clientIp,
+            int expireMinutes, RequestContext context) {
+        if (groupedPayments == null) throw new BusinessConflictException("Dịch vụ thanh toán nhóm chưa sẵn sàng.");
+        return groupedPayments.createOrReuseVnpaySession(actorId, groupId, orderInfo, clientIp,
+                expireMinutes, context);
+    }
+
+    public boolean hasGroupedVnpayReference(String reference) {
+        return groupedPayments != null && groupedPayments.ownsVnpayReference(reference);
+    }
+
+    public void recordGroupVnpayRejection(String reference, String canonicalPayload,
+                                          String responseCode, String detail) {
+        if (groupedPayments != null) {
+            groupedPayments.recordGroupRejection(reference, canonicalPayload, responseCode, detail);
+        }
+    }
+
+    public boolean cancelUnpaidVnpayGroup(java.util.UUID actorId, java.util.UUID groupId,
+                                           RequestContext context) {
+        if (groupedPayments == null) throw new BusinessConflictException("Dịch vụ thanh toán nhóm chưa sẵn sàng.");
+        return groupedPayments.cancelUnpaidVnpayGroup(actorId, groupId, context);
+    }
+
+    public PaymentReconciliationEntity reconcileVnpayGroup(java.util.UUID groupId, RequestContext context) {
+        return groupedPayments == null ? null : groupedPayments.reconcileVnpayGroup(groupId, context);
+    }
+
+    public PaymentAttemptStatus vnpayGroupAttemptStatus(java.util.UUID groupId) {
+        return groupedPayments == null ? null : groupedPayments.vnpayAttemptStatus(groupId);
     }
 
     /**
@@ -235,6 +291,7 @@ public class PaymentIntegrityService {
         PaymentAttemptEntity attempt = new PaymentAttemptEntity();
         attempt.setOrderId(order.getId());
         attempt.setProvider("VNPAY");
+        attempt.setProviderEnvironment(providerEnvironment("VNPAY"));
         attempt.setMerchantReference(reference);
         attempt.setProviderTxnRef(reference);
         attempt.setProviderCreateDate(createDate);
@@ -323,6 +380,7 @@ public class PaymentIntegrityService {
             open = new PaymentAttemptEntity();
             open.setOrderId(order.getId());
             open.setProvider(provider);
+            open.setProviderEnvironment(providerEnvironment(provider));
             open.setMerchantReference(order.getOrderNumber());
             open.setAmount(amount);
             open.setCurrency(currency(order));
@@ -364,6 +422,9 @@ public class PaymentIntegrityService {
             PaymentAttemptEntity matched = attempts.findByProviderAndProviderTxnRef(
                     callback.provider(), callback.orderNumber()).orElse(null);
             if (matched != null) {
+                if (matched.getCheckoutGroupId() != null && groupedPayments != null) {
+                    return groupedPayments.applyVerified(callback, context);
+                }
                 return orderLock.withOrderId(matched.getOrderId(), order -> applyVerifiedLocked(
                         order, callback, context, hash));
             }
@@ -389,7 +450,8 @@ public class PaymentIntegrityService {
 
     public int expireDue(Instant now, RequestContext context) {
         Instant effective = now == null ? Instant.now() : now;
-        return orderLock.withExpiredOrders(effective, order -> expireLocked(order, effective, context));
+        int ordersExpired = orderLock.withExpiredOrders(effective, order -> expireLocked(order, effective, context));
+        return ordersExpired + (groupedPayments == null ? 0 : groupedPayments.expireDueGroups(effective, context));
     }
 
     /** Closes open attempts after cancel or timeout. The caller already holds the order lock. */
@@ -403,6 +465,10 @@ public class PaymentIntegrityService {
 
     public String onlineProvider(OrderEntity order) {
         if (order == null) return null;
+        if (order.getCheckoutGroupId() != null && order.getPaymentMethod() != null
+                && "COD".equalsIgnoreCase(order.getPaymentMethod().trim())) {
+            return null;
+        }
         if (order.getPaymentMethod() != null) {
             String method = order.getPaymentMethod().trim().toUpperCase(Locale.ROOT);
             if ("VNPAY".equals(method) || "MOMO".equals(method)) return method;
@@ -418,11 +484,25 @@ public class PaymentIntegrityService {
 
     public RefundApplication refund(java.util.UUID actorId, java.util.UUID orderId, String provider,
                                     PaymentRequest request, RequestContext context) {
+        OrderEntity groupedChild = orders.findById(orderId).orElse(null);
+        if (groupedChild != null && groupedChild.getCheckoutGroupId() != null) {
+            if (groupedPayments == null) {
+                throw new BusinessConflictException("Dịch vụ hoàn tiền nhóm chưa sẵn sàng.");
+            }
+            return groupedPayments.refundChild(actorId, orderId, provider, request, context, false);
+        }
         return refund(actorId, orderId, provider, request, context, false);
     }
 
     public RefundApplication refundReturn(java.util.UUID actorId, java.util.UUID orderId, String provider,
                                           PaymentRequest request, RequestContext context) {
+        OrderEntity groupedChild = orders.findById(orderId).orElse(null);
+        if (groupedChild != null && groupedChild.getCheckoutGroupId() != null) {
+            if (groupedPayments == null) {
+                throw new BusinessConflictException("Dịch vụ hoàn tiền nhóm chưa sẵn sàng.");
+            }
+            return groupedPayments.refundChild(actorId, orderId, provider, request, context, true);
+        }
         return refund(actorId, orderId, provider, request, context, true);
     }
 
@@ -452,6 +532,11 @@ public class PaymentIntegrityService {
     private boolean processRefundIntent(java.util.UUID transactionId, Instant staleBefore) {
         PaymentProviderTransactionEntity snapshot = transactions.findById(transactionId).orElse(null);
         if (snapshot == null) return false;
+        if (snapshot.getCheckoutGroupId() != null) {
+            return groupedPayments != null
+                    && groupedPayments.processRefundIntent(transactionId, staleBefore);
+        }
+        if (snapshot.getOrderId() == null) return false;
         RefundPreparation preparation = orderLock.withOrderId(snapshot.getOrderId(), order -> {
             if (order == null) return RefundPreparation.none();
             PaymentProviderTransactionEntity intent = transactions.findByIdempotencyKeyForUpdate(
@@ -738,6 +823,12 @@ public class PaymentIntegrityService {
     }
 
     public PaymentReconciliationEntity reconcileOrder(java.util.UUID orderId, RequestContext context) {
+        if (groupedPayments != null) {
+            OrderEntity order = orders.findById(orderId).orElse(null);
+            if (order != null && order.getCheckoutGroupId() != null) {
+                return groupedPayments.reconcileVnpayGroup(order.getCheckoutGroupId(), context);
+            }
+        }
         java.util.UUID attemptId = orderLock.withOrderId(orderId, order -> {
             if (order == null) throw new ResourceNotFoundException("Không tìm thấy đơn hàng.");
             PaymentAttemptEntity attempt = latestOnlineAttempt(order);
@@ -757,6 +848,12 @@ public class PaymentIntegrityService {
     }
 
     public PaymentReconciliationEntity reconcileVnpayOrder(java.util.UUID orderId, RequestContext context) {
+        if (groupedPayments != null) {
+            OrderEntity order = orders.findById(orderId).orElse(null);
+            if (order != null && order.getCheckoutGroupId() != null) {
+                return groupedPayments.reconcileVnpayGroup(order.getCheckoutGroupId(), context);
+            }
+        }
         java.util.UUID attemptId = orderLock.withOrderId(orderId, order -> {
             if (order == null) throw new ResourceNotFoundException("Không tìm thấy đơn hàng.");
             if (order.getStatus() == OrderStatus.PAID
@@ -774,6 +871,12 @@ public class PaymentIntegrityService {
     public VnpayAttemptReference resolveVnpayReference(String reference) {
         if (reference == null || reference.isBlank()) return null;
         PaymentAttemptEntity attempt = attempts.findByProviderAndProviderTxnRef("VNPAY", reference).orElse(null);
+        if (attempt != null && attempt.getCheckoutGroupId() != null && groupedPayments != null) {
+            GroupedPaymentIntegrityService.VnpayGroupReference resolved = groupedPayments.resolveVnpayReference(reference);
+            if (resolved == null) return null;
+            return new VnpayAttemptReference(null, null, resolved.attemptId(), resolved.providerReference(),
+                    resolved.status(), resolved.groupId(), resolved.groupNumber(), resolved.paymentStatus());
+        }
         if (attempt == null) {
             OrderEntity legacyOrder = orders.findByOrderNumber(reference).orElse(null);
             if (legacyOrder == null) return null;
@@ -783,7 +886,7 @@ public class PaymentIntegrityService {
                     .filter(row -> reference.equals(row.getMerchantReference()))
                     .findFirst().orElse(null);
         }
-        if (attempt == null || attempt.getOrderId() == null
+        if (attempt == null || attempt.getOrderId() == null || attempt.getCheckoutGroupId() != null
                 || !"VNPAY".equalsIgnoreCase(attempt.getProvider())) return null;
         OrderEntity order = orders.findById(attempt.getOrderId()).orElse(null);
         if (order == null) return null;
@@ -796,10 +899,17 @@ public class PaymentIntegrityService {
     public PaymentReconciliationEntity reconcileVnpayReference(String reference, RequestContext context) {
         VnpayAttemptReference resolved = resolveVnpayReference(reference);
         if (resolved == null) return null;
+        if (resolved.groupOwned()) {
+            return groupedPayments == null ? null : groupedPayments.reconcileVnpayReference(reference, context);
+        }
         return reconcileAttempt(resolved.orderId(), resolved.attemptId(), context);
     }
 
     public PaymentAttemptStatus vnpayAttemptStatus(java.util.UUID orderId) {
+        OrderEntity order = orders.findById(orderId).orElse(null);
+        if (order != null && order.getCheckoutGroupId() != null && groupedPayments != null) {
+            return groupedPayments.vnpayAttemptStatus(order.getCheckoutGroupId());
+        }
         return attempts.findByOrderIdOrderByCreatedAtDesc(orderId).stream()
                 .filter(row -> "VNPAY".equalsIgnoreCase(row.getProvider()))
                 .map(PaymentAttemptEntity::getStatus)
@@ -847,10 +957,15 @@ public class PaymentIntegrityService {
         int count = 0;
         for (PaymentAttemptEntity attempt : stale) {
             try {
-                reconcileAttempt(attempt.getOrderId(), attempt.getId(), null);
+                if (attempt.getCheckoutGroupId() != null && groupedPayments != null) {
+                    groupedPayments.reconcileVnpayGroup(attempt.getCheckoutGroupId(), null);
+                } else {
+                    reconcileAttempt(attempt.getOrderId(), attempt.getId(), null);
+                }
                 count++;
             } catch (RuntimeException exception) {
-                log.warn("Payment reconciliation failed for order {}", attempt.getOrderId());
+                log.warn("Payment reconciliation failed for payment owner {}",
+                        attempt.getCheckoutGroupId() == null ? attempt.getOrderId() : attempt.getCheckoutGroupId());
             }
         }
         return count;
@@ -858,7 +973,7 @@ public class PaymentIntegrityService {
 
     public String orderNumberForVnpayReference(String reference) {
         VnpayAttemptReference resolved = resolveVnpayReference(reference);
-        return resolved == null ? null : resolved.orderNumber();
+        return resolved == null || resolved.groupOwned() ? null : resolved.orderNumber();
     }
 
     private Decision decide(OrderEntity order, VerifiedPaymentCallback callback, RequestContext context) {
@@ -972,6 +1087,7 @@ public class PaymentIntegrityService {
                 ProviderTransactionType.CAPTURE, callback.amount(), ProviderTransactionStatus.SUCCEEDED,
                 "capture:" + callback.provider() + ":" + callback.providerTransactionId(),
                 callback.responseCode(), callback.message(), null, now);
+        if (shopFinancialService != null) shopFinancialService.recordSale(order);
         auditLog.record("ORDER_STATUS_CHANGED", null, "Order", order.getId(),
                 Map.of("from", previousOrder.name(), "to", order.getStatus().name(), "provider", callback.provider()),
                 context);
@@ -1039,6 +1155,7 @@ public class PaymentIntegrityService {
     }
 
     private boolean expireLocked(OrderEntity order, Instant now, RequestContext context) {
+        if (order.getCheckoutGroupId() != null) return false;
         if (order.getStatus() != OrderStatus.PENDING) return false;
         if (order.getExpiresAt() == null || order.getExpiresAt().isAfter(now)) return false;
         if (order.getPaymentStatus() != null && order.getPaymentStatus().isCaptured()) return false;
@@ -1189,6 +1306,7 @@ public class PaymentIntegrityService {
         row.setAttemptId(attempt == null ? null : attempt.getId());
         row.setPaymentId(payment == null ? null : payment.getId());
         row.setProvider(provider);
+        row.setProviderEnvironment(attempt == null ? null : attempt.getProviderEnvironment());
         row.setProviderTransactionId(blankToNull(providerTransactionId));
         row.setProviderRequestId(key);
         row.setTransactionType(type);
@@ -1409,6 +1527,11 @@ public class PaymentIntegrityService {
         return null;
     }
 
+    private PaymentProviderEnvironment providerEnvironment(String provider) {
+        PaymentGatewayClient client = gateway(provider);
+        return client == null ? null : client.providerEnvironment();
+    }
+
     private String createDate(OrderEntity order, PaymentEntity payment, PaymentAttemptEntity attempt) {
         if (attempt != null && attempt.getProviderCreateDate() != null && !attempt.getProviderCreateDate().isBlank()) {
             return attempt.getProviderCreateDate();
@@ -1493,7 +1616,7 @@ public class PaymentIntegrityService {
         return key.length() <= 190 ? key : "late:" + PaymentPayloads.sha256(key);
     }
 
-    private static java.util.UUID returnResolutionId(String idempotencyKey) {
+    static java.util.UUID returnResolutionId(String idempotencyKey) {
         if (idempotencyKey == null || !idempotencyKey.startsWith("return-")) return null;
         String key = idempotencyKey.substring("return-".length());
         if (key.length() < 36) return null;

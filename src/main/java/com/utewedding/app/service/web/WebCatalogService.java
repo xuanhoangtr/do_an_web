@@ -16,6 +16,7 @@ public interface WebCatalogService {
     }
     List<WebViewModels.ProductView> ranking(String section);
     Page<WebViewModels.ProductView> productsForAdmin(String keyword, String status, int page, int size);
+    Page<WebViewModels.ProductView> productsForShop(UUID shopId, int page, int size);
     WebViewModels.ProductView product(UUID id);
     default List<WebViewModels.ProductView> productsByIds(List<UUID> ids) {
         if (ids == null || ids.isEmpty()) return List.of();

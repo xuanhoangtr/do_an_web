@@ -39,7 +39,9 @@ public class PaymentStatusRefreshService {
         PaymentIntegrityService.VnpayAttemptReference resolved =
                 payments.resolveVnpayReference(providerReference);
         if (resolved == null) return;
-        refresh(resolved.orderId(), () -> payments.reconcileVnpayReference(providerReference, context));
+        UUID ownerId = resolved.groupOwned() ? resolved.checkoutGroupId() : resolved.orderId();
+        if (ownerId == null) return;
+        refresh(ownerId, () -> payments.reconcileVnpayReference(providerReference, context));
     }
 
     public com.utewedding.app.domain.PaymentAttemptStatus latestVnpayAttemptStatus(UUID orderId) {

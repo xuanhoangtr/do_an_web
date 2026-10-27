@@ -3,6 +3,10 @@ package com.utewedding.app.service.impl;
 import com.utewedding.app.exception.ResourceNotFoundException;
 import com.utewedding.app.repository.ProductFavoriteRepository;
 import com.utewedding.app.repository.ProductRepository;
+import com.utewedding.app.repository.ShopRepository;
+import com.utewedding.app.domain.ShopKind;
+import com.utewedding.app.domain.ShopStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.utewedding.app.service.ProductFavoriteService;
 import com.utewedding.app.service.ProductFavoriteService.FavoriteProduct;
 import com.utewedding.app.service.RequestContext;
@@ -18,13 +22,22 @@ public class ProductFavoriteServiceImpl implements ProductFavoriteService {
     private final ProductRepository productRepository;
     private final ProductFavoriteRepository favoriteRepository;
     private final AuditLogPort auditLog;
+    private final ShopRepository shopRepository;
+
+    @Autowired
+    public ProductFavoriteServiceImpl(ProductRepository productRepository,
+                                      ProductFavoriteRepository favoriteRepository,
+                                      AuditLogPort auditLog, ShopRepository shopRepository) {
+        this.productRepository = productRepository;
+        this.favoriteRepository = favoriteRepository;
+        this.auditLog = auditLog;
+        this.shopRepository = shopRepository;
+    }
 
     public ProductFavoriteServiceImpl(ProductRepository productRepository,
                                       ProductFavoriteRepository favoriteRepository,
                                       AuditLogPort auditLog) {
-        this.productRepository = productRepository;
-        this.favoriteRepository = favoriteRepository;
-        this.auditLog = auditLog;
+        this(productRepository, favoriteRepository, auditLog, null);
     }
 
     @Override
@@ -38,9 +51,14 @@ public class ProductFavoriteServiceImpl implements ProductFavoriteService {
             }
             String slug = product.getSlug() != null && !product.getSlug().isBlank()
                     ? product.getSlug() : product.getId().toString();
+            var shop = product.getShopId() == null || shopRepository == null
+                    ? null : shopRepository.findById(product.getShopId()).orElse(null);
+            String shopName = shop == null ? "UTEWedding" : shop.getDisplayName();
+            String shopSlug = shop != null && shop.getKind() == ShopKind.VENDOR
+                    && shop.getStatus() == ShopStatus.ACTIVE ? shop.getSlug() : null;
             return new FavoriteProduct(product.getId(), product.getName(), product.getUnitPrice(),
                     product.getImageUrl(), product.getStockQuantity(), slug,
-                    product.getCustomizationGuide());
+                    product.getCustomizationGuide(), shopName, shopSlug);
         });
     }
 

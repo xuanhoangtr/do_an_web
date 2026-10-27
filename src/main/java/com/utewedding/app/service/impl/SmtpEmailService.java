@@ -36,17 +36,10 @@ public class SmtpEmailService implements EmailService {
     }
 
     @Override
-    public void sendVerificationEmail(String recipient, String verificationLink) {
-        send("verification", recipient, "Xác thực email UTEWedding",
-                "Vui lòng mở liên kết sau để xác thực email của bạn:\n" + verificationLink);
-    }
-
-    @Override
-    public void sendVerificationEmail(String recipient, String otp, String verificationLink) {
+    public void sendVerificationEmail(String recipient, String otp) {
         send("verification", recipient, "Xác thực email UTEWedding",
                 "Mã xác thực email của bạn là: " + otp + "\n\n"
-                        + "Mã có hiệu lực trong 10 phút. Bạn cũng có thể mở liên kết sau:\n"
-                        + verificationLink);
+                        + "Mã có hiệu lực trong 10 phút. Vui lòng nhập mã này trên trang xác thực email UTEWedding.");
     }
 
     @Override

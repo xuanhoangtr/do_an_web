@@ -91,6 +91,9 @@
                         <span class="small text-secondary text-nowrap">★ <span th:text="${product.rating}">5.0</span> (<span th:text="${product.reviewCount}">0</span>)</span>
                     </div>
                     <h3 class="h5 mt-3"><a class="text-dark text-decoration-none" th:href="@{/products/{id}(id=${product.slug})}" th:text="${product.name}">Sản phẩm</a></h3>
+                    <p class="small mb-0"><a th:if="${product.shopSlug != null}" class="text-secondary text-decoration-none"
+                        th:href="@{/shops/{slug}(slug=${product.shopSlug})}" th:text="${product.shopName}">Cửa hàng</a>
+                        <span th:unless="${product.shopSlug != null}" class="text-secondary" th:text="${product.shopName}">UTEWedding</span></p>
                     <p class="small text-secondary" th:text="${product.description}">Mô tả sản phẩm</p>
                     <div class="d-flex justify-content-between align-items-end gap-2 mt-auto pt-3">
                         <div>

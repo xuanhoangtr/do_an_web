@@ -1,5 +1,7 @@
 package com.utewedding.app.service.payment;
 
+import com.utewedding.app.domain.PaymentProviderEnvironment;
+
 /** Provider refund and transaction-query operations. Callback verification stays in the pay adapters. */
 public interface PaymentGatewayClient {
     String CAPTURED = "CAPTURED";
@@ -12,6 +14,9 @@ public interface PaymentGatewayClient {
     String QUERY_FAILED = "QUERY_FAILED";
 
     String providerCode();
+
+    /** Null means the endpoint is not explicitly classified and cannot back a finance receipt. */
+    default PaymentProviderEnvironment providerEnvironment() { return null; }
 
     RefundResult refund(RefundCommand command);
 

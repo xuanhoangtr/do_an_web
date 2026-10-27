@@ -32,20 +32,29 @@ public class ProductWebController {
     private final ReviewService reviewService;
     private final CurrentUserContext currentUser;
     private final com.utewedding.app.service.impl.RecentlyViewedProductService recentlyViewed;
+    private final com.utewedding.app.service.impl.PublicShopService publicShops;
 
     public ProductWebController(WebCatalogService catalogService, ReviewService reviewService,
                                CurrentUserContext currentUser) {
-        this(catalogService, reviewService, currentUser, null);
+        this(catalogService, reviewService, currentUser, null, null);
+    }
+
+    public ProductWebController(WebCatalogService catalogService, ReviewService reviewService,
+                                CurrentUserContext currentUser,
+                                com.utewedding.app.service.impl.RecentlyViewedProductService recentlyViewed) {
+        this(catalogService, reviewService, currentUser, recentlyViewed, null);
     }
 
     @Autowired
     public ProductWebController(WebCatalogService catalogService, ReviewService reviewService,
                                 CurrentUserContext currentUser,
-                                com.utewedding.app.service.impl.RecentlyViewedProductService recentlyViewed) {
+                                com.utewedding.app.service.impl.RecentlyViewedProductService recentlyViewed,
+                                com.utewedding.app.service.impl.PublicShopService publicShops) {
         this.catalogService = catalogService;
         this.reviewService = reviewService;
         this.currentUser = currentUser;
         this.recentlyViewed = recentlyViewed;
+        this.publicShops = publicShops;
     }
 
     @GetMapping({"/", "/home"})
@@ -103,6 +112,15 @@ public class ProductWebController {
         var product = catalogService.productBySlugOrId(idOrSlug);
         UUID productId = product.getId();
         model.addAttribute("product", product);
+        model.addAttribute("sellerShop", null);
+        if (publicShops != null && product.getShopSlug() != null) {
+            try {
+                model.addAttribute("sellerShop", publicShops.detail(product.getShopSlug()));
+            } catch (RuntimeException exception) {
+                LOGGER.warn("Public shop profile unavailable for product {}: {}", productId,
+                        exception.getClass().getSimpleName());
+            }
+        }
         model.addAttribute("relatedProducts", catalogService.relatedProducts(productId));
         model.addAttribute("reviews", reviewService == null ? java.util.List.of() : reviewService.list(productId, 0, 20).getContent());
         model.addAttribute("reviewForm", new com.utewedding.app.service.web.WebViewModels.ReviewForm());

@@ -2,6 +2,7 @@ package com.utewedding.app.controller;
 
 import com.utewedding.app.dto.request.RegisterRequest;
 import com.utewedding.app.exception.DuplicateRegistrationException;
+import com.utewedding.app.exception.InvalidOtpException;
 import com.utewedding.app.service.AuthService;
 import com.utewedding.app.dto.request.ResendVerificationRequest;
 import com.utewedding.app.dto.request.ResetPasswordRequest;
@@ -91,8 +92,10 @@ public class AuthWebController {
             bindingResult.reject("registration.failed", WebErrorMessages.forException(exception));
             return "auth/register";
         }
-        redirectAttributes.addFlashAttribute("successMessage", AuthService.REGISTRATION_ACCEPTED_MESSAGE);
-        return "redirect:/login";
+        redirectAttributes.addFlashAttribute("successMessage",
+                "Đăng ký thành công. Nhập mã OTP 6 số đã gửi đến email để xác thực tài khoản.");
+        redirectAttributes.addFlashAttribute("email", form.getEmail() == null ? "" : form.getEmail().trim());
+        return "redirect:/verify-email";
     }
 
     @PostMapping("/forgot-password")
@@ -144,24 +147,28 @@ public class AuthWebController {
     }
 
     @GetMapping("/verify-email")
-    public String verifyEmail(@RequestParam(required = false) String token, HttpServletRequest request, Model model) {
-        if (token != null && !token.isBlank() && emailVerificationService != null) {
-            try {
-                emailVerificationService.verifyLink(token, context(request));
-                model.addAttribute("successMessage", "Email đã được xác thực. Bạn có thể đăng nhập.");
-            } catch (RuntimeException exception) {
-                model.addAttribute("errorMessage", WebErrorMessages.forException(exception));
-            }
+    public String verifyEmail(@RequestParam(required = false) String token,
+                              RedirectAttributes redirectAttributes) {
+        if (token != null && !token.isBlank()) {
+            redirectAttributes.addFlashAttribute("infoMessage",
+                    "Vui lòng nhập mã OTP 6 số trong email để xác thực tài khoản.");
+            return "redirect:/verify-email";
         }
         return "auth/verify-email";
     }
 
     @PostMapping("/verify-email")
     public String verifyEmailCode(@RequestParam String email, @RequestParam String code,
-                                  HttpServletRequest request, Model model) {
+                                  HttpServletRequest request, Model model,
+                                  RedirectAttributes redirectAttributes) {
         try {
             emailVerificationService.verifyOtp(new VerifyEmailRequest(email, code), context(request));
-            model.addAttribute("successMessage", "Email đã được xác thực. Bạn có thể đăng nhập.");
+            redirectAttributes.addFlashAttribute("successMessage",
+                    "Email đã được xác thực. Bạn có thể đăng nhập.");
+            return "redirect:/login";
+        } catch (InvalidOtpException exception) {
+            model.addAttribute("errorMessage",
+                    "Mã OTP chưa đúng. Email vẫn chưa được xác thực; vui lòng kiểm tra mã trong email và nhập lại.");
         } catch (RuntimeException exception) {
             model.addAttribute("errorMessage", WebErrorMessages.forException(exception));
         }
@@ -180,7 +187,8 @@ public class AuthWebController {
             // Same response whether or not the address can receive another message.
         }
         redirectAttributes.addFlashAttribute("successMessage",
-                "Nếu email cần xác thực, liên kết mới sẽ được gửi sớm.");
+                "Nếu email cần xác thực, mã OTP mới sẽ được gửi sớm.");
+        redirectAttributes.addFlashAttribute("email", email == null ? "" : email.trim());
         return "redirect:/verify-email";
     }
 

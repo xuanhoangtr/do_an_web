@@ -2,25 +2,34 @@ package com.utewedding.app.service.impl;
 
 import com.utewedding.app.domain.FulfillmentStatus;
 import com.utewedding.app.domain.AuditAction;
+import com.utewedding.app.domain.CheckoutGroupLifecycleStatus;
+import com.utewedding.app.domain.CheckoutGroupPaymentStatus;
 import com.utewedding.app.domain.OrderStatus;
 import com.utewedding.app.domain.PaymentMethod;
 import com.utewedding.app.domain.PaymentStatus;
 import com.utewedding.app.domain.UserRole;
+import com.utewedding.app.domain.VoucherUsageSlot;
 import com.utewedding.app.domain.entity.CartEntity;
 import com.utewedding.app.domain.entity.CartItemEntity;
+import com.utewedding.app.domain.entity.CheckoutGroupEntity;
 import com.utewedding.app.domain.entity.OrderEntity;
 import com.utewedding.app.domain.entity.OrderFulfillmentEntity;
 import com.utewedding.app.domain.entity.AuditLogEntity;
 import com.utewedding.app.domain.entity.OrderIdempotencyEntity;
 import com.utewedding.app.domain.entity.OrderItemEntity;
+import com.utewedding.app.domain.entity.OrderAppliedDiscountEntity;
+import com.utewedding.app.domain.entity.OrderAppliedDiscountItemAllocationEntity;
 import com.utewedding.app.domain.entity.PaymentEntity;
 import com.utewedding.app.domain.entity.ProductEntity;
 import com.utewedding.app.domain.entity.ShipInfoEntity;
 import com.utewedding.app.dto.request.CreateOrderRequest;
+import com.utewedding.app.dto.request.MultiShopCheckoutRequest;
 import com.utewedding.app.dto.request.PaymentRequest;
 import com.utewedding.app.dto.request.ShippingAddressRequest;
 import com.utewedding.app.dto.response.OrderItemResponse;
 import com.utewedding.app.dto.response.OrderResponse;
+import com.utewedding.app.dto.response.MultiShopCheckoutPreviewResponse;
+import com.utewedding.app.dto.response.MultiShopCheckoutResponse;
 import com.utewedding.app.dto.response.PublicOrderTrackingResponse;
 import com.utewedding.app.dto.response.CheckoutPricingPreview;
 import com.utewedding.app.dto.response.PaymentResponse;
@@ -32,6 +41,7 @@ import com.utewedding.app.exception.ResourceNotFoundException;
 import com.utewedding.app.event.OrderCreatedEvent;
 import com.utewedding.app.repository.CartItemRepository;
 import com.utewedding.app.repository.CartRepository;
+import com.utewedding.app.repository.CheckoutGroupRepository;
 import com.utewedding.app.repository.OrderFulfillmentRepository;
 import com.utewedding.app.repository.AuditLogRepository;
 import com.utewedding.app.repository.OrderIdempotencyRepository;
@@ -41,7 +51,10 @@ import com.utewedding.app.repository.PaymentRepository;
 import com.utewedding.app.repository.ProductRepository;
 import com.utewedding.app.repository.ShipInfoRepository;
 import com.utewedding.app.repository.UserRepository;
+import com.utewedding.app.repository.ShopRepository;
 import com.utewedding.app.repository.WeddingRepository;
+import com.utewedding.app.repository.OrderAppliedDiscountRepository;
+import com.utewedding.app.repository.OrderAppliedDiscountItemAllocationRepository;
 import com.utewedding.app.observability.CommerceMetrics;
 import com.utewedding.app.service.OrderService;
 import com.utewedding.app.service.payment.PaymentIntegrityService;
@@ -121,11 +134,18 @@ public class OrderServiceImpl implements OrderService {
     @Value("${orders.payment.vnpay-unpaid-ttl:24h}")
     private Duration vnpayUnpaidTtl = Duration.ofHours(24);
     private ShippingQuoteService shippingQuotes;
+    private ShopShippingQuoteService shopShippingQuotes;
+    private ShopRepository shopRepository;
     private OrderShippingSnapshotService shippingSnapshots;
     private AccountingDocumentService accountingDocuments;
     private CodReconciliationService codReconciliation;
     private RiskService riskService;
     private TransactionTemplate refundTransactions;
+    private OrderAppliedDiscountRepository appliedDiscountRepository;
+    private OrderAppliedDiscountItemAllocationRepository appliedDiscountAllocationRepository;
+    private ShopFinancialService shopFinancialService;
+    private MultiShopCheckoutService groupedCheckout;
+    private CheckoutGroupRepository checkoutGroups;
 
     public OrderServiceImpl(OrderRepository orders, OrderItemRepository items,
                             OrderIdempotencyRepository claims, PaymentRepository payments,
@@ -197,6 +217,32 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Autowired(required = false)
+    void attachShopRepository(ShopRepository shopRepository) {
+        this.shopRepository = shopRepository;
+    }
+
+    @Autowired(required = false)
+    void attachShopShippingQuotes(ShopShippingQuoteService quotes) {
+        this.shopShippingQuotes = quotes;
+    }
+
+    @Autowired(required = false)
+    void attachAppliedDiscountRepositories(OrderAppliedDiscountRepository snapshots,
+                                           OrderAppliedDiscountItemAllocationRepository allocations) {
+        this.appliedDiscountRepository = snapshots;
+        this.appliedDiscountAllocationRepository = allocations;
+    }
+
+    @Autowired(required = false)
+    void attachShopFinancialService(ShopFinancialService service) { this.shopFinancialService = service; }
+
+    @Autowired(required = false)
+    void attachGroupedCheckoutService(MultiShopCheckoutService service) { this.groupedCheckout = service; }
+
+    @Autowired(required = false)
+    void attachCheckoutGroups(CheckoutGroupRepository repository) { this.checkoutGroups = repository; }
+
+    @Autowired(required = false)
     void attachRiskService(RiskService service) { this.riskService = service; }
 
     @Autowired(required = false)
@@ -230,7 +276,32 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new BusinessConflictException("Giỏ hàng đang trống."));
         List<CartItemEntity> cartItems = cartItemRepository.findByCartIdOrderByIdAsc(cart.getId());
         if (cartItems.isEmpty()) throw new BusinessConflictException("Giỏ hàng đang trống.");
-        return calculatePricing(userId, request, cartItems, false).preview();
+        return calculatePricing(userId, request, selectCartItems(request, cartItems), false).preview();
+    }
+
+    @Override
+    public MultiShopCheckoutPreviewResponse previewGrouped(UUID userId, MultiShopCheckoutRequest request) {
+        if (groupedCheckout == null) {
+            throw new BusinessConflictException("Tính năng thanh toán nhiều cửa hàng hiện chưa sẵn sàng.");
+        }
+        return groupedCheckout.preview(userId, request);
+    }
+
+    @Override
+    public MultiShopCheckoutResponse placeGrouped(UUID userId, MultiShopCheckoutRequest request,
+                                                  RequestContext context) {
+        if (groupedCheckout == null) {
+            throw new BusinessConflictException("Tính năng thanh toán nhiều cửa hàng hiện chưa sẵn sàng.");
+        }
+        return groupedCheckout.place(userId, request, context);
+    }
+
+    @Override
+    public MultiShopCheckoutResponse getCheckoutGroup(UUID actorId, UUID groupId) {
+        if (groupedCheckout == null) {
+            throw new ResourceNotFoundException("Không tìm thấy nhóm checkout.");
+        }
+        return groupedCheckout.get(actorId, groupId);
     }
 
     private OrderResponse createLocked(UUID userId, CreateOrderRequest request, RequestContext context) {
@@ -247,10 +318,12 @@ public class OrderServiceImpl implements OrderService {
         }
         if (request.weddingId() != null && weddingRepository.findByIdAndOwnerId(request.weddingId(), userId).isEmpty())
             throw new ResourceNotFoundException("Không tìm thấy thiệp cưới.");
-        CartEntity cart = cartRepository.findByUserId(userId)
+        CartEntity cart = cartRepository.findByUserIdForUpdate(userId)
                 .orElseThrow(() -> new BusinessConflictException("Giỏ hàng đang trống."));
         List<CartItemEntity> cartItems = cartItemRepository.findByCartIdOrderByIdAsc(cart.getId());
         if (cartItems.isEmpty()) throw new BusinessConflictException("Giỏ hàng đang trống.");
+
+        cartItems = selectCartItems(request, cartItems);
 
         PricingCalculation pricing = calculatePricing(userId, request, cartItems, true);
         CheckoutPricingPreview quote = pricing.preview();
@@ -259,13 +332,23 @@ public class OrderServiceImpl implements OrderService {
         List<OrderItemEntity> items = pricing.items();
         long subtotal = quote.subtotal();
         long discount = Math.addExact(quote.productDiscountAmount(), quote.voucherDiscountAmount());
-        long codeDiscount = quote.getVoucherBenefitAmount();
         ShippingAddressRequest shipping = pricing.shipping();
         AdministrativeAddressService.ResolvedAddress resolved = addressDirectory == null
                 ? null : addressDirectory.resolve(shipping.provinceCode(), shipping.wardCode());
         PaymentMethod method = request.paymentMethod() == null ? PaymentMethod.COD : request.paymentMethod();
 
         OrderEntity order = new OrderEntity(userId, Instant.now());
+        UUID shopId = items.get(0).getShopId();
+        order.setShopId(shopId);
+        String shopName = shopRepository == null ? null : shopRepository.findById(shopId)
+                .map(com.utewedding.app.domain.entity.ShopEntity::getDisplayName).orElse(null);
+        if (shopName == null && shopId.equals(com.utewedding.app.domain.ShopDefaults.PLATFORM_SHOP_ID)) {
+            shopName = com.utewedding.app.domain.ShopDefaults.PLATFORM_SHOP_NAME;
+        }
+        if (shopName == null || shopName.isBlank()) {
+            throw new BusinessConflictException("Không xác định được cửa hàng của sản phẩm trong giỏ.");
+        }
+        order.setShopNameSnapshot(shopName);
         order.setWeddingId(request.weddingId());
         order.setShipInfoId(request.shippingAddressId());
         order.setOrderNumber(generateOrderNumber());
@@ -334,8 +417,15 @@ public class OrderServiceImpl implements OrderService {
         if (method == PaymentMethod.COD && codReconciliation != null) {
             codReconciliation.initialize(order.getId());
         }
-        cartItemRepository.deleteByCartId(cart.getId());
-        discountPolicy.reserve(quote.appliedVoucherCode(), userId, order.getId(), codeDiscount);
+        reserveVoucherSlots(pricing.discounts(), userId, order.getId(), shopId);
+        persistAppliedDiscountSnapshots(order, items, pricing.discounts());
+        if (shopFinancialService != null) {
+            shopFinancialService.snapshotAtCheckout(order, items, pricing.discounts().merchandise());
+        }
+        List<UUID> consumedRows = cartItems.stream().map(CartItemEntity::getId).toList();
+        if (cartItemRepository.consumeSelectedRows(cart.getId(), consumedRows) != consumedRows.size()) {
+            throw new BusinessConflictException("Nhóm sản phẩm đã thay đổi. Vui lòng tải lại giỏ hàng.");
+        }
         entityManager.flush();
         auditLog.record("ORDER_CREATED", userId, "Order", order.getId(),
                 Map.of("totalAmount", order.getTotalAmount(), "discountAmount", discount), context);
@@ -351,15 +441,38 @@ public class OrderServiceImpl implements OrderService {
                                                List<CartItemEntity> cartItems, boolean lockProducts) {
         long subtotal = 0;
         long productDiscountTotal = 0;
+        UUID selectedShopId = null;
         List<ProductReservation> reservations = new ArrayList<>();
         List<OrderItemEntity> items = new ArrayList<>();
         List<CheckoutPricingPreview.Line> lines = new ArrayList<>();
+        if (request.selectedShopId() != null && shopRepository != null) {
+            var shop = (lockProducts ? shopRepository.findByIdForUpdate(request.selectedShopId())
+                    : shopRepository.findById(request.selectedShopId()))
+                    .orElseThrow(() -> new BusinessConflictException("Không tìm thấy cửa hàng đã chọn."));
+            if (shop.getStatus() != com.utewedding.app.domain.ShopStatus.ACTIVE) {
+                throw new BusinessConflictException("Cửa hàng đã chọn hiện không nhận đơn hàng.");
+            }
+        }
         for (CartItemEntity cartItem : cartItems.stream()
                 .sorted(Comparator.comparing(CartItemEntity::getProductId)).toList()) {
             ProductEntity product = (lockProducts
                     ? productRepository.findByIdForUpdate(cartItem.getProductId())
                     : productRepository.findByIdAndActiveTrue(cartItem.getProductId()))
                     .orElseThrow(() -> new ResourceNotFoundException("Sản phẩm không còn kinh doanh."));
+            if (lockProducts && request.selectedShopId() != null) {
+                entityManager.refresh(product, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+            }
+            UUID productShopId = product.getShopId() == null
+                    ? com.utewedding.app.domain.ShopDefaults.PLATFORM_SHOP_ID : product.getShopId();
+            if (selectedShopId != null && !selectedShopId.equals(productShopId)) {
+                throw new BusinessConflictException("Mỗi đơn hàng chỉ được thanh toán cho một cửa hàng.");
+            }
+            selectedShopId = productShopId;
+            if (request.selectedShopId() != null && (!request.selectedShopId().equals(productShopId)
+                    || !product.isActive() || !product.isSellerVisible()
+                    || product.getModerationStatus() != com.utewedding.app.domain.ProductModerationStatus.APPROVED)) {
+                throw new BusinessConflictException("Sản phẩm của cửa hàng đã thay đổi hoặc không còn khả dụng.");
+            }
             int quantity = cartItem.getQuantity();
             if (quantity < 1 || quantity > MAX_LINE_QUANTITY || quantity > product.getStockQuantity()) {
                 throw new BusinessConflictException("Tồn kho của sản phẩm đã thay đổi, vui lòng cập nhật giỏ hàng.");
@@ -382,6 +495,7 @@ public class OrderServiceImpl implements OrderService {
                     product.getCustomizationGuide(), cartItem.getCustomizationText());
             OrderItemEntity item = new OrderItemEntity();
             item.setProductId(product.getId());
+            item.setShopId(productShopId);
             item.setProductName(orderItemName(product.getName(), customizationText));
             item.setUnitPrice(product.getUnitPrice());
             item.setQuantity(quantity);
@@ -390,55 +504,111 @@ public class OrderServiceImpl implements OrderService {
             items.add(item);
         }
 
+        if (request.selectedShopId() != null) {
+            selectCartItems(request, cartItems);
+        } else if (!com.utewedding.app.domain.ShopDefaults.PLATFORM_SHOP_ID.equals(selectedShopId)) {
+            throw new BusinessConflictException("Vui lòng chọn cửa hàng và lấy báo giá giao hàng trước khi đặt đơn.");
+        }
+
         long eligible = subtotal - productDiscountTotal;
         ShippingAddressRequest shipping = resolveShipping(userId, request);
         long shippingFeeBeforeDiscount;
         String shippingProviderCode = null;
-        if (request.shippingQuoteId() != null && shippingQuotes != null) {
-            var shippingQuote = shippingQuotes.requireValid(userId, request.shippingQuoteId(), cartItems, shipping);
+        if (request.selectedShopId() != null
+                && !com.utewedding.app.domain.ShopDefaults.PLATFORM_SHOP_ID.equals(request.selectedShopId())) {
+            if (shopShippingQuotes == null) {
+                throw new BusinessConflictException("Không thể xác minh báo giá giao hàng của cửa hàng.");
+            }
+            var shippingQuote = lockProducts
+                    ? shopShippingQuotes.requireValidForCheckout(userId, request.shippingQuoteId(),
+                            selectedShopId, request.selectionFingerprint(), shipping)
+                    : shopShippingQuotes.requireValid(userId, request.shippingQuoteId(),
+                            selectedShopId, request.selectionFingerprint(), shipping);
             shippingFeeBeforeDiscount = shippingQuote.getFee();
             shippingProviderCode = shippingQuote.getProviderCode();
         } else {
+            if (request.shippingQuoteId() == null) {
+                throw new BusinessConflictException("Vui lòng lấy báo giá giao hàng trước khi tiếp tục.");
+            }
             if (shippingQuotes == null) {
-                throw new BusinessConflictException(
-                        "Không thể xác định đơn vị và phí giao hàng. Vui lòng tải lại báo giá vận chuyển.");
+                throw new BusinessConflictException("Không thể xác minh báo giá giao hàng. Vui lòng thử lại sau.");
+            }
+            var shippingQuote = lockProducts
+                    ? shippingQuotes.requireValid(userId, request.shippingQuoteId(), cartItems, shipping)
+                    : shippingQuotes.requireValidForPreview(userId, request.shippingQuoteId(), cartItems, shipping);
+            shippingFeeBeforeDiscount = shippingQuote.getFee();
+            shippingProviderCode = shippingQuote.getProviderCode();
+        }
+        DiscountPolicy.CheckoutDiscounts discounts;
+        String shippingVoucherCode = request.shippingDiscountCode();
+        if (discountPolicy instanceof VoucherDiscountPolicy) {
+            discounts = lockProducts
+                    ? discountPolicy.calculateCheckoutSlots(request.discountCode(), shippingVoucherCode, eligible,
+                            shippingFeeBeforeDiscount, shippingProviderCode, userId, selectedShopId)
+                    : discountPolicy.previewCheckoutSlots(request.discountCode(), shippingVoucherCode, eligible,
+                            shippingFeeBeforeDiscount, shippingProviderCode, userId, selectedShopId);
+        } else if (shippingVoucherCode != null && !shippingVoucherCode.isBlank()) {
+            discounts = lockProducts
+                    ? discountPolicy.calculateCheckoutSlots(request.discountCode(), shippingVoucherCode, eligible,
+                            shippingFeeBeforeDiscount, shippingProviderCode, userId, selectedShopId)
+                    : discountPolicy.previewCheckoutSlots(request.discountCode(), shippingVoucherCode, eligible,
+                            shippingFeeBeforeDiscount, shippingProviderCode, userId, selectedShopId);
+        } else {
+            DiscountPolicy.DiscountResult legacy = discountPolicy.calculate(request.discountCode(), eligible);
+            if (legacy == null) legacy = DiscountPolicy.DiscountResult.none();
+            if (legacy.type() != null && legacy.type().isShippingVoucher()) {
+                discounts = new DiscountPolicy.CheckoutDiscounts(DiscountPolicy.DiscountResult.none(), legacy);
             } else {
-                var address = addressDirectory == null ? null
-                        : addressDirectory.resolve(shipping.provinceCode(), shipping.wardCode());
-                var route = address == null
-                        ? shippingQuotes.carrierRouteFor(
-                                addressDirectory == null ? null : addressDirectory.activeCatalogSource(),
-                                shipping.provinceCode())
-                        : shippingQuotes.carrierRouteFor(address.catalogSource(), address.provinceCode());
-                shippingFeeBeforeDiscount = route.customerFee();
-                shippingProviderCode = route.providerCode();
+                discounts = new DiscountPolicy.CheckoutDiscounts(legacy, DiscountPolicy.DiscountResult.none());
             }
         }
-        DiscountPolicy.DiscountResult voucher;
-        if (discountPolicy instanceof VoucherDiscountPolicy) {
-            voucher = lockProducts
-                    ? discountPolicy.calculateForCheckout(request.discountCode(), eligible,
-                            shippingFeeBeforeDiscount, shippingProviderCode, userId)
-                    : discountPolicy.previewForCheckout(request.discountCode(), eligible,
-                            shippingFeeBeforeDiscount, shippingProviderCode, userId);
-        } else {
-            voucher = discountPolicy.calculate(request.discountCode(), eligible);
-        }
-        boolean shippingVoucher = voucher.type() != null && voucher.type().isShippingVoucher();
-        long voucherDiscount = shippingVoucher ? 0 : Math.max(0, Math.min(eligible, voucher.amount()));
-        long shippingDiscount = shippingVoucher
-                ? Math.max(0, Math.min(shippingFeeBeforeDiscount, voucher.amount())) : 0;
+        DiscountPolicy.DiscountResult merchandiseVoucher = discounts.merchandise();
+        DiscountPolicy.DiscountResult shippingVoucher = discounts.shipping();
+        long voucherDiscount = Math.max(0, Math.min(eligible, merchandiseVoucher.amount()));
+        long shippingDiscount = Math.max(0, Math.min(shippingFeeBeforeDiscount, shippingVoucher.amount()));
         long shippingFee = shippingFeeBeforeDiscount - shippingDiscount;
         allocateVoucher(items, voucherDiscount);
+        String legacyVoucherCode = discounts.legacyCode();
+        com.utewedding.app.domain.VoucherType legacyVoucherType = discounts.legacyType();
         CheckoutPricingPreview preview = new CheckoutPricingPreview(subtotal, productDiscountTotal,
                 voucherDiscount, shippingFee,
                 Math.addExact(eligible - voucherDiscount, shippingFee),
-                voucher.appliedCode(), lines, shippingFeeBeforeDiscount, shippingDiscount, voucher.type());
+                legacyVoucherCode, lines, shippingFeeBeforeDiscount, shippingDiscount, legacyVoucherType,
+                merchandiseVoucher.appliedCode(), merchandiseVoucher.type(),
+                shippingVoucher.appliedCode(), shippingVoucher.type());
         if (request.expectedTotalAmount() != null
                 && request.expectedTotalAmount().longValue() != preview.totalAmount()) {
             throw new CheckoutPriceChangedException(preview);
         }
-        return new PricingCalculation(preview, List.copyOf(reservations), List.copyOf(items), shipping);
+        return new PricingCalculation(preview, List.copyOf(reservations), List.copyOf(items), shipping, discounts);
+    }
+
+    private List<CartItemEntity> selectCartItems(CreateOrderRequest request, List<CartItemEntity> rows) {
+        if (request.selectedShopId() == null && request.selectionFingerprint() != null
+                && !request.selectionFingerprint().isBlank()) {
+            throw new BusinessConflictException("Chọn cửa hàng để xác minh nhóm sản phẩm.");
+        }
+        if (request.selectedShopId() == null) return rows;
+        if (request.selectionFingerprint() == null || request.selectionFingerprint().isBlank()) {
+            throw new BusinessConflictException("Vui lòng xác nhận lại nhóm sản phẩm trong giỏ hàng.");
+        }
+        List<CartItemEntity> selected = new ArrayList<>();
+        List<com.utewedding.app.dto.response.CartItemResponse> snapshot = new ArrayList<>();
+        for (CartItemEntity row : rows) {
+            ProductEntity product = productRepository.findById(row.getProductId()).orElse(null);
+            if (product == null || !request.selectedShopId().equals(product.getShopId())) continue;
+            selected.add(row);
+            snapshot.add(new com.utewedding.app.dto.response.CartItemResponse(row.getId(), row.getProductId(),
+                    product.getName(), product.getSku(), product.getImageUrl(), product.getUnitPrice(),
+                    row.getQuantity(), product.getDiscountPercent(), 0, 0, row.getCustomizationText()));
+        }
+        if (selected.isEmpty() || !java.security.MessageDigest.isEqual(
+                CheckoutSelectionResolver.fingerprint(request.selectedShopId(), snapshot)
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                request.selectionFingerprint().getBytes(java.nio.charset.StandardCharsets.UTF_8))) {
+            throw new BusinessConflictException("Nhóm sản phẩm đã thay đổi hoặc đã được thanh toán.");
+        }
+        return List.copyOf(selected);
     }
 
     /** Stable largest-remainder allocation; all item snapshots add up to the order voucher exactly. */
@@ -463,6 +633,51 @@ public class OrderServiceImpl implements OrderService {
             item.setVoucherDiscountAllocated(item.getVoucherDiscountAllocated() + 1);
         }
         items.forEach(item -> item.setNetPaidAmount(item.getLineTotal() - item.getVoucherDiscountAllocated()));
+    }
+
+    private void reserveVoucherSlots(DiscountPolicy.CheckoutDiscounts discounts, UUID userId, UUID orderId,
+                                    UUID selectedShopId) {
+        if (discounts == null || orderId == null) return;
+        List<DiscountPolicy.DiscountResult> reservations = java.util.stream.Stream.of(
+                        discounts.merchandise(), discounts.shipping())
+                .filter(result -> result != null && result.appliedCode() != null)
+                .sorted(Comparator.comparing(result -> result.appliedCode().toUpperCase(java.util.Locale.ROOT)))
+                .toList();
+        for (DiscountPolicy.DiscountResult result : reservations) {
+            discountPolicy.reserve(result.appliedCode(), userId, orderId, result.amount(), selectedShopId);
+        }
+    }
+
+    private void persistAppliedDiscountSnapshots(OrderEntity order, List<OrderItemEntity> items,
+                                                  DiscountPolicy.CheckoutDiscounts discounts) {
+        if (discounts == null) return;
+        List<DiscountPolicy.DiscountResult> applied = List.of(discounts.merchandise(), discounts.shipping());
+        for (DiscountPolicy.DiscountResult result : applied) {
+            if (result == null || result.appliedCode() == null || result.voucherId() == null) continue;
+            VoucherUsageSlot slot = result.type() != null && result.type().isShippingVoucher()
+                    ? VoucherUsageSlot.SHIPPING : VoucherUsageSlot.MERCHANDISE;
+            if (appliedDiscountRepository == null) {
+                throw new BusinessConflictException("Không thể lưu lịch sử voucher của đơn hàng.");
+            }
+            long amount = slot == VoucherUsageSlot.SHIPPING
+                    ? order.getShippingDiscountAmount() : order.getVoucherDiscountAmount();
+            OrderAppliedDiscountEntity snapshot = OrderAppliedDiscountEntity.liveUsage(order.getId(),
+                    order.getShopId(), result.voucherId(), slot, result.appliedCode(), result.type(),
+                    result.scope(), result.fundingSource(), amount);
+            snapshot = appliedDiscountRepository.saveAndFlush(snapshot);
+            if (slot != VoucherUsageSlot.MERCHANDISE) continue;
+            if (appliedDiscountAllocationRepository == null && amount > 0) {
+                throw new BusinessConflictException("Không thể lưu phân bổ voucher theo sản phẩm.");
+            }
+            if (appliedDiscountAllocationRepository == null) continue;
+            UUID snapshotId = snapshot.getId();
+            List<OrderAppliedDiscountItemAllocationEntity> allocations = items.stream()
+                    .map(item -> OrderAppliedDiscountItemAllocationEntity.of(snapshotId, order.getId(),
+                            order.getShopId(), item.getId(), item.getVoucherDiscountAllocated()))
+                    .toList();
+            appliedDiscountAllocationRepository.saveAll(allocations);
+            appliedDiscountAllocationRepository.flush();
+        }
     }
 
     private ShippingAddressRequest resolveShipping(UUID userId, CreateOrderRequest request) {
@@ -799,6 +1014,7 @@ public class OrderServiceImpl implements OrderService {
         OrderEntity order = orderRepository.findByIdAndUserIdForUpdate(orderId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng."));
         entityManager.refresh(order);
+        requireStandaloneOrderOperation(order);
         if (order.getStatus() == OrderStatus.PAID) return toResponse(order);
         if (order.getStatus() != OrderStatus.PENDING)
             throw new BusinessConflictException("Đơn hàng không còn ở trạng thái chờ thanh toán.");
@@ -814,9 +1030,54 @@ public class OrderServiceImpl implements OrderService {
     @Override @Transactional(rollbackFor = Exception.class)
     public OrderResponse cancel(UUID userId, UUID orderId, String reason, RequestContext context) {
         if (integrityProbe != null) integrityProbe.beforeCompetingStatusWrite("cancel");
+        OrderEntity snapshot = orderRepository.findByIdAndUserId(orderId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng."));
+        if (snapshot.getCheckoutGroupId() != null) {
+            return cancelGroupedCodChild(userId, orderId, reason, context, snapshot.getCheckoutGroupId());
+        }
         OrderEntity order = orderRepository.findByIdAndUserIdForUpdate(orderId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng."));
         entityManager.refresh(order);
+        requireStandaloneOrderOperation(order);
+        return cancelLockedOrder(userId, order, reason, context, false);
+    }
+
+    private OrderResponse cancelGroupedCodChild(UUID userId, UUID orderId, String reason,
+                                                 RequestContext context, UUID groupId) {
+        if (checkoutGroups == null) {
+            throw new BusinessConflictException("Dịch vụ hủy đơn nhóm chưa sẵn sàng.");
+        }
+        CheckoutGroupEntity group = checkoutGroups.findByIdForUpdate(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nhóm checkout."));
+        if (!userId.equals(group.getCustomerId())) {
+            throw new ResourceNotFoundException("Không tìm thấy đơn hàng.");
+        }
+        if (!PaymentMethod.COD.name().equalsIgnoreCase(group.getPaymentMethod())) {
+            throw new BusinessConflictException("Đơn VNPAY trong nhóm phải được hủy qua thao tác hủy toàn nhóm.");
+        }
+        List<OrderEntity> children = orderRepository.findByCheckoutGroupIdForUpdateOrderByIdAsc(groupId);
+        OrderEntity order = children.stream().filter(row -> orderId.equals(row.getId())
+                        && userId.equals(row.getUserId()))
+                .findFirst().orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng."));
+        entityManager.refresh(order);
+        OrderResponse response = cancelLockedOrder(userId, order, reason, context, true);
+
+        boolean allChildrenClosed = children.stream().allMatch(child -> child.getStatus() == OrderStatus.CANCELLED
+                || child.getStatus() == OrderStatus.EXPIRED);
+        if (allChildrenClosed) {
+            boolean allExpired = children.stream().allMatch(child -> child.getStatus() == OrderStatus.EXPIRED);
+            group.setLifecycleStatus(allExpired ? CheckoutGroupLifecycleStatus.EXPIRED
+                    : CheckoutGroupLifecycleStatus.CANCELLED);
+            group.setPaymentStatus(allExpired ? CheckoutGroupPaymentStatus.EXPIRED
+                    : CheckoutGroupPaymentStatus.CANCELLED);
+            checkoutGroups.save(group);
+        }
+        return response;
+    }
+
+    private OrderResponse cancelLockedOrder(UUID userId, OrderEntity order, String reason,
+                                             RequestContext context, boolean groupedCod) {
+        UUID orderId = order.getId();
         if (order.getStatus() == OrderStatus.CANCELLED) return toResponse(order);
         if (order.getStatus() != OrderStatus.PENDING)
             throw new BusinessConflictException("Đơn hàng không còn ở trạng thái có thể hủy.");
@@ -834,6 +1095,10 @@ public class OrderServiceImpl implements OrderService {
         auditLog.record("ORDER_STATUS_CHANGED", userId, "Order", orderId,
                 Map.of("from", previous.name(), "to", OrderStatus.CANCELLED.name()), context);
         auditLog.record("ORDER_CANCELLED", userId, "Order", orderId, Map.of(), context);
+        if (groupedCod) {
+            auditLog.record("CHECKOUT_GROUP_CHILD_CANCELLED", userId, "CheckoutGroup",
+                    order.getCheckoutGroupId(), Map.of("orderId", orderId.toString()), context);
+        }
         return toResponse(order);
     }
 
@@ -883,6 +1148,8 @@ public class OrderServiceImpl implements OrderService {
             }
             OrderEntity snapshot = orderRepository.findById(orderId)
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng."));
+            boolean groupedChild = snapshot.getCheckoutGroupId() != null;
+            if (!groupedChild) requireStandaloneOrderOperation(snapshot);
             if (ledger && snapshot.getStatus() == OrderStatus.REFUNDED) {
                 metrics.refundReplay();
                 return toResponse(snapshot);
@@ -1159,10 +1426,24 @@ public class OrderServiceImpl implements OrderService {
 
     private OrderResponse toResponse(OrderEntity order) {
         return toResponse(order, orderItemRepository.findByOrderIdOrderByIdAsc(order.getId()),
-                paymentRepository.findByOrderIdOrderByCreatedAtDesc(order.getId()));
+                paymentRepository.findByOrderIdOrderByCreatedAtDesc(order.getId()), loadAppliedVouchers(order));
     }
 
     private OrderResponse toResponse(OrderEntity order, List<OrderItemEntity> items, List<PaymentEntity> payments) {
+        return toResponse(order, items, payments, List.of());
+    }
+
+    private List<com.utewedding.app.dto.response.AppliedVoucherResponse> loadAppliedVouchers(OrderEntity order) {
+        if (order == null || order.getId() == null || appliedDiscountRepository == null) return List.of();
+        return appliedDiscountRepository.findAllByOrderIdOrderBySlotAsc(order.getId()).stream()
+                .map(snapshot -> new com.utewedding.app.dto.response.AppliedVoucherResponse(
+                        snapshot.getSlot(), snapshot.getCode(), snapshot.getVoucherType(),
+                        snapshot.getDiscountAmount()))
+                .toList();
+    }
+
+    private OrderResponse toResponse(OrderEntity order, List<OrderItemEntity> items, List<PaymentEntity> payments,
+                                     List<com.utewedding.app.dto.response.AppliedVoucherResponse> appliedVouchers) {
         List<OrderItemResponse> itemResponses = items.stream()
                 .map(item -> new OrderItemResponse(item.getProductId(), item.getProductName(),
                         item.getUnitPrice(), item.getQuantity(), item.getDiscountAmount(), item.getLineTotal())).toList();
@@ -1191,13 +1472,21 @@ public class OrderServiceImpl implements OrderService {
                 itemResponses, paymentResponses, method, shipping, order.getShippingFee(), order.getExpiresAt(),
                 order.getPaymentStatus(), fulfillments, overall, order.getDiscountCode(), order.getConfirmedAt(),
                 order.getShippingFeeBeforeDiscount(), order.getShippingDiscountAmount(),
-                order.getVoucherDiscountAmount(), order.getVoucherType());
+                order.getVoucherDiscountAmount(), order.getVoucherType(), order.getShopNameSnapshot(), appliedVouchers);
     }
 
     private String generateOrderNumber() {
         return "WT" + ORDER_DATE.format(Instant.now()) + "-"
                 + UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
     }
+
+    private void requireStandaloneOrderOperation(OrderEntity order) {
+        if (order.getCheckoutGroupId() != null) {
+            throw new BusinessConflictException(
+                    "Đơn này thuộc nhóm checkout. Thao tác cần thực hiện qua luồng thanh toán nhóm.");
+        }
+    }
+
     private String requireIdempotencyKey(String value) {
         String normalized = trimToNull(value);
         if (normalized == null) {
@@ -1231,6 +1520,7 @@ public class OrderServiceImpl implements OrderService {
     private record PricingCalculation(CheckoutPricingPreview preview,
                                       List<ProductReservation> reservations,
                                       List<OrderItemEntity> items,
-                                      ShippingAddressRequest shipping) {
+                                      ShippingAddressRequest shipping,
+                                      DiscountPolicy.CheckoutDiscounts discounts) {
     }
 }

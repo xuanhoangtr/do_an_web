@@ -9,6 +9,7 @@
         <div>
             <p class="eyebrow mb-1">Chi tiết đơn hàng</p>
             <h1 class="display-subtitle order-number mb-2" th:text="${order.orderNumber}">Mã đơn</h1>
+            <p class="small text-secondary mb-1" th:text="${order.shopNameSnapshot != null ? order.shopNameSnapshot : 'UTEWedding'}">UTEWedding</p>
             <p class="text-secondary mb-0" th:text="${#temporals.format(order.createdAt, 'dd/MM/yyyy HH:mm')}">Ngày tạo</p>
         </div>
         <div class="text-md-end">
@@ -23,6 +24,27 @@
     </div>
 
     <div class="alert alert-danger mt-3" role="alert" th:if="${errorMessage != null}" th:text="${errorMessage}"></div>
+
+    <section class="card border-0 shadow-sm mt-4" th:if="${checkoutGroup != null}">
+        <div class="card-body p-4">
+            <h2 class="h5 mb-1">Các đơn trong cùng nhóm thanh toán</h2>
+            <p class="small text-secondary mb-3">Mã nhóm: <strong th:text="${checkoutGroup.groupNumber}">WTC</strong>. Mỗi cửa hàng có trạng thái và chi tiết đơn riêng.</p>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item px-0" th:each="child : ${checkoutGroup.orders}">
+                    <span th:if="${child.orderId == order.id}" class="fw-semibold">
+                        <span th:text="${child.shopName}">Cửa hàng</span>
+                        · <span th:text="${child.orderNumber}">Mã đơn</span>
+                        <span class="badge text-bg-light ms-1">Đơn này</span>
+                    </span>
+                    <a th:unless="${child.orderId == order.id}" class="text-decoration-none"
+                       th:href="@{/orders/{id}(id=${child.orderId})}">
+                        <span th:text="${child.shopName}">Cửa hàng</span>
+                        · <span th:text="${child.orderNumber}">Mã đơn</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </section>
 
     <div class="row g-4 mt-1">
         <div class="col-lg-8">
@@ -103,10 +125,12 @@
                     <hr>
                     <p class="d-flex justify-content-between gap-3"><span>Tạm tính</span><strong class="text-nowrap" th:text="${#numbers.formatDecimal(order.subtotal,0,'COMMA',0,'POINT')} + ' đ'">0 đ</strong></p>
                     <p class="d-flex justify-content-between gap-3"><span>Giảm giá sản phẩm</span><strong class="text-nowrap" th:text="${#numbers.formatDecimal(detail.productDiscountTotal,0,'COMMA',0,'POINT')} + ' đ'">0 đ</strong></p>
-                    <p class="d-flex justify-content-between gap-3" th:if="${order.voucherDiscountAmount > 0}"><span>Voucher giảm tiền hàng · <span th:text="${order.discountCode}">Mã</span></span><strong class="text-nowrap" th:text="${'-' + #numbers.formatDecimal(order.voucherDiscountAmount,0,'COMMA',0,'POINT') + ' đ'}">-0 đ</strong></p>
-                    <p class="d-flex justify-content-between gap-3"><span>Phí vận chuyển</span><strong class="text-nowrap" th:text="${#numbers.formatDecimal(order.shippingFeeBeforeDiscount,0,'COMMA',0,'POINT')} + ' đ'">0 đ</strong></p>
-                    <p class="d-flex justify-content-between gap-3 text-success" th:if="${order.shippingDiscountAmount > 0}"><span th:text="${order.voucherType != null and order.voucherType.name() == 'SHIPPING_FREE' ? 'Miễn phí vận chuyển · ' + order.discountCode : 'Giảm phí vận chuyển · ' + order.discountCode}">Giảm phí vận chuyển</span><strong class="text-nowrap" th:text="${'-' + #numbers.formatDecimal(order.shippingDiscountAmount,0,'COMMA',0,'POINT') + ' đ'}">-0 đ</strong></p>
+                    <p class="d-flex justify-content-between gap-3" th:each="voucher : ${order.appliedVouchers}"><span th:text="|${voucher.slot.name() == 'SHIPPING' ? (voucher.type.name() == 'SHIPPING_FREE' ? 'Miễn phí vận chuyển' : 'Giảm phí vận chuyển') : 'Voucher giảm tiền hàng'} · ${voucher.code}|">Voucher</span><strong class="text-nowrap" th:text="${'-' + #numbers.formatDecimal(voucher.discountAmount,0,'COMMA',0,'POINT') + ' đ'}">-0 đ</strong></p>
+                    <p class="d-flex justify-content-between gap-3" th:if="${#lists.isEmpty(order.appliedVouchers) and order.voucherDiscountAmount > 0}"><span>Voucher giảm tiền hàng · <span th:text="${order.discountCode}">Mã</span></span><strong class="text-nowrap" th:text="${'-' + #numbers.formatDecimal(order.voucherDiscountAmount,0,'COMMA',0,'POINT') + ' đ'}">-0 đ</strong></p>
+                    <p class="d-flex justify-content-between gap-3"><span>Phí giao hàng theo báo giá lúc đặt</span><strong class="text-nowrap" th:text="${#numbers.formatDecimal(order.shippingFeeBeforeDiscount,0,'COMMA',0,'POINT')} + ' đ'">0 đ</strong></p>
+                    <p class="d-flex justify-content-between gap-3 text-success" th:if="${#lists.isEmpty(order.appliedVouchers) and order.shippingDiscountAmount > 0}"><span th:text="${order.voucherType != null and order.voucherType.name() == 'SHIPPING_FREE' ? 'Miễn phí vận chuyển · ' + order.discountCode : 'Giảm phí vận chuyển · ' + order.discountCode}">Giảm phí vận chuyển</span><strong class="text-nowrap" th:text="${'-' + #numbers.formatDecimal(order.shippingDiscountAmount,0,'COMMA',0,'POINT') + ' đ'}">-0 đ</strong></p>
                     <p class="d-flex justify-content-between gap-3"><span>Phí vận chuyển khách trả</span><strong class="text-nowrap" th:text="${#numbers.formatDecimal(order.shippingFee,0,'COMMA',0,'POINT')} + ' đ'">0 đ</strong></p>
+                    <p class="small text-secondary">Đơn TP.HCM được giao nội bộ miễn phí; đơn ngoài TP.HCM dùng báo giá GHN Staging. Phí khách trả đã tính voucher vận chuyển.</p>
                     <p class="small text-secondary">Ưu đãi sản phẩm và voucher tiền hàng đã được tính vào tạm tính; không trừ lại lần nữa.</p>
                     <hr>
                     <p class="d-flex justify-content-between gap-3 fs-5 mb-0"><span>Tổng cộng</span><strong class="text-nowrap" th:text="${#numbers.formatDecimal(order.total,0,'COMMA',0,'POINT')} + ' đ'">0 đ</strong></p>

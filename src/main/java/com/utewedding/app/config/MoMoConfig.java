@@ -1,5 +1,6 @@
 package com.utewedding.app.config;
 
+import com.utewedding.app.domain.PaymentProviderEnvironment;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
@@ -12,6 +13,7 @@ public class MoMoConfig {
     private String endpoint = "https://test-payment.momo.vn/v2/gateway/api/create";
     private String queryEndpoint = "https://test-payment.momo.vn/v2/gateway/api/query";
     private String refundEndpoint = "https://test-payment.momo.vn/v2/gateway/api/refund";
+    private String environment = "";
     private String returnUrl = "http://localhost:8080/payments/momo/return";
     private String ipnUrl = "http://localhost:8080/api/v1/payments/momo/ipn";
     /** Must match the payment-session expiry configured for this merchant in MoMo. */
@@ -28,6 +30,25 @@ public class MoMoConfig {
     public void setQueryEndpoint(String value) { queryEndpoint = value; }
     public String getRefundEndpoint() { return refundEndpoint; }
     public void setRefundEndpoint(String value) { refundEndpoint = value; }
+    public String getEnvironment() { return environment; }
+    public void setEnvironment(String value) { environment = value; }
+    public PaymentProviderEnvironment getProviderEnvironment() {
+        String host;
+        try { host = java.net.URI.create(endpoint).getHost(); }
+        catch (RuntimeException exception) { host = null; }
+        if (environment != null && !environment.isBlank()) {
+            try {
+                PaymentProviderEnvironment configured = PaymentProviderEnvironment.valueOf(
+                        environment.trim().toUpperCase(java.util.Locale.ROOT));
+                if (configured == PaymentProviderEnvironment.SANDBOX) {
+                    return "test-payment.momo.vn".equalsIgnoreCase(host) ? configured : null;
+                }
+                return host != null && !"test-payment.momo.vn".equalsIgnoreCase(host) ? configured : null;
+            }
+            catch (IllegalArgumentException exception) { return null; }
+        }
+        return "test-payment.momo.vn".equalsIgnoreCase(host) ? PaymentProviderEnvironment.SANDBOX : null;
+    }
     public String getReturnUrl() { return returnUrl; }
     public void setReturnUrl(String value) { returnUrl = value; }
     public String getIpnUrl() { return ipnUrl; }

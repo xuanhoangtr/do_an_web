@@ -13,9 +13,11 @@ import org.springframework.stereotype.Component;
 public class PaymentRefundIntentJob {
     private static final Logger log = LoggerFactory.getLogger(PaymentRefundIntentJob.class);
     private final PaymentIntegrityService payments;
+    private final ReturnResolutionService returnResolutions;
 
-    public PaymentRefundIntentJob(PaymentIntegrityService payments) {
+    public PaymentRefundIntentJob(PaymentIntegrityService payments, ReturnResolutionService returnResolutions) {
         this.payments = payments;
+        this.returnResolutions = returnResolutions;
     }
 
     @Scheduled(initialDelayString = "${payments.refund-intents.initial-delay-ms:60000}",
@@ -24,6 +26,7 @@ public class PaymentRefundIntentJob {
     public void processPendingRefunds() {
         try {
             payments.processPendingRefundIntents(Instant.now().minusSeconds(120), 50);
+            returnResolutions.reconcileSucceededProviderRefunds();
         } catch (RuntimeException exception) {
             log.error("Refund intent worker failed; it will retry on the next schedule", exception);
         }

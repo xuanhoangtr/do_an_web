@@ -27,11 +27,12 @@
     <th:block th:with="snapshot=${accountingDocument != null ? accountingDocument.document : null}">
         <p>Tạm tính: <span th:text="${#numbers.formatDecimal(snapshot != null ? snapshot.subtotal : order.subtotal,0,'COMMA',0,'POINT')} + ' đ'"></span></p>
         <p>Giảm giá sản phẩm: <span th:text="${#numbers.formatDecimal(snapshot != null ? snapshot.productDiscount : productDiscountTotal,0,'COMMA',0,'POINT')} + ' đ'"></span></p>
-        <p>Voucher giảm tiền hàng: <span th:text="${#numbers.formatDecimal(snapshot != null ? snapshot.voucherDiscount : order.voucherDiscountAmount,0,'COMMA',0,'POINT')} + ' đ'"></span></p>
-        <p th:if="${order.discountCode != null and !#strings.isEmpty(order.discountCode)}">Mã ưu đãi: <strong th:text="${order.discountCode}"></strong> <span th:text="${order.voucherType != null and order.voucherType.name() == 'SHIPPING_FREE' ? '(Miễn phí vận chuyển)' : order.voucherType != null and order.voucherType.name() == 'SHIPPING_FIXED' ? '(Giảm phí vận chuyển)' : '(Giảm tiền hàng)'}"></span></p>
-        <p>Phí vận chuyển: <span th:text="${#numbers.formatDecimal(snapshot != null ? snapshot.shippingFeeBeforeDiscount : order.shippingFeeBeforeDiscount,0,'COMMA',0,'POINT')} + ' đ'"></span></p>
+        <p th:if="${#lists.isEmpty(order.appliedVouchers)}">Voucher giảm tiền hàng: <span th:text="${#numbers.formatDecimal(snapshot != null ? snapshot.voucherDiscount : order.voucherDiscountAmount,0,'COMMA',0,'POINT')} + ' đ'"></span></p>
+        <p th:each="voucher : ${order.appliedVouchers}" th:text="|${voucher.slot.name() == 'SHIPPING' ? (voucher.type.name() == 'SHIPPING_FREE' ? 'Miễn phí vận chuyển' : 'Giảm phí vận chuyển') : 'Voucher giảm tiền hàng'} · ${voucher.code}: -${#numbers.formatDecimal(voucher.discountAmount,0,'COMMA',0,'POINT')} đ|"></p>
+        <p>Phí giao hàng theo báo giá lúc đặt: <span th:text="${#numbers.formatDecimal(snapshot != null ? snapshot.shippingFeeBeforeDiscount : order.shippingFeeBeforeDiscount,0,'COMMA',0,'POINT')} + ' đ'"></span></p>
         <p>Giảm phí vận chuyển: <span th:text="${#numbers.formatDecimal(snapshot != null ? snapshot.shippingDiscountAmount : order.shippingDiscountAmount,0,'COMMA',0,'POINT')} + ' đ'"></span></p>
         <p>Phí vận chuyển khách trả: <span th:text="${#numbers.formatDecimal(snapshot != null ? snapshot.shippingFee : order.shippingFee,0,'COMMA',0,'POINT')} + ' đ'"></span></p>
+        <p class="small text-secondary">Đơn TP.HCM giao nội bộ miễn phí; đơn ngoài TP.HCM dùng báo giá GHN Staging. Phí khách trả đã tính ưu đãi vận chuyển.</p>
         <p class="fs-5">Tổng: <strong th:text="${#numbers.formatDecimal(snapshot != null ? snapshot.totalAmount : order.total,0,'COMMA',0,'POINT')} + ' đ'"></strong></p>
     </th:block>
     <div th:if="${order.shipping != null}">

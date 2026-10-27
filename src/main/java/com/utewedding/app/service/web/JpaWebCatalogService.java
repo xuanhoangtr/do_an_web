@@ -2,11 +2,18 @@ package com.utewedding.app.service.web;
 
 import com.utewedding.app.domain.entity.ProductEntity;
 import com.utewedding.app.domain.entity.CategoryEntity;
+import com.utewedding.app.domain.ShopKind;
+import com.utewedding.app.domain.ShopStatus;
+import com.utewedding.app.domain.ShopDefaults;
+import com.utewedding.app.domain.entity.ShopEntity;
+import com.utewedding.app.config.MarketplaceFeatureFlags;
+import com.utewedding.app.config.MarketplaceFeatureFlags.Feature;
 import com.utewedding.app.exception.ResourceNotFoundException;
 import com.utewedding.app.repository.CatalogCategoryRepository;
 import com.utewedding.app.repository.ProductImageRepository;
 import com.utewedding.app.repository.ProductRepository;
 import com.utewedding.app.repository.ProductFavoriteRepository;
+import com.utewedding.app.repository.ShopRepository;
 import java.math.BigDecimal;
 import java.util.Map;
 import java.util.List;
@@ -31,16 +38,39 @@ public class JpaWebCatalogService implements WebCatalogService {
     private final CatalogCategoryRepository categoryRepository;
     private final ProductImageRepository imageRepository;
     private final ProductFavoriteRepository favoriteRepository;
+    private final ShopRepository shopRepository;
+    private final MarketplaceFeatureFlags featureFlags;
+
+    public JpaWebCatalogService(ProductRepository productRepository,
+                                CatalogCategoryRepository categoryRepository,
+                                ProductImageRepository imageRepository,
+                                ProductFavoriteRepository favoriteRepository) {
+        this(productRepository, categoryRepository, imageRepository, favoriteRepository, null,
+                new MarketplaceFeatureFlags());
+    }
+
+    public JpaWebCatalogService(ProductRepository productRepository,
+                                CatalogCategoryRepository categoryRepository,
+                                ProductImageRepository imageRepository,
+                                ProductFavoriteRepository favoriteRepository,
+                                ShopRepository shopRepository) {
+        this(productRepository, categoryRepository, imageRepository, favoriteRepository, shopRepository,
+                new MarketplaceFeatureFlags());
+    }
 
     @Autowired
     public JpaWebCatalogService(ProductRepository productRepository,
                                 CatalogCategoryRepository categoryRepository,
                                 ProductImageRepository imageRepository,
-                                ProductFavoriteRepository favoriteRepository) {
+                                ProductFavoriteRepository favoriteRepository,
+                                ShopRepository shopRepository,
+                                MarketplaceFeatureFlags featureFlags) {
         this.productRepository = Objects.requireNonNull(productRepository, "productRepository");
         this.categoryRepository = Objects.requireNonNull(categoryRepository, "categoryRepository");
         this.imageRepository = Objects.requireNonNull(imageRepository, "imageRepository");
         this.favoriteRepository = Objects.requireNonNull(favoriteRepository, "favoriteRepository");
+        this.shopRepository = shopRepository;
+        this.featureFlags = featureFlags == null ? new MarketplaceFeatureFlags() : featureFlags;
     }
 
     @Override
@@ -123,7 +153,13 @@ public class JpaWebCatalogService implements WebCatalogService {
         boolean outOfStock = "out".equals(normalizedStatus);
         Pageable pageable = PageRequest.of(Math.max(page, 0), boundedSize(size),
                 Sort.by(Sort.Direction.DESC, "createdAt"));
-        return toViews(productRepository.searchForAdmin(normalizedKeyword, active, outOfStock, pageable));
+        return toViews(productRepository.searchForAdmin(normalizedKeyword, active, outOfStock, null, pageable));
+    }
+
+    @Override
+    public Page<WebViewModels.ProductView> productsForShop(UUID shopId, int page, int size) {
+        Pageable pageable = PageRequest.of(Math.max(page, 0), boundedSize(size));
+        return toViews(productRepository.findByShopIdAndActiveTrueOrderByCreatedAtDescIdAsc(shopId, pageable));
     }
 
     @Override
@@ -189,6 +225,11 @@ public class JpaWebCatalogService implements WebCatalogService {
     }
 
     private Page<WebViewModels.ProductView> toViews(Page<ProductEntity> products) {
+        Map<UUID, ShopEntity> shops = products.getContent().isEmpty() || shopRepository == null
+                ? Map.of()
+                : shopRepository.findAllById(products.getContent().stream().map(ProductEntity::getShopId)
+                        .filter(Objects::nonNull).distinct().toList()).stream()
+                        .collect(Collectors.toMap(ShopEntity::getId, Function.identity()));
         var categoryIds = products.getContent().stream()
                 .map(ProductEntity::getCategoryId)
                 .filter(java.util.Objects::nonNull)
@@ -209,16 +250,24 @@ public class JpaWebCatalogService implements WebCatalogService {
                                         com.utewedding.app.domain.entity.ProductImageEntity::getImageUrl,
                                         Collectors.toList())));
 
-        return products.map(product -> toView(product, categories,
+        return products.map(product -> toView(product, categories, shops,
                 images.getOrDefault(product.getId(), java.util.List.of())));
     }
 
     private WebViewModels.ProductView toView(ProductEntity product,
                                              Map<Long, CategoryEntity> categories,
+                                             Map<UUID, ShopEntity> shops,
                                              java.util.List<String> galleryImages) {
         CategoryEntity category = categories.get(product.getCategoryId());
         String categoryName = category == null ? "Kỷ vật cưới" : category.getName();
-        String shopName = "UTEWedding";
+        ShopEntity shop = shops.get(product.getShopId());
+        String shopName = shop == null
+                ? (ShopDefaults.PLATFORM_SHOP_ID.equals(product.getShopId())
+                    ? ShopDefaults.PLATFORM_SHOP_NAME : "Cửa hàng")
+                : shop.getDisplayName();
+        String shopSlug = shop != null && shop.getKind() == ShopKind.VENDOR
+                && shop.getStatus() == ShopStatus.ACTIVE && featureFlags.isEnabled(Feature.MARKETPLACE)
+                ? shop.getSlug() : null;
         String imageUrl = galleryImages.isEmpty() ? product.getImageUrl() : galleryImages.get(0);
         long price = product.getUnitPrice();
         long currentUnitPrice = price - Math.multiplyExact(price, product.getDiscountPercent()) / 100;
@@ -229,7 +278,7 @@ public class JpaWebCatalogService implements WebCatalogService {
                 originalPrice, product.getDiscountPercent(), product.getAverageRating(), product.getReviewCount(),
                 product.getDescription(), product.getMaterial(), product.getStockQuantity(),
                 product.isActive(), shopName, product.getMinOrderQuantity(), product.isCustomizable(),
-                product.getCustomizationGuide(), product.getSku());
+                product.getCustomizationGuide(), product.getSku(), shopSlug);
     }
 
     private Long resolveCategoryId(String category) {

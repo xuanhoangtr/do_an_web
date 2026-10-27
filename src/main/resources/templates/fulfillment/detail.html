@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments :: head('Chi tiết vận đơn · UTEWedding')}"></head>
-<body class="bg-cream"><nav th:replace="~{fragments :: navbar}"></nav>
+<body class="bg-cream" th:classappend="${roleView == 'admin'} ? ' admin-dashboard-page' : ''"><nav th:replace="~{fragments :: navbar}"></nav>
 <main class="container py-5">
     <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}" data-flash-success></div>
     <div th:if="${errorMessage}" class="alert alert-danger" th:text="${errorMessage}"></div>
@@ -9,12 +9,26 @@
     <a class="text-decoration-none" th:if="${roleView == 'admin'}" th:href="@{/admin/fulfillments}">← Fulfillment</a>
     <header class="d-flex flex-column flex-md-row justify-content-between gap-2 mt-3 mb-4">
         <div><p class="eyebrow mb-1">Vận đơn</p><h1 class="display-subtitle order-number mb-1" th:text="${fulfillment.orderNumber ?: fulfillment.orderId}">Đơn</h1>
-            <p class="mb-0">Shop <strong>UTEWedding</strong>
+            <p class="mb-0">Shop
+                <strong th:if="${roleView == 'shipper' and fulfillment.shipperContext != null}"
+                        th:text="${fulfillment.shipperContext.shopName}">Cửa hàng</strong>
+                <strong th:unless="${roleView == 'shipper' and fulfillment.shipperContext != null}">UTEWedding</strong>
                 · <span class="badge rounded-pill text-bg-primary" th:text="${T(com.utewedding.app.service.web.TimelineStatusLabels).statusLabel('fulfillment', fulfillment.status)}">Đang chuẩn bị hàng</span>
-                · Đơn vị giao hàng <strong th:text="${shippingCarrierName ?: 'Chưa xác định nhà vận chuyển'}">GHN</strong>
+                · Đơn vị giao hàng <strong th:if="${shippingProviderCode == 'INTERNAL'}">Giao nội bộ · miễn phí tại TP.HCM</strong>
+                <strong th:if="${shippingProviderCode == 'GHN'}" th:text="${(shippingCarrierName ?: 'GHN Staging') + ' · báo giá trực tiếp'}">GHN Staging · báo giá trực tiếp</strong>
+                <strong th:if="${shippingProviderCode != 'INTERNAL' and shippingProviderCode != 'GHN'}" th:text="${shippingCarrierName ?: 'Chưa xác định nhà vận chuyển'}">Chưa xác định nhà vận chuyển</strong>
                 <span class="tracking-number" th:if="${fulfillment.trackingNumber != null}"> · Mã vận đơn <strong th:text="${fulfillment.trackingNumber}"></strong></span></p></div>
         <a class="btn btn-outline-dark align-self-start" th:if="${fulfillment.mapSearchUrl() != null}" th:href="${fulfillment.mapSearchUrl()}" target="_blank" rel="noopener">Mở địa chỉ trên bản đồ</a>
     </header>
+    <section class="card border-0 shadow-sm rounded-4 p-3 mb-3" th:if="${roleView == 'shipper' and fulfillment.shipperContext != null and (fulfillment.shipperContext.pickupAddress != null or fulfillment.shipperContext.pickupPhone != null)}">
+        <h2 class="h6 mb-1">Điểm lấy hàng</h2>
+        <p class="mb-1" th:if="${fulfillment.shipperContext.pickupContactName != null or fulfillment.shipperContext.pickupPhone != null}">
+            <strong th:if="${fulfillment.shipperContext.pickupContactName != null}" th:text="${fulfillment.shipperContext.pickupContactName}">Liên hệ lấy hàng</strong>
+            <span th:if="${fulfillment.shipperContext.pickupPhone != null}" th:text="${' · ' + fulfillment.shipperContext.pickupPhone}"> · 090...</span>
+        </p>
+        <p class="small text-secondary mb-0 text-break" th:if="${fulfillment.shipperContext.pickupAddress != null}"
+           th:text="${fulfillment.shipperContext.pickupAddress + (fulfillment.shipperContext.pickupWardCode != null ? ' · Mã phường ' + fulfillment.shipperContext.pickupWardCode : '') + (fulfillment.shipperContext.pickupProvinceCode != null ? ' · Mã tỉnh ' + fulfillment.shipperContext.pickupProvinceCode : '')}">Địa chỉ lấy hàng</p>
+    </section>
     <div class="alert alert-warning" th:if="${roleView == 'shipper' and fulfillment.collectsCod}">Số tiền cần thu: <strong th:text="${#numbers.formatDecimal(fulfillment.codAmount,0,'COMMA',0,'POINT')} + ' đ'"></strong></div>
     <div class="alert alert-success" th:if="${fulfillment.codCollectionReceiptCode != null}">Mã ghi nhận thu COD: <strong th:text="${fulfillment.codCollectionReceiptCode}"></strong></div>
     <div class="alert alert-secondary" th:if="${roleView == 'shipper' and !fulfillment.collectsCod}">Vận đơn này không thu COD.</div>
@@ -78,10 +92,11 @@
             <section class="card border-0 shadow-sm rounded-4 p-4" th:if="${roleView == 'shipper'}">
                 <h2 class="h5">Cập nhật giao hàng</h2>
                 <div class="alert alert-warning py-2" th:if="${fulfillment.orderDeliveryBlocked()}">Đơn hàng đã bị chặn giao; không thể tiếp tục thao tác.</div>
-                <form th:if="${fulfillment.status.name() == 'PICKUP_PENDING' and !fulfillment.orderDeliveryBlocked()}" th:action="@{/shipper/fulfillments/{id}/pickup(id=${fulfillment.id})}" method="post" class="d-grid"><button class="btn btn-shop-primary" type="submit">Xác nhận đã nhận hàng</button></form>
-                <form th:if="${(fulfillment.status.name() == 'PICKED_UP' or fulfillment.status.name() == 'RETRY_DELIVERY') and !fulfillment.orderDeliveryBlocked() and (shippingProviderCode == 'INTERNAL' or (fulfillment.trackingNumber != null and !#strings.isEmpty(fulfillment.trackingNumber.trim())))}" th:action="@{/shipper/fulfillments/{id}/shipping(id=${fulfillment.id})}" method="post" class="d-grid"><button class="btn btn-shop-primary" type="submit">Bắt đầu giao</button></form>
-                <p class="small text-secondary" th:if="${(fulfillment.status.name() == 'PICKED_UP' or fulfillment.status.name() == 'RETRY_DELIVERY') and !fulfillment.orderDeliveryBlocked() and shippingProviderCode != 'INTERNAL' and (fulfillment.trackingNumber == null or #strings.isEmpty(fulfillment.trackingNumber.trim()))}">Đơn vị vận chuyển ngoài cần mã vận đơn trước khi bắt đầu giao. Vui lòng liên hệ quản lý.</p>
-                <div th:if="${fulfillment.status.name() == 'IN_TRANSIT' and !fulfillment.orderDeliveryBlocked()}">
+                <div class="alert alert-info py-2" th:if="${shippingProviderCode == 'GHN' and (fulfillment.status.name() == 'PICKUP_PENDING' or fulfillment.status.name() == 'PICKED_UP' or fulfillment.status.name() == 'IN_TRANSIT' or fulfillment.status.name() == 'RETRY_DELIVERY' or fulfillment.status.name() == 'DELIVERY_FAILED' or fulfillment.status.name() == 'RETURNING')}">Đơn GHN được cập nhật qua luồng vận chuyển GHN.</div>
+                <form th:if="${fulfillment.status.name() == 'PICKUP_PENDING' and !fulfillment.orderDeliveryBlocked() and shippingProviderCode != 'GHN'}" th:action="@{/shipper/fulfillments/{id}/pickup(id=${fulfillment.id})}" method="post" class="d-grid"><button class="btn btn-shop-primary" type="submit">Xác nhận đã nhận hàng</button></form>
+                <form th:if="${(fulfillment.status.name() == 'PICKED_UP' or fulfillment.status.name() == 'RETRY_DELIVERY') and !fulfillment.orderDeliveryBlocked() and shippingProviderCode != 'GHN' and (shippingProviderCode == 'INTERNAL' or (fulfillment.trackingNumber != null and !#strings.isEmpty(fulfillment.trackingNumber.trim())))}" th:action="@{/shipper/fulfillments/{id}/shipping(id=${fulfillment.id})}" method="post" class="d-grid"><button class="btn btn-shop-primary" type="submit">Bắt đầu giao</button></form>
+                <p class="small text-secondary" th:if="${(fulfillment.status.name() == 'PICKED_UP' or fulfillment.status.name() == 'RETRY_DELIVERY') and !fulfillment.orderDeliveryBlocked() and shippingProviderCode != 'GHN' and shippingProviderCode != 'INTERNAL' and (fulfillment.trackingNumber == null or #strings.isEmpty(fulfillment.trackingNumber.trim()))}">Đơn vị vận chuyển ngoài cần mã vận đơn trước khi bắt đầu giao. Vui lòng liên hệ quản lý.</p>
+                <div th:if="${fulfillment.status.name() == 'IN_TRANSIT' and !fulfillment.orderDeliveryBlocked() and shippingProviderCode != 'GHN'}">
                     <form th:action="@{/shipper/fulfillments/{id}/delivered(id=${fulfillment.id})}" method="post" enctype="multipart/form-data" class="mb-4"><h3 class="h6">Xác nhận giao thành công</h3>
                         <div th:if="${fulfillment.collectsCod}" class="mb-2"><label class="form-label">COD thực thu</label><input class="form-control mb-2" type="number" name="collectedAmount" min="0" th:attr="max=${fulfillment.codAmount}" placeholder="Số tiền đã thu" required><input class="form-control" name="collectionReference" maxlength="190" placeholder="Số phiếu thu bên ngoài (nếu có)"></div>
                         <label class="form-label">Ảnh chứng từ giao hàng</label><input class="form-control mb-2" type="file" name="proof" accept="image/jpeg,image/png" required><button class="btn btn-shop-primary" type="submit">Đã giao</button>
@@ -92,16 +107,17 @@
                         <textarea class="form-control mb-2" name="note" maxlength="1000" placeholder="Ghi chú cho lần giao tiếp theo"></textarea><label class="form-label">Hẹn giao lại</label><input class="form-control mb-2" type="datetime-local" name="nextAttemptAt"><input class="form-control mb-3" type="file" name="proof" accept="image/jpeg,image/png"><button class="btn btn-warning" type="submit">Ghi nhận kết quả</button>
                     </form>
                 </div>
-                <form th:if="${fulfillment.status.name() == 'DELIVERY_FAILED' and !fulfillment.orderDeliveryBlocked()}" th:action="@{/shipper/fulfillments/{id}/retry(id=${fulfillment.id})}" method="post" class="mb-3"><label class="form-label">Thời gian giao lại (nếu đã hẹn)</label><input class="form-control mb-2" type="datetime-local" name="nextAttemptAt"><button class="btn btn-shop-primary" type="submit">Giao lại</button></form>
-                <form th:if="${fulfillment.status.name() == 'DELIVERY_FAILED' and !fulfillment.orderDeliveryBlocked()}" th:action="@{/shipper/fulfillments/{id}/return(id=${fulfillment.id})}" method="post" data-confirm-title="Bắt đầu hoàn hàng" data-confirm-label="Bắt đầu hoàn" data-confirm-message="Xác nhận vận đơn không thể tiếp tục giao và sẽ được chuyển về kho."><button class="btn btn-outline-danger" type="submit">Bắt đầu hoàn hàng</button></form>
-                <form th:if="${fulfillment.status.name() == 'RETURNING' and !fulfillment.orderDeliveryBlocked()}" th:action="@{/shipper/fulfillments/{id}/returned(id=${fulfillment.id})}" method="post" enctype="multipart/form-data"><label class="form-label">Ảnh xác nhận hoàn về kho</label><input class="form-control mb-2" type="file" name="proof" accept="image/jpeg,image/png" required><button class="btn btn-danger" type="submit">Xác nhận đã hoàn</button></form>
+                <form th:if="${fulfillment.status.name() == 'DELIVERY_FAILED' and !fulfillment.orderDeliveryBlocked() and shippingProviderCode != 'GHN'}" th:action="@{/shipper/fulfillments/{id}/retry(id=${fulfillment.id})}" method="post" class="mb-3"><label class="form-label">Thời gian giao lại (nếu đã hẹn)</label><input class="form-control mb-2" type="datetime-local" name="nextAttemptAt"><button class="btn btn-shop-primary" type="submit">Giao lại</button></form>
+                <form th:if="${fulfillment.status.name() == 'DELIVERY_FAILED' and !fulfillment.orderDeliveryBlocked() and shippingProviderCode != 'GHN'}" th:action="@{/shipper/fulfillments/{id}/return(id=${fulfillment.id})}" method="post" data-confirm-title="Bắt đầu hoàn hàng" data-confirm-label="Bắt đầu hoàn" data-confirm-message="Xác nhận vận đơn không thể tiếp tục giao và sẽ được chuyển về kho."><button class="btn btn-outline-danger" type="submit">Bắt đầu hoàn hàng</button></form>
+                <form th:if="${fulfillment.status.name() == 'RETURNING' and !fulfillment.orderDeliveryBlocked() and shippingProviderCode != 'GHN'}" th:action="@{/shipper/fulfillments/{id}/returned(id=${fulfillment.id})}" method="post" enctype="multipart/form-data"><label class="form-label">Ảnh xác nhận hoàn về kho</label><input class="form-control mb-2" type="file" name="proof" accept="image/jpeg,image/png" required><button class="btn btn-danger" type="submit">Xác nhận đã hoàn</button></form>
                 <p class="small text-secondary mb-0" th:if="${fulfillment.status.name() != 'PICKUP_PENDING' and fulfillment.status.name() != 'PICKED_UP' and fulfillment.status.name() != 'IN_TRANSIT' and fulfillment.status.name() != 'DELIVERY_FAILED' and fulfillment.status.name() != 'RETURNING'}">Không có thao tác cần thực hiện ở trạng thái này.</p>
             </section>
             <section class="card border-0 shadow-sm rounded-4 p-4" th:if="${roleView == 'admin'}">
                 <h2 class="h5">Vận hành</h2>
-                <form th:action="@{/admin/fulfillments/{id}/assign(id=${fulfillment.id})}" method="post" class="mb-3">
+                <p class="alert alert-info py-2" th:if="${shippingProviderCode == 'GHN'}">Đơn GHN được quản lý trong luồng vận chuyển GHN.</p>
+                <form th:if="${shippingProviderCode != 'GHN'}" th:action="@{/admin/fulfillments/{id}/assign(id=${fulfillment.id})}" method="post" class="mb-3">
                     <label class="form-label" for="detailShipper">Phân công shipper</label><select id="detailShipper" class="form-select mb-2" name="shipperId" required><option value="">Chọn shipper</option><option th:each="shipper : ${shippers}" th:value="${shipper.id}" th:text="${shipper.displayName + ' · ' + shipper.email}" th:selected="${shipper.id == fulfillment.shipperId}"></option></select>
-                    <label class="form-label" for="detailTracking">Mã tracking</label><input id="detailTracking" class="form-control mb-2" name="trackingNumber" maxlength="120" th:value="${fulfillment.trackingNumber}" placeholder="Mã vận đơn">
+                    <label class="form-label" for="detailTracking">Mã tracking</label><input id="detailTracking" class="form-control mb-2" name="trackingNumber" maxlength="120" th:value="${fulfillment.trackingNumber}" th:disabled="${shippingProviderCode == 'INTERNAL'}" th:placeholder="${shippingProviderCode == 'INTERNAL' ? 'Luồng nội bộ không cần mã GHN' : 'Mã vận đơn'}">
                     <button class="btn btn-outline-secondary" type="submit">Gán shipper</button>
                 </form>
                 <form th:if="${fulfillment.status.name() == 'CONFIRMED'}" th:action="@{/admin/fulfillments/{id}/processing(id=${fulfillment.id})}" method="post" class="mb-3"><button class="btn btn-shop-primary" type="submit">Chuẩn bị hàng</button></form>

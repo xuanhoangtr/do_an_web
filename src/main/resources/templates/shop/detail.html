@@ -28,6 +28,34 @@
                     <img th:src="${image}" th:alt="${product.name + ' ' + (itemStat.index + 1)}">
                 </button>
             </div>
+            <section th:if="${sellerShop != null}" class="product-shop-card" aria-label="Thông tin cửa hàng">
+                <img th:if="${sellerShop.logoUrl != null}" class="product-shop-avatar"
+                     th:src="${sellerShop.logoUrl}" th:alt="${'Ảnh đại diện ' + sellerShop.displayName}">
+                <span th:unless="${sellerShop.logoUrl != null}" class="product-shop-avatar product-shop-avatar-fallback" aria-hidden="true">
+                    <span class="material-symbols-outlined">storefront</span>
+                </span>
+                <div class="product-shop-summary">
+                    <h2 th:text="${sellerShop.displayName}">Tên cửa hàng</h2>
+                    <span class="product-shop-status"><span aria-hidden="true"></span> Nhà bán đang hoạt động</span>
+                </div>
+                <div class="product-shop-actions">
+                    <form sec:authorize="hasAnyRole('USER','CUSTOMER')" th:if="${!headerVendorAccount}" class="customer-messages-entry-form" method="post"
+                          th:action="@{/messages/shop-contacts/open}" data-shop-chat-form>
+                        <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                        <input type="hidden" name="shopId" th:value="${sellerShop.id}">
+                        <input type="hidden" name="productId" th:value="${product.id}">
+                        <button type="submit" class="btn btn-shop-primary" data-shop-chat-entry
+                                th:attr="data-shop-id=${sellerShop.id},data-product-id=${product.id}">
+                            <span class="material-symbols-outlined" aria-hidden="true">forum</span> Chat với shop
+                        </button>
+                    </form>
+                    <a sec:authorize="!isAuthenticated()" th:if="${!headerVendorAccount}" class="btn btn-shop-primary"
+                       th:href="@{/support/shops/{shopId}(shopId=${sellerShop.id},newConversation=true)}"><span class="material-symbols-outlined" aria-hidden="true">forum</span> Đăng nhập để chat</a>
+                    <a class="btn btn-shop-secondary" th:href="@{/shops/{slug}(slug=${sellerShop.slug})}">
+                        <span class="material-symbols-outlined" aria-hidden="true">storefront</span> Xem shop
+                    </a>
+                </div>
+            </section>
         </div>
 
         <div class="col-lg-6">
@@ -45,8 +73,7 @@
             <button sec:authorize="hasAnyRole('USER','CUSTOMER')" type="button" class="btn btn-outline-danger mb-4" data-favorite-product th:attr="data-product-id=${product.id}" aria-pressed="false">♡ <span data-favorite-label>Thêm vào yêu thích</span></button>
 
             <div class="row g-2 small mb-4 product-detail-specs">
-                <div class="col-6" th:if="${product.material != null and !#strings.isEmpty(product.material)}"><div class="detail-fact"><span>Chất liệu</span><strong th:text="${product.material}">Gỗ tự nhiên</strong></div></div>
-                <div class="col-6"><div class="detail-fact"><span>Shop</span><strong th:text="${product.shopName}">UTEWedding</strong></div></div>
+                <div class="col-12" th:if="${product.material != null and !#strings.isEmpty(product.material)}"><div class="detail-fact"><span>Chất liệu</span><strong th:text="${product.material}">Gỗ tự nhiên</strong></div></div>
             </div>
             <div class="alert alert-light border small" th:if="${(product.customizable or (product.customizationGuide != null and !#strings.isEmpty(product.customizationGuide))) and product.photoSizeOptions.empty}">
                 <strong th:if="${product.customizable}">Có thể cá nhân hóa sản phẩm.</strong>

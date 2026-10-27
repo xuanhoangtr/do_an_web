@@ -6,10 +6,12 @@
 <main class="container py-5" style="max-width: 640px">
     <h1 class="display-subtitle">Xác thực email</h1>
     <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}"></div>
+    <div th:if="${infoMessage}" class="alert alert-info" th:text="${infoMessage}"></div>
     <div th:if="${errorMessage}" class="alert alert-danger" th:text="${errorMessage}"></div>
+    <p class="text-muted">Nhập mã OTP 6 số trong email. Mã có hiệu lực trong 10 phút.</p>
     <form th:action="@{/verify-email}" method="post" class="card border-0 shadow-sm p-4 mb-3">
         <div class="mb-3"><label class="form-label" for="email">Email</label><input id="email" class="form-control" type="email" name="email" th:value="${email}" required></div>
-        <div class="mb-3"><label class="form-label" for="code">Mã 6 số</label><input id="code" class="form-control" name="code" required pattern="\d{6}" maxlength="6"></div>
+        <div class="mb-3"><label class="form-label" for="code">Mã xác thực gồm 6 số</label><input id="code" class="form-control" name="code" required pattern="\d{6}" inputmode="numeric" autocomplete="one-time-code" maxlength="6"></div>
         <button class="btn btn-primary" type="submit">Xác thực</button>
     </form>
     <form th:action="@{/verify-email/resend}" method="post" class="d-flex gap-2">

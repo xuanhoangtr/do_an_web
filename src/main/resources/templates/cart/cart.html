@@ -10,9 +10,10 @@
     </div>
 
     <div th:if="${successMessage}" class="alert alert-success border-0 shadow-sm" role="alert" th:text="${successMessage}" data-flash-success></div>
+    <div th:if="${errorMessage}" class="alert alert-danger border-0 shadow-sm" role="alert" th:text="${errorMessage}" data-flash-error></div>
     <div th:if="${checkoutError}" class="alert alert-warning border-0 shadow-sm" role="alert" th:text="${checkoutError}"></div>
 
-    <div id="cartContent" data-cart-container th:attr="data-cart-count=${cart.itemCount}" th:fragment="cartContent" class="row g-4 align-items-start">
+    <div id="cartContent" data-cart-container th:attr="data-cart-count=${cart.itemCount},data-grouped-cart-selection=${groupedCheckoutEnabled}" th:fragment="cartContent" class="row g-4 align-items-start">
         <div th:if="${cartMessage}" id="cartFeedback" class="col-12 alert border-0 shadow-sm" role="status"
              th:classappend="${cartMessageType == 'error'} ? ' alert-danger' : ' alert-success'" th:text="${cartMessage}"></div>
         <div class="col-lg-8">
@@ -27,12 +28,14 @@
                     <div th:unless="${cart == null or cart.empty}" class="table-responsive">
                         <table class="table table-borderless align-middle mb-0 cart-table">
                             <thead class="border-bottom bg-light-subtle">
-                            <tr><th class="py-3">STT</th><th class="ps-4 py-3">Sản phẩm</th><th class="py-3">Giá gốc</th><th class="py-3 text-center">Số lượng</th><th class="py-3 text-end pe-4">Thành tiền sau giảm</th></tr>
+                            <tr><th th:if="${groupedCheckoutEnabled}" class="ps-3 py-3"><span class="visually-hidden">Chọn sản phẩm</span></th><th class="py-3">STT</th><th class="ps-4 py-3">Sản phẩm</th><th class="py-3">Giá gốc</th><th class="py-3 text-center">Số lượng</th><th class="py-3 text-end pe-4">Thành tiền sau giảm</th></tr>
                             </thead>
                             <tbody>
                             <th:block th:each="shop : ${cart.shopGroups}">
-                            <tr class="shop-heading"><th colspan="5" class="ps-4 py-3"><span class="status-dot me-2" aria-hidden="true"></span><span class="small text-uppercase fw-semibold" th:text="${shop.shopName}"></span><span class="small text-secondary ms-2">Gian hàng đối tác</span></th></tr>
+                            <tr class="shop-heading" th:attr="data-shop-id=${shop.shopId},data-selection-fingerprint=${shop.selectionFingerprint}"><th th:attr="colspan=${groupedCheckoutEnabled ? 6 : 5}" class="ps-4 py-3"><div class="d-flex align-items-center gap-2"><label th:if="${groupedCheckoutEnabled}" class="form-check mb-0"><input class="form-check-input mt-0" type="checkbox" data-shop-select-all th:attr="data-shop-id=${shop.shopId},aria-label=${'Chọn tất cả sản phẩm của ' + shop.shopName}" th:disabled="${!shop.checkoutAvailable}"></label><span class="status-dot" aria-hidden="true"></span><span class="small text-uppercase fw-semibold" th:text="${shop.shopName}"></span><span class="small text-secondary">Cửa hàng</span></div></th></tr>
+                            <tr th:if="${!shop.checkoutAvailable}"><td th:attr="colspan=${groupedCheckoutEnabled ? 6 : 5}" class="px-4 py-2"><div class="alert alert-warning mb-2 py-2" role="status" th:text="${shop.unavailableReason}">Nhóm sản phẩm hiện chưa thể thanh toán.</div></td></tr>
                             <tr th:each="item : ${shop.items}" class="border-bottom">
+                                <td th:if="${groupedCheckoutEnabled}" class="ps-3"><input class="form-check-input" type="checkbox" data-cart-row-select th:checked="${item.checkoutAvailable}" th:disabled="${!item.checkoutAvailable}" th:attr="data-cart-item-id=${item.id},data-shop-id=${shop.shopId},data-line-total=${item.lineTotal},aria-label=${'Chọn ' + item.name}"></td>
                                 <td class="text-secondary" th:text="${cart.items.indexOf(item) + 1}">1</td>
                                 <td class="ps-4 py-4">
                                     <div class="d-flex align-items-center gap-3 min-width-260">
@@ -72,7 +75,21 @@
                     <hr>
                     <div class="d-flex justify-content-between align-items-end mt-3"><span class="fw-semibold">Tổng tiền sản phẩm</span><strong class="fs-4 text-primary" th:text="${#numbers.formatDecimal(cart.grandTotal, 0, 'COMMA', 0, 'POINT')} + ' đ'"></strong></div>
                     <p class="small text-secondary mt-3 mb-0">Phí giao hàng và mã giảm giá được tính tại bước checkout.</p>
-                    <a th:if="${cart != null and !cart.empty}" class="btn btn-primary rounded-pill w-100 py-3 mt-4" th:href="@{/checkout}">Tiếp tục đến checkout <span aria-hidden="true">→</span></a>
+                    <form th:if="${groupedCheckoutEnabled and cart != null and !cart.empty}" class="mt-4" th:action="@{/checkout}" method="get" data-grouped-cart-form>
+                        <p class="small text-secondary mb-2" data-grouped-selection-count role="status" aria-live="polite">Đang chọn sản phẩm có thể thanh toán.</p>
+                        <button class="btn btn-primary rounded-pill w-100 py-3" type="submit" data-grouped-cart-submit disabled>Thanh toán sản phẩm đã chọn</button>
+                        <p class="small text-secondary mt-2 mb-0">Có thể chọn sản phẩm từ nhiều cửa hàng. Phí và voucher sẽ được tính riêng cho từng cửa hàng.</p>
+                    </form>
+                    <div th:if="${!groupedCheckoutEnabled and cart != null and !cart.empty}" class="mt-4">
+                        <p th:if="${cart.shopGroups.size() > 1}" class="small text-secondary mb-2">Giỏ hàng có sản phẩm từ nhiều cửa hàng. Hãy thanh toán theo từng cửa hàng để trạng thái của một nhóm không ảnh hưởng nhóm còn lại.</p>
+                        <a th:each="shop : ${cart.shopGroups}" th:if="${shop.checkoutAvailable}"
+                           class="btn btn-primary rounded-pill w-100 py-3 mb-2"
+                           th:href="@{/checkout(shopId=${shop.shopId},selectionFingerprint=${shop.selectionFingerprint})}"
+                           th:text="${'Thanh toán · ' + shop.shopName}">Thanh toán cửa hàng</a>
+                    </div>
+                    <div th:if="${!groupedCheckoutEnabled and cart != null and !cart.empty and cart.shopGroups.size() == 1 and !cart.shopGroups[0].checkoutAvailable}" class="alert alert-warning mt-4 mb-0" role="status">
+                        Nhóm sản phẩm này chưa thể thanh toán. Vui lòng xóa sản phẩm không khả dụng hoặc thử lại sau.
+                    </div>
                 </div>
             </div>
         </div>
@@ -80,5 +97,6 @@
 </main>
 <footer th:replace="~{fragments :: footer}"></footer>
 <th:block th:replace="~{fragments :: scripts}"></th:block>
+<script th:if="${groupedCheckoutEnabled}" th:src="@{/js/grouped-cart.js(v='mco-08-v1')}" defer></script>
 </body>
 </html>
