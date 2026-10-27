@@ -1,6 +1,7 @@
 package com.utewedding.app.integration;
 
 import com.utewedding.app.config.MoMoConfig;
+import com.utewedding.app.domain.PaymentProviderEnvironment;
 import com.utewedding.app.service.payment.PaymentGatewayClient;
 import com.utewedding.app.service.payment.PaymentPayloads;
 import java.nio.charset.StandardCharsets;
@@ -39,6 +40,11 @@ public class MomoPaymentGateway implements PaymentGatewayClient {
     @Override
     public String providerCode() {
         return "MOMO";
+    }
+
+    @Override
+    public PaymentProviderEnvironment providerEnvironment() {
+        return config.getProviderEnvironment();
     }
 
     @Override

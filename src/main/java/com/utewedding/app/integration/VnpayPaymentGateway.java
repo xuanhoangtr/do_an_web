@@ -1,6 +1,7 @@
 package com.utewedding.app.integration;
 
 import com.utewedding.app.config.VNPayConfig;
+import com.utewedding.app.domain.PaymentProviderEnvironment;
 import com.utewedding.app.service.payment.PaymentGatewayClient;
 import com.utewedding.app.service.payment.PaymentPayloads;
 import java.math.BigInteger;
@@ -59,6 +60,11 @@ public class VnpayPaymentGateway implements PaymentGatewayClient {
     @Override
     public String providerCode() {
         return "VNPAY";
+    }
+
+    @Override
+    public PaymentProviderEnvironment providerEnvironment() {
+        return config.getProviderEnvironment();
     }
 
     @Override

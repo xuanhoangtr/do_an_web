@@ -24,6 +24,11 @@ public class NotificationService {
     private final UserNotificationRepository notifications;
     private final UserRepository users;
     private final OrderFulfillmentRepository fulfillments;
+    private com.utewedding.app.service.impl.SupportChatRecipientResolver supportRecipients;
+    @Autowired
+    public void setSupportRecipients(com.utewedding.app.service.impl.SupportChatRecipientResolver resolver) {
+        this.supportRecipients = resolver;
+    }
     public NotificationService(SimpMessagingTemplate messagingTemplate) {
         this(messagingTemplate,
                 (UserNotificationRepository) null,
@@ -93,8 +98,11 @@ public class NotificationService {
 
     @Transactional
     public void notifySupport(UUID recipientUserId, UUID ticketId, String message) {
+        var ticket = supportRecipients == null ? null : supportRecipients.ticket(ticketId);
+        if (supportRecipients != null && !supportRecipients.allowed(ticket, recipientUserId)) return;
+        String target = ticket == null || supportRecipients == null ? null : supportRecipients.target(ticket, recipientUserId);
         remember(recipientUserId, "SUPPORT", "Cập nhật hỗ trợ", message,
-                ticketId == null ? "/support" : supportTarget(recipientUserId) + ticketId);
+                target != null ? target : ticketId == null ? "/support" : supportTarget(recipientUserId) + ticketId);
         sendPrivate("/queue/support", recipientUserId == null ? null : recipientUserId.toString(),
                 new SupportNotification(ticketId, message, Instant.now()));
     }
@@ -138,6 +146,13 @@ public class NotificationService {
 
     private String supportTarget(UUID recipient){var role=users==null?null:users.findById(recipient).map(u->u.getRole()).orElse(null);return role!=null&&java.util.Set.of(UserRole.ADMIN,UserRole.MANAGER,UserRole.SUPER_ADMIN).contains(role)?"/admin/support/":"/support/";}
     @Transactional public void notifyReturn(UUID recipient,UUID caseId){remember(recipient,"RETURN","Đã xử lý trả hàng","Yêu cầu trả hàng đã được xử lý.","/returns/"+caseId);}
+
+    /** Notifies the applicant after a seller application has been approved. */
+    @Transactional
+    public void notifyShopApproved(UUID recipientUserId, UUID shopId) {
+        remember(recipientUserId, "SHOP_APPROVED", "Cửa hàng đã được duyệt",
+                "Cửa hàng của bạn đã được duyệt. Bạn có thể bắt đầu quản lý cửa hàng.", "/vendor", true);
+    }
     private String orderTarget(UUID recipientId) {
         if (users == null || recipientId == null) return "/notifications";
         UserRole role = users.findById(recipientId).map(user -> user.getRole()).orElse(null);

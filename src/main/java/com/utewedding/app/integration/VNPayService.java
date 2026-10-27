@@ -13,6 +13,7 @@ import com.utewedding.app.service.port.AuditLogPort;
 import com.utewedding.app.service.FulfillmentService;
 import com.utewedding.app.service.payment.PaymentCallbackResult;
 import com.utewedding.app.service.payment.PaymentIntegrityService;
+import com.utewedding.app.service.payment.GroupedPaymentIntegrityService;
 import com.utewedding.app.service.payment.PaymentPayloads;
 import com.utewedding.app.service.payment.VerifiedPaymentCallback;
 import java.math.BigInteger;
@@ -27,6 +28,7 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.TreeMap;
 import java.util.UUID;
 import javax.crypto.Mac;
@@ -108,6 +110,10 @@ public class VNPayService {
         OrderEntity order = orderRepository.findByOrderNumberAndUserId(normalizedOrderNumber, userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng."));
+        if (order.getCheckoutGroupId() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Đơn hàng thuộc nhóm checkout. Hãy tạo phiên thanh toán qua nhóm checkout.");
+        }
         if (order.getStatus() != OrderStatus.PENDING) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "Đơn hàng không còn ở trạng thái chờ thanh toán.");
@@ -274,8 +280,53 @@ public class VNPayService {
                     parameters == null ? null : parameters.get("vnp_ResponseCode"));
             return new IpnResponse("97", "Invalid signature");
         }
+        String reference = parameters == null ? null : parameters.get("vnp_TxnRef");
+        if (paymentIntegrity != null && paymentIntegrity.hasGroupedVnpayReference(reference)
+                && !Objects.equals(config.getTmnCode(), parameters.get("vnp_TmnCode"))) {
+            paymentIntegrity.recordGroupVnpayRejection(reference, PaymentPayloads.canonical(parameters),
+                    "97", "Merchant code mismatch");
+            return new IpnResponse("97", "Invalid merchant");
+        }
         PaymentCallbackResult result = paymentIntegrity.applyVerified(vnpayCallback(parameters), context);
         return new IpnResponse(result.code(), vnpayMessage(result));
+    }
+
+    /** Creates or reuses one persisted VNPAY session for the checkout-group total. */
+    public GroupPaymentSessionResult createGroupPaymentSession(UUID userId, UUID groupId, String clientIp,
+                                                                RequestContext context) {
+        requireConfiguration();
+        if (paymentIntegrity == null) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Dịch vụ tạo phiên thanh toán chưa sẵn sàng.");
+        }
+        GroupedPaymentIntegrityService.SessionResult result = paymentIntegrity.createOrReuseVnpayGroupSession(
+                userId, groupId, "Thanh toan nhom checkout", normalizeIp(clientIp),
+                config.getExpireMinutes(), context);
+        if (result.status() != GroupedPaymentIntegrityService.SessionState.READY || result.session() == null) {
+            return new GroupPaymentSessionResult(result.status().name(), result.groupId(), result.groupNumber(),
+                    result.totalAmount(), result.currency(), result.expiresAt(), null, result.message());
+        }
+        GroupedPaymentIntegrityService.VnpayGroupSession session = result.session();
+        Map<String, String> params = new LinkedHashMap<>();
+        params.put("vnp_Version", config.getVersion());
+        params.put("vnp_Command", config.getCommand());
+        params.put("vnp_TmnCode", config.getTmnCode());
+        params.put("vnp_Amount", amountInSmallestUnit(session.amount()));
+        params.put("vnp_CurrCode", config.getCurrency());
+        params.put("vnp_TxnRef", session.providerReference());
+        params.put("vnp_OrderInfo", session.orderInfo());
+        params.put("vnp_OrderType", "other");
+        params.put("vnp_Locale", config.getLocale());
+        params.put("vnp_ReturnUrl", config.getReturnUrl());
+        params.put("vnp_IpAddr", session.clientIp());
+        params.put("vnp_CreateDate", session.providerCreateDate());
+        params.put("vnp_ExpireDate", VN_DATE.format(session.expiresAt().atZone(VN_ZONE)));
+        String query = canonicalQueryString(params);
+        String url = config.getPayUrl() + "?" + query + "&vnp_SecureHashType=HmacSHA512"
+                + "&vnp_SecureHash=" + generateHmacSha512(query);
+        metrics.payment("VNPAY", "started");
+        return new GroupPaymentSessionResult("READY", result.groupId(), result.groupNumber(),
+                session.amount(), session.currency(), session.expiresAt(), url, null);
     }
 
     private static VerifiedPaymentCallback vnpayCallback(Map<String, String> parameters) {
@@ -327,7 +378,15 @@ public class VNPayService {
     public ReturnResult inspectReturn(Map<String, String> parameters) {
         boolean valid = verifySignature(parameters);
         String reference = valid ? parameters.get("vnp_TxnRef") : null;
+        if (valid && paymentIntegrity != null && paymentIntegrity.hasGroupedVnpayReference(reference)
+                && !Objects.equals(config.getTmnCode(), parameters.get("vnp_TmnCode"))) {
+            valid = false;
+            reference = null;
+        }
         String orderNumber = reference;
+        UUID groupId = null;
+        String groupNumber = null;
+        String groupPaymentStatus = null;
         String status = "UNKNOWN";
         boolean savedSession = false;
         boolean orderPaid = false;
@@ -338,11 +397,25 @@ public class VNPayService {
                         paymentIntegrity.resolveVnpayReference(reference);
                 if (resolved != null) {
                     savedSession = true;
-                    orderNumber = resolved.orderNumber();
+                    if (resolved.groupOwned()) {
+                        groupId = resolved.checkoutGroupId();
+                        groupNumber = resolved.groupNumber();
+                        groupPaymentStatus = resolved.groupPaymentStatus() == null
+                                ? "UNKNOWN" : resolved.groupPaymentStatus().name();
+                        orderNumber = null;
+                        status = groupPaymentStatus;
+                        orderPaid = "PAID".equals(groupPaymentStatus)
+                                || "PARTIALLY_REFUNDED".equals(groupPaymentStatus)
+                                || "REFUNDED".equals(groupPaymentStatus);
+                    } else {
+                        orderNumber = resolved.orderNumber();
+                    }
                     attemptStatus = resolved.status();
                 }
             }
-            if (savedSession || paymentIntegrity == null) {
+            if (savedSession && groupId != null) {
+                // The group status above is canonical; the browser return cannot promote it.
+            } else if (savedSession || paymentIntegrity == null) {
                 OrderEntity order = orderRepository.findByOrderNumber(orderNumber).orElse(null);
                 status = order == null ? "NOT_FOUND" : order.getStatus().name();
                 orderPaid = order != null && (order.getStatus() == OrderStatus.PAID
@@ -362,7 +435,10 @@ public class VNPayService {
                 orderPaid,
                 savedSession,
                 savedSession ? reference : null,
-                attemptStatus);
+                attemptStatus,
+                groupId,
+                groupNumber,
+                groupPaymentStatus);
     }
 
     /** Exposed for focused unit tests and operational signature diagnostics. */
@@ -470,6 +546,10 @@ public class VNPayService {
     public record PaymentUrl(String orderNumber, long amount, String paymentUrl) {
     }
 
+    public record GroupPaymentSessionResult(String status, UUID groupId, String groupNumber,
+                                            long totalAmount, String currency, java.time.Instant expiresAt,
+                                            String paymentUrl, String message) { }
+
     public record IpnResponse(String rspCode, String message) {
     }
 
@@ -482,6 +562,15 @@ public class VNPayService {
             boolean orderPaid,
             boolean savedSession,
             String providerReference,
-            com.utewedding.app.domain.PaymentAttemptStatus attemptStatus) {
+            com.utewedding.app.domain.PaymentAttemptStatus attemptStatus,
+            UUID groupId,
+            String groupNumber,
+            String groupPaymentStatus) {
+        public ReturnResult(boolean validSignature, String orderNumber, String responseCode, String message,
+                            String orderStatus, boolean orderPaid, boolean savedSession,
+                            String providerReference, com.utewedding.app.domain.PaymentAttemptStatus attemptStatus) {
+            this(validSignature, orderNumber, responseCode, message, orderStatus, orderPaid, savedSession,
+                    providerReference, attemptStatus, null, null, null);
+        }
     }
 }

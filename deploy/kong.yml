@@ -1,0 +1,48 @@
+_format_version: "3.0"
+_transform: true
+
+upstreams:
+  - name: utewedding-upstream
+    algorithm: round-robin
+    healthchecks:
+      active:
+        type: http
+        http_path: /
+        timeout: 5
+        concurrency: 10
+        healthy:
+          interval: 10
+          successes: 2
+        unhealthy:
+          interval: 10
+          http_failures: 3
+          timeouts: 3
+    targets:
+      # Public traffic stays on 8080. Actuator is on app:8081 and is not a target.
+      - target: app:8080
+        weight: 100
+
+services:
+  - name: utewedding-app
+    host: utewedding-upstream
+    port: 80
+    protocol: http
+    routes:
+      - name: utewedding-all
+        paths:
+          - /
+        strip_path: false
+        protocols:
+          - https
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 120
+          policy: local
+          limit_by: ip
+          fault_tolerant: true
+      - name: correlation-id
+        config:
+          header_name: X-Request-ID
+          generator: uuid#counter
+          echo_downstream: true

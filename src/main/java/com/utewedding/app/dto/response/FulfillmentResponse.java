@@ -17,9 +17,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public record FulfillmentResponse(UUID id, UUID orderId, String orderNumber, FulfillmentStatus status, UUID shipperId, String trackingNumber, Instant deliveredAt, String deliveryProofUrl, Instant createdAt, Instant updatedAt, List<UUID> orderItemIds, String shippingRecipientName, String shippingPhone, String shippingAddress, String shippingWard, String shippingDistrict, String shippingProvince, OrderStatus orderStatus, PaymentStatus orderPaymentStatus, List<FulfillmentItemResponse> items, PaymentMethod paymentMethod, boolean collectsCod, long codAmount, List<DeliveryAttemptResponse> attempts, List<FulfillmentTimelineEvent> timeline, String codCollectionReceiptCode) {
+public record FulfillmentResponse(UUID id, UUID orderId, String orderNumber, FulfillmentStatus status, UUID shipperId, String trackingNumber, Instant deliveredAt, String deliveryProofUrl, Instant createdAt, Instant updatedAt, List<UUID> orderItemIds, String shippingRecipientName, String shippingPhone, String shippingAddress, String shippingWard, String shippingDistrict, String shippingProvince, OrderStatus orderStatus, PaymentStatus orderPaymentStatus, List<FulfillmentItemResponse> items, PaymentMethod paymentMethod, boolean collectsCod, long codAmount, List<DeliveryAttemptResponse> attempts, List<FulfillmentTimelineEvent> timeline, String codCollectionReceiptCode, ShipperContext shipperContext) {
     public FulfillmentResponse(UUID id, UUID orderId, String orderNumber, FulfillmentStatus status, UUID shipperId, String trackingNumber, Instant deliveredAt, String deliveryProofUrl, Instant createdAt, Instant updatedAt, List<UUID> orderItemIds, String shippingRecipientName, String shippingPhone, String shippingAddress, String shippingWard, String shippingDistrict, String shippingProvince, OrderStatus orderStatus, PaymentStatus orderPaymentStatus, List<FulfillmentItemResponse> items, PaymentMethod paymentMethod, boolean collectsCod, long codAmount, List<DeliveryAttemptResponse> attempts, List<FulfillmentTimelineEvent> timeline) {
-        this(id, orderId, orderNumber, status, shipperId, trackingNumber, deliveredAt, deliveryProofUrl, createdAt, updatedAt, orderItemIds, shippingRecipientName, shippingPhone, shippingAddress, shippingWard, shippingDistrict, shippingProvince, orderStatus, orderPaymentStatus, items, paymentMethod, collectsCod, codAmount, attempts, timeline, null);
+        this(id, orderId, orderNumber, status, shipperId, trackingNumber, deliveredAt, deliveryProofUrl, createdAt, updatedAt, orderItemIds, shippingRecipientName, shippingPhone, shippingAddress, shippingWard, shippingDistrict, shippingProvince, orderStatus, orderPaymentStatus, items, paymentMethod, collectsCod, codAmount, attempts, timeline, null, null);
+    }
+
+    public FulfillmentResponse(UUID id, UUID orderId, String orderNumber, FulfillmentStatus status, UUID shipperId, String trackingNumber, Instant deliveredAt, String deliveryProofUrl, Instant createdAt, Instant updatedAt, List<UUID> orderItemIds, String shippingRecipientName, String shippingPhone, String shippingAddress, String shippingWard, String shippingDistrict, String shippingProvince, OrderStatus orderStatus, PaymentStatus orderPaymentStatus, List<FulfillmentItemResponse> items, PaymentMethod paymentMethod, boolean collectsCod, long codAmount, List<DeliveryAttemptResponse> attempts, List<FulfillmentTimelineEvent> timeline, String codCollectionReceiptCode) {
+        this(id, orderId, orderNumber, status, shipperId, trackingNumber, deliveredAt, deliveryProofUrl, createdAt, updatedAt, orderItemIds, shippingRecipientName, shippingPhone, shippingAddress, shippingWard, shippingDistrict, shippingProvince, orderStatus, orderPaymentStatus, items, paymentMethod, collectsCod, codAmount, attempts, timeline, codCollectionReceiptCode, null);
     }
 
     public FulfillmentResponse {
@@ -71,4 +75,7 @@ public record FulfillmentResponse(UUID id, UUID orderId, String orderNumber, Ful
             parts.add(value.trim());
         }
     }
+
+    public record ShipperContext(String shopName, String pickupContactName, String pickupPhone,
+                                 String pickupAddress, String pickupProvinceCode, String pickupWardCode) { }
 }

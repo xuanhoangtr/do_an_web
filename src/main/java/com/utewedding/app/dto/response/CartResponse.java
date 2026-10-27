@@ -8,5 +8,16 @@ public record CartResponse(
         List<CartItemResponse> items,
         long subtotal,
         long discountAmount,
-        long totalAmount) {
+        long totalAmount,
+        List<CartShopGroupResponse> shopGroups) {
+
+    public CartResponse {
+        items = items == null ? List.of() : List.copyOf(items);
+        shopGroups = shopGroups == null ? List.of() : List.copyOf(shopGroups);
+    }
+
+    public CartResponse(UUID id, List<CartItemResponse> items, long subtotal,
+                        long discountAmount, long totalAmount) {
+        this(id, items, subtotal, discountAmount, totalAmount, List.of());
+    }
 }

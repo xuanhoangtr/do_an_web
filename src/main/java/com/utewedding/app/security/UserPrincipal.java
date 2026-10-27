@@ -13,11 +13,15 @@ import java.time.Instant;
 /** Spring Security principal backed by the current database row. */
 public final class UserPrincipal implements UserDetails {
 
+    // Preserve sessions serialized by the previous release before vendorAccount was added.
+    private static final long serialVersionUID = -542246246942082849L;
+
     private final UUID id;
     private final String email;
     private final String displayName;
     private final String passwordHash;
     private final AppRole role;
+    private final boolean vendorAccount;
     private final Instant passwordChangedAt;
     private final int passwordVersion;
     private final String sessionId;
@@ -29,6 +33,7 @@ public final class UserPrincipal implements UserDetails {
             String displayName,
             String passwordHash,
             AppRole role,
+            boolean vendorAccount,
             Instant passwordChangedAt,
             int passwordVersion,
             String sessionId,
@@ -38,6 +43,7 @@ public final class UserPrincipal implements UserDetails {
         this.displayName = displayName;
         this.passwordHash = passwordHash;
         this.role = role;
+        this.vendorAccount = vendorAccount;
         this.passwordChangedAt = passwordChangedAt;
         this.passwordVersion = passwordVersion;
         this.sessionId = sessionId;
@@ -53,6 +59,7 @@ public final class UserPrincipal implements UserDetails {
                 user.getDisplayName(),
                 user.getPasswordHash(),
                 primaryRole,
+                user.getRole() == com.utewedding.app.domain.UserRole.VENDOR,
                 user.getPasswordChangedAt(),
                 user.getPasswordVersion(),
                 null,
@@ -60,7 +67,7 @@ public final class UserPrincipal implements UserDetails {
     }
 
     public UserPrincipal withSessionId(String value) {
-        return new UserPrincipal(id, email, displayName, passwordHash, role, passwordChangedAt,
+        return new UserPrincipal(id, email, displayName, passwordHash, role, vendorAccount, passwordChangedAt,
                 passwordVersion, value, emailVerified);
     }
 
@@ -78,6 +85,10 @@ public final class UserPrincipal implements UserDetails {
 
     public AppRole getRole() {
         return role;
+    }
+
+    public boolean isVendorAccount() {
+        return vendorAccount;
     }
 
     public String getSessionId() {

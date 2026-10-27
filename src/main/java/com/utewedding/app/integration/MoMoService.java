@@ -90,6 +90,10 @@ public class MoMoService implements PaymentProvider {
     private PaymentRequest createBody(UUID userId, UUID orderId) {
         OrderEntity order = orders.findByIdAndUserId(orderId, userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng."));
+        if (order.getCheckoutGroupId() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Đơn hàng thuộc nhóm checkout. Hãy thanh toán qua nhóm checkout.");
+        }
         if (order.getStatus() != OrderStatus.PENDING || order.getTotalAmount() <= 0)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Đơn hàng không sẵn sàng thanh toán MoMo.");
         if (!paymentWindowOpen(order.getExpiresAt())) {

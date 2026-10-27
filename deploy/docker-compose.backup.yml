@@ -1,0 +1,99 @@
+# Opt-in PostgreSQL backup and PITR for the Compose deployment.
+# Including this file turns on WAL archiving. Run it together with the scheduler;
+# a failing archive_command will retain WAL on the database volume.
+#
+#   docker compose --env-file .env \
+#     -f deploy/docker-compose.yml \
+#     -f deploy/docker-compose.backup.yml up -d --build
+#
+# Set BACKUP_ENCRYPTION_PASSPHRASE or BACKUP_ENCRYPTION_PASSPHRASE_FILE.
+# Production also sets BACKUP_OFFSITE_HOST_PATH to another disk or machine
+# and BACKUP_OFFSITE_IS_REMOTE=true. See deploy/backup/README.md.
+
+services:
+  wal-volume-init:
+    image: postgres:16-alpine
+    user: "0:0"
+    restart: "no"
+    command:
+      - sh
+      - -c
+      - mkdir -p /wal /backups/daily /backups/weekly /backups/monthly /backups/base /backups/wal /backups/state /backups/restore-work /offsite /metrics && chown -R postgres:postgres /wal /backups /offsite /metrics && chmod 750 /wal /backups /offsite && chmod 755 /metrics
+    volumes:
+      - utewedding-wal-archive:/wal
+      - utewedding-backups:/backups
+      - ${BACKUP_OFFSITE_HOST_PATH:-utewedding-offsite}:/offsite
+      - utewedding-backup-metrics:/metrics
+
+  postgres:
+    environment:
+      WAL_ARCHIVE_DIR: /var/lib/postgresql/wal-archive
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_timeout=60
+      - -c
+      - archive_command=/bin/sh /etc/utewedding/archive-wal.sh "%p" "%f"
+      - -c
+      - max_wal_senders=3
+    volumes:
+      - utewedding-postgres:/var/lib/postgresql/data
+      - utewedding-wal-archive:/var/lib/postgresql/wal-archive
+      - ./backup/archive-wal.sh:/etc/utewedding/archive-wal.sh:ro
+    depends_on:
+      wal-volume-init:
+        condition: service_completed_successfully
+
+  backup-scheduler:
+    build:
+      context: ./backup
+      dockerfile: Dockerfile
+    image: utewedding-backup:16
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/opt/utewedding/backup/scheduler.sh"]
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: ${DB_USER:-webthiep}
+      PGDATABASE: ${POSTGRES_DB:-webthiep}
+      PGPASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}
+      BACKUP_DIR: /backups
+      WAL_ARCHIVE_DIR: /wal
+      OFFSITE_DIR: /offsite
+      METRICS_DIR: /metrics
+      BACKUP_ENCRYPTION_PASSPHRASE: ${BACKUP_ENCRYPTION_PASSPHRASE:-}
+      BACKUP_ENCRYPTION_PASSPHRASE_FILE: ${BACKUP_ENCRYPTION_PASSPHRASE_FILE:-}
+      BACKUP_REQUIRE_OFFSITE: ${BACKUP_REQUIRE_OFFSITE:-true}
+      BACKUP_OFFSITE_IS_REMOTE: ${BACKUP_OFFSITE_IS_REMOTE:-false}
+      BACKUP_OFFSITE_COMMAND: ${BACKUP_OFFSITE_COMMAND:-}
+      BACKUP_RETENTION_DAILY_DAYS: ${BACKUP_RETENTION_DAILY_DAYS:-14}
+      BACKUP_RETENTION_WEEKLY_DAYS: ${BACKUP_RETENTION_WEEKLY_DAYS:-56}
+      BACKUP_RETENTION_MONTHLY_DAYS: ${BACKUP_RETENTION_MONTHLY_DAYS:-180}
+      WAL_RETENTION_DAYS: ${WAL_RETENTION_DAYS:-21}
+      BASE_RETENTION_DAYS: ${BASE_RETENTION_DAYS:-21}
+      BACKUP_DAILY_UTC: ${BACKUP_DAILY_UTC:-18:15}
+      BACKUP_WAL_SHIP_INTERVAL_SECONDS: ${BACKUP_WAL_SHIP_INTERVAL_SECONDS:-60}
+      OPENSSL_ITER: ${OPENSSL_ITER:-200000}
+    volumes:
+      - ./backup:/opt/utewedding/backup:ro
+      - utewedding-backups:/backups
+      - utewedding-wal-archive:/wal
+      - ${BACKUP_OFFSITE_HOST_PATH:-utewedding-offsite}:/offsite
+      - utewedding-backup-metrics:/metrics
+    depends_on:
+      wal-volume-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  utewedding-wal-archive:
+  utewedding-backups:
+  utewedding-offsite:
+  utewedding-backup-metrics:
