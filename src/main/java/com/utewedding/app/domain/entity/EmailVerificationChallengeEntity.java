@@ -24,7 +24,7 @@ public class EmailVerificationChallengeEntity {
     @Column(name = "user_id", nullable = false) private UUID userId;
     @Column(nullable = false, length = 320) private String email;
     @Column(name = "otp_hash", nullable = false, length = 64) private String otpHash;
-    @Column(name = "link_token_hash", nullable = false, unique = true, length = 64)
+    @Column(name = "link_token_hash", unique = true, length = 64)
     private String linkTokenHash;
     @Column(name = "expires_at", nullable = false) private Instant expiresAt;
     @Column(name = "last_sent_at", nullable = false) private Instant lastSentAt;

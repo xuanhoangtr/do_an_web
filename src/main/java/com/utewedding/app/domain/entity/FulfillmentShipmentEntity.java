@@ -17,6 +17,7 @@
 package com.utewedding.app.domain.entity;
 
 import com.utewedding.app.domain.FulfillmentStatus;
+import com.utewedding.app.domain.ShopDefaults;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -30,6 +31,8 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.time.Instant;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name="fulfillment_shipments")
@@ -37,6 +40,13 @@ public class FulfillmentShipmentEntity {
     @Id
     @GeneratedValue(strategy=GenerationType.UUID)
     private UUID id;
+    @Column(name="shop_id", nullable=false, updatable=false)
+    private UUID shopId = ShopDefaults.PLATFORM_SHOP_ID;
+    @Column(name="provider_account_id")
+    private UUID providerAccountId;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name="provider_context_snapshot", columnDefinition="jsonb")
+    private String providerContextSnapshot;
     @Column(name="fulfillment_id", nullable=false)
     private UUID fulfillmentId;
     @Column(name="provider_code", nullable=false, length=40)
@@ -73,6 +83,9 @@ public class FulfillmentShipmentEntity {
     @PrePersist
     void create() {
         Instant n = Instant.now();
+        if (this.shopId == null) {
+            this.shopId = ShopDefaults.PLATFORM_SHOP_ID;
+        }
         if (this.createdAt == null) {
             this.createdAt = n;
         }
@@ -87,6 +100,14 @@ public class FulfillmentShipmentEntity {
     public UUID getId() {
         return this.id;
     }
+
+    public UUID getShopId() { return this.shopId; }
+
+    public void setShopId(UUID v) { this.shopId = v; }
+    public UUID getProviderAccountId() { return providerAccountId; }
+    public void setProviderAccountId(UUID v) { providerAccountId = v; }
+    public String getProviderContextSnapshot() { return providerContextSnapshot; }
+    public void setProviderContextSnapshot(String v) { providerContextSnapshot = v; }
 
     public UUID getFulfillmentId() {
         return this.fulfillmentId;
@@ -170,6 +191,10 @@ public class FulfillmentShipmentEntity {
 
     public Instant getLastProviderEventAt() {
         return this.lastProviderEventAt;
+    }
+
+    public Instant getCreatedAt() {
+        return this.createdAt;
     }
 
     public void setLastProviderEventAt(Instant v) {

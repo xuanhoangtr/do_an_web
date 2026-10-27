@@ -21,6 +21,7 @@ public class PaymentCallbackEntity {
     private UUID id;
     @Column(nullable = false, length = 60) private String provider;
     @Column(name = "order_id") private UUID orderId;
+    @Column(name = "checkout_group_id") private UUID checkoutGroupId;
     @Column(name = "attempt_id") private UUID attemptId;
     @Column(name = "provider_transaction_id", length = 190) private String providerTransactionId;
     @Column(name = "signature_valid", nullable = false) private boolean signatureValid;
@@ -38,6 +39,8 @@ public class PaymentCallbackEntity {
     public void setProvider(String value) { provider = value; }
     public UUID getOrderId() { return orderId; }
     public void setOrderId(UUID value) { orderId = value; }
+    public UUID getCheckoutGroupId() { return checkoutGroupId; }
+    public void setCheckoutGroupId(UUID value) { checkoutGroupId = value; }
     public UUID getAttemptId() { return attemptId; }
     public void setAttemptId(UUID value) { attemptId = value; }
     public String getProviderTransactionId() { return providerTransactionId; }

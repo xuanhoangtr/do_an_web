@@ -1,11 +1,13 @@
 package com.utewedding.app.domain.entity;
 
+import com.utewedding.app.domain.ShopDefaults;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.PrePersist;
 import java.util.UUID;
 
 @Entity
@@ -15,6 +17,7 @@ public class OrderItemEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
+    @Column(name = "shop_id", nullable = false, updatable = false) private UUID shopId = ShopDefaults.PLATFORM_SHOP_ID;
     @Column(name = "order_id", nullable = false) private UUID orderId;
     @Column(name = "product_id", nullable = false) private UUID productId;
     @Column(nullable = false, length = 120) private String productName;
@@ -27,7 +30,10 @@ public class OrderItemEntity {
     @Column(name = "return_reserved_quantity", nullable = false) private int returnReservedQuantity;
     @Column(name = "return_resolved_quantity", nullable = false) private int returnResolvedQuantity;
 
+    @PrePersist void onCreate() { if (shopId == null) shopId = ShopDefaults.PLATFORM_SHOP_ID; }
     public UUID getId() { return id; }
+    public UUID getShopId() { return shopId; }
+    public void setShopId(UUID value) { shopId = value; }
     public UUID getOrderId() { return orderId; }
     public void setOrderId(UUID value) { orderId = value; }
     public UUID getProductId() { return productId; }

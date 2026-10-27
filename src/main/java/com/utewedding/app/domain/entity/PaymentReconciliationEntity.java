@@ -20,7 +20,8 @@ public class PaymentReconciliationEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-    @Column(name = "order_id", nullable = false) private UUID orderId;
+    @Column(name = "order_id") private UUID orderId;
+    @Column(name = "checkout_group_id") private UUID checkoutGroupId;
     @Column(name = "attempt_id") private UUID attemptId;
     @Column(nullable = false, length = 60) private String provider;
     @Column(name = "merchant_reference", nullable = false, length = 80) private String merchantReference;
@@ -38,6 +39,8 @@ public class PaymentReconciliationEntity {
     public UUID getId() { return id; }
     public UUID getOrderId() { return orderId; }
     public void setOrderId(UUID value) { orderId = value; }
+    public UUID getCheckoutGroupId() { return checkoutGroupId; }
+    public void setCheckoutGroupId(UUID value) { checkoutGroupId = value; }
     public UUID getAttemptId() { return attemptId; }
     public void setAttemptId(UUID value) { attemptId = value; }
     public String getProvider() { return provider; }

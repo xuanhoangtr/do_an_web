@@ -1,6 +1,7 @@
 package com.utewedding.app.domain.entity;
 
 import com.utewedding.app.domain.PaymentAttemptStatus;
+import com.utewedding.app.domain.PaymentProviderEnvironment;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -21,8 +22,12 @@ public class PaymentAttemptEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-    @Column(name = "order_id", nullable = false) private UUID orderId;
+    @Column(name = "order_id") private UUID orderId;
+    @Column(name = "checkout_group_id") private UUID checkoutGroupId;
     @Column(nullable = false, length = 60) private String provider;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "provider_environment", length = 16, updatable = false)
+    private PaymentProviderEnvironment providerEnvironment;
     @Column(name = "merchant_reference", nullable = false, length = 80) private String merchantReference;
     @Column(name = "provider_request_id", length = 190) private String providerRequestId;
     @Column(name = "provider_transaction_id", length = 190) private String providerTransactionId;
@@ -55,8 +60,12 @@ public class PaymentAttemptEntity {
     public UUID getId() { return id; }
     public UUID getOrderId() { return orderId; }
     public void setOrderId(UUID value) { orderId = value; }
+    public UUID getCheckoutGroupId() { return checkoutGroupId; }
+    public void setCheckoutGroupId(UUID value) { checkoutGroupId = value; }
     public String getProvider() { return provider; }
     public void setProvider(String value) { provider = value; }
+    public PaymentProviderEnvironment getProviderEnvironment() { return providerEnvironment; }
+    public void setProviderEnvironment(PaymentProviderEnvironment value) { providerEnvironment = value; }
     public String getMerchantReference() { return merchantReference; }
     public void setMerchantReference(String value) { merchantReference = value; }
     public String getProviderRequestId() { return providerRequestId; }

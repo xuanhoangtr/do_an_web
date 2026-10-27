@@ -1,6 +1,8 @@
 package com.utewedding.app.domain.entity;
 
 import com.utewedding.app.domain.EntityIdentity;
+import com.utewedding.app.domain.VoucherFundingSource;
+import com.utewedding.app.domain.VoucherScope;
 import com.utewedding.app.domain.VoucherType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -20,6 +22,10 @@ public class VoucherEntity {
     @Id @GeneratedValue(strategy = GenerationType.UUID) private UUID id;
     @Column(nullable = false, unique = true, length = 80) private String code;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private VoucherType type;
+    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 16) private VoucherScope scope = VoucherScope.PLATFORM;
+    @Column(name = "shop_id") private UUID shopId;
+    @Enumerated(EnumType.STRING) @Column(name = "funding_source", nullable = false, length = 16)
+    private VoucherFundingSource fundingSource = VoucherFundingSource.PLATFORM;
     @Column(name = "value_amount", nullable = false) private long valueAmount;
     @Column(name = "minimum_order_amount", nullable = false) private long minimumOrderAmount;
     @Column(name = "maximum_discount_amount") private Long maximumDiscountAmount;
@@ -36,6 +42,12 @@ public class VoucherEntity {
     public void setCode(String value) { code = value; }
     public VoucherType getType() { return type; }
     public void setType(VoucherType value) { type = value; }
+    public VoucherScope getScope() { return scope; }
+    public void setScope(VoucherScope value) { scope = value; }
+    public UUID getShopId() { return shopId; }
+    public void setShopId(UUID value) { shopId = value; }
+    public VoucherFundingSource getFundingSource() { return fundingSource; }
+    public void setFundingSource(VoucherFundingSource value) { fundingSource = value; }
     public long getValueAmount() { return valueAmount; }
     public void setValueAmount(long value) { valueAmount = value; }
     public long getMinimumOrderAmount() { return minimumOrderAmount; }

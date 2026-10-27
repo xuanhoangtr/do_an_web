@@ -1,12 +1,16 @@
 package com.utewedding.app.domain.entity;
 
 import com.utewedding.app.domain.EntityIdentity;
+import com.utewedding.app.domain.ProductModerationStatus;
+import com.utewedding.app.domain.ShopDefaults;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -25,6 +29,9 @@ public class ProductEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
+
+    @Column(name = "shop_id", nullable = false, updatable = false)
+    private UUID shopId = ShopDefaults.PLATFORM_SHOP_ID;
 
     @Column(name = "category_id", nullable = false)
     private Long categoryId;
@@ -80,6 +87,22 @@ public class ProductEntity {
     @Column(name = "active", nullable = false)
     private boolean active = true;
 
+    @Column(name = "seller_visible", nullable = false)
+    private boolean sellerVisible = true;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "moderation_status", nullable = false, length = 20)
+    private ProductModerationStatus moderationStatus = ProductModerationStatus.PENDING;
+
+    @Column(name = "moderation_reason", length = 4096)
+    private String moderationReason;
+
+    @Column(name = "moderated_at")
+    private Instant moderatedAt;
+
+    @Column(name = "moderated_by")
+    private UUID moderatedBy;
+
     @Column(name = "average_rating", precision = 3, scale = 2)
     private BigDecimal averageRating = BigDecimal.ZERO;
 
@@ -111,6 +134,9 @@ public class ProductEntity {
 
     @PrePersist
     void onCreate() {
+        if (shopId == null) {
+            shopId = ShopDefaults.PLATFORM_SHOP_ID;
+        }
         if (id == null) {
             id = UUID.randomUUID();
         }
@@ -151,6 +177,8 @@ public class ProductEntity {
     }
 
     public UUID getId() { return id; }
+    public UUID getShopId() { return shopId; }
+    public void setShopId(UUID value) { shopId = value; }
     public Long getCategoryId() { return categoryId; }
     public void setCategoryId(Long value) { categoryId = value; }
     public String getName() { return name; }
@@ -187,6 +215,16 @@ public class ProductEntity {
     public void setCustomizable(boolean value) { customizable = value; }
     public boolean isActive() { return active; }
     public void setActive(boolean value) { active = value; }
+    public boolean isSellerVisible() { return sellerVisible; }
+    public void setSellerVisible(boolean value) { sellerVisible = value; }
+    public ProductModerationStatus getModerationStatus() { return moderationStatus; }
+    public void setModerationStatus(ProductModerationStatus value) { moderationStatus = value; }
+    public String getModerationReason() { return moderationReason; }
+    public void setModerationReason(String value) { moderationReason = value; }
+    public Instant getModeratedAt() { return moderatedAt; }
+    public void setModeratedAt(Instant value) { moderatedAt = value; }
+    public UUID getModeratedBy() { return moderatedBy; }
+    public void setModeratedBy(UUID value) { moderatedBy = value; }
     public BigDecimal getAverageRating() { return averageRating; }
     public void setAverageRating(BigDecimal value) { averageRating = value; }
     public int getReviewCount() { return reviewCount; }

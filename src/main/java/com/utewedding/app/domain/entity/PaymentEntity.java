@@ -8,18 +8,22 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "payments")
+@Table(name = "payments", indexes = {
+        @Index(name = "uq_payments_checkout_payment_allocation", columnList = "checkout_payment_allocation_id", unique = true)
+})
 public class PaymentEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
     @Column(name = "order_id", nullable = false) private UUID orderId;
+    @Column(name = "checkout_payment_allocation_id") private UUID checkoutPaymentAllocationId;
     @Column(name = "attempt_id") private UUID attemptId;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32) private PaymentStatus status;
@@ -40,6 +44,8 @@ public class PaymentEntity {
     public UUID getId() { return id; }
     public UUID getOrderId() { return orderId; }
     public void setOrderId(UUID value) { orderId = value; }
+    public UUID getCheckoutPaymentAllocationId() { return checkoutPaymentAllocationId; }
+    public void setCheckoutPaymentAllocationId(UUID value) { checkoutPaymentAllocationId = value; }
     public UUID getAttemptId() { return attemptId; }
     public void setAttemptId(UUID value) { attemptId = value; }
     public PaymentStatus getStatus() { return status; }

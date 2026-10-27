@@ -2,6 +2,7 @@ package com.utewedding.app.domain.entity;
 
 import com.utewedding.app.domain.EntityIdentity;
 import com.utewedding.app.domain.FulfillmentStatus;
+import com.utewedding.app.domain.ShopDefaults;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -26,6 +27,9 @@ public class OrderFulfillmentEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
+
+    @Column(name = "shop_id", nullable = false, updatable = false)
+    private UUID shopId = ShopDefaults.PLATFORM_SHOP_ID;
 
     @Column(name = "order_id", nullable = false)
     private UUID orderId;
@@ -76,6 +80,7 @@ public class OrderFulfillmentEntity {
 
     @PrePersist
     void onCreate() {
+        if (shopId == null) shopId = ShopDefaults.PLATFORM_SHOP_ID;
         Instant now = Instant.now();
         if (createdAt == null) createdAt = now;
         updatedAt = now;
@@ -85,6 +90,8 @@ public class OrderFulfillmentEntity {
     void onUpdate() { updatedAt = Instant.now(); }
 
     public UUID getId() { return id; }
+    public UUID getShopId() { return shopId; }
+    public void setShopId(UUID value) { shopId = value; }
     public UUID getOrderId() { return orderId; }
     public void setOrderId(UUID value) { orderId = value; }
     public FulfillmentStatus getStatus() { return status; }

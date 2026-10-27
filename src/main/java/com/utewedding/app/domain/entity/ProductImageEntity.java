@@ -26,6 +26,9 @@ public class ProductImageEntity {
     @Column(name = "product_id", nullable = false)
     private UUID productId;
 
+    @Column(name = "shop_id", nullable = false)
+    private UUID shopId;
+
     @Column(name = "image_url", nullable = false, length = 2048)
     private String imageUrl;
 
@@ -55,6 +58,8 @@ public class ProductImageEntity {
     public UUID getId() { return id; }
     public UUID getProductId() { return productId; }
     public void setProductId(UUID value) { productId = value; }
+    public UUID getShopId() { return shopId; }
+    public void setShopId(UUID value) { shopId = value; }
     public String getImageUrl() { return imageUrl; }
     public void setImageUrl(String value) { imageUrl = value; }
     public UUID getManagedMediaId() { return managedMediaId; }

@@ -2,6 +2,7 @@ package com.utewedding.app.domain.entity;
 
 import com.utewedding.app.domain.ProviderTransactionStatus;
 import com.utewedding.app.domain.ProviderTransactionType;
+import com.utewedding.app.domain.PaymentProviderEnvironment;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -21,10 +22,14 @@ public class PaymentProviderTransactionEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-    @Column(name = "order_id", nullable = false) private UUID orderId;
+    @Column(name = "order_id") private UUID orderId;
+    @Column(name = "checkout_group_id") private UUID checkoutGroupId;
     @Column(name = "attempt_id") private UUID attemptId;
     @Column(name = "payment_id") private UUID paymentId;
     @Column(nullable = false, length = 60) private String provider;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "provider_environment", length = 16, updatable = false)
+    private PaymentProviderEnvironment providerEnvironment;
     @Column(name = "provider_transaction_id", length = 190) private String providerTransactionId;
     @Column(name = "provider_request_id", length = 190) private String providerRequestId;
     @Enumerated(EnumType.STRING)
@@ -51,12 +56,16 @@ public class PaymentProviderTransactionEntity {
     public UUID getId() { return id; }
     public UUID getOrderId() { return orderId; }
     public void setOrderId(UUID value) { orderId = value; }
+    public UUID getCheckoutGroupId() { return checkoutGroupId; }
+    public void setCheckoutGroupId(UUID value) { checkoutGroupId = value; }
     public UUID getAttemptId() { return attemptId; }
     public void setAttemptId(UUID value) { attemptId = value; }
     public UUID getPaymentId() { return paymentId; }
     public void setPaymentId(UUID value) { paymentId = value; }
     public String getProvider() { return provider; }
     public void setProvider(String value) { provider = value; }
+    public PaymentProviderEnvironment getProviderEnvironment() { return providerEnvironment; }
+    public void setProviderEnvironment(PaymentProviderEnvironment value) { providerEnvironment = value; }
     public String getProviderTransactionId() { return providerTransactionId; }
     public void setProviderTransactionId(String value) { providerTransactionId = value; }
     public String getProviderRequestId() { return providerRequestId; }

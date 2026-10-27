@@ -1,0 +1,1 @@
+package com.utewedding.app.repository; import com.utewedding.app.domain.entity.AccountingDocumentSellerEntity; import java.util.*; import org.springframework.data.jpa.repository.JpaRepository; public interface AccountingDocumentSellerRepository extends JpaRepository<AccountingDocumentSellerEntity,UUID>{List<AccountingDocumentSellerEntity> findByDocumentIdOrderByIdAsc(UUID id);}

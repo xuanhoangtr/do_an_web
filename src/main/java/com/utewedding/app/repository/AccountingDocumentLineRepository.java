@@ -1,0 +1,1 @@
+package com.utewedding.app.repository; import com.utewedding.app.domain.entity.AccountingDocumentLineEntity; import java.util.*; import org.springframework.data.jpa.repository.JpaRepository; public interface AccountingDocumentLineRepository extends JpaRepository<AccountingDocumentLineEntity,UUID>{List<AccountingDocumentLineEntity> findByDocumentIdOrderByIdAsc(UUID id);}
